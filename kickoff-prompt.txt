@@ -1,0 +1,34 @@
+You are building Earmark (build-log #23) for Shane LaBounty: a multi-tenant marketing budget and agency-spend governance app, cloned from his saas-foundation template. This is an unattended cloud run. Do Phase 0 and Phase 1 only, then stop at the Phase 1 gate. Nothing merges.
+
+PREFLIGHT (stop and report if any step fails; do not work around it)
+1. Attach repos: shanelabountyai/earmark with push access, shanelabountyai/saas-foundation with read access. Clone both.
+2. earmark must be empty except for the orphan branch `prd`. Fetch `prd` and read prd-earmark.md from it. That file is the spec; its decisions D-01 to D-11 are fixed.
+3. saas-foundation must have tag v1.5.0 (the vitest 5 release). Use exactly that tag. Do NOT use any later tag or branch, and do NOT edit saas-foundation.
+4. Postgres: this cloud workspace has Postgres 16 (17 cannot be installed). Start it (`pg_ctlcluster 16 main start`). If `npm run db:setup` or `npm test` fails because of the Postgres version, stop and report. GitHub CI runs Postgres 17 and is the authoritative gate.
+
+PHASE 0 — kickoff (PRD §7 row 0)
+1. Clone saas-foundation into the earmark working copy as the README quickstart says: remote `origin` renamed to `template`; `git checkout -B main v1.5.0`; add `origin` = https://github.com/shanelabountyai/earmark; push `main` (pristine v1.5.0, no edits).
+2. Branch `kickoff` from main. `npm ci`; `npm run new-project -- earmark 7600`; `npm run db:setup`; `npm run seed:demo` must succeed.
+3. Remove the `billing` and `notifications` modules exactly as README "Removing a module" says. Run `npm run foundation:check-modules` and `npm run foundation:drift`.
+4. Copy prd-earmark.md to the repo root. Write README.md from the template's, with Earmark's name, port 7600 and the module list (billing and notifications removed; sso and apikeys arrive with foundation v1.6.0 in Phase 1.5).
+5. Commit, push `kickoff`, open a PR `kickoff` → `main` titled "Earmark Phase 0–1: kickoff and pure engines". Do not merge.
+
+PHASE 1 — pure engines (PRD §3, §4, §7 row 1, §8)
+Build in src/lib/earmark/: money.ts (BigInt cents only), chain.ts (approval chain evaluation exactly per PRD §3 rules 1–6, thresholds from rules/approval-chains.json: Budget Owner from $0, Marketing Ops $10k+, Finance $50k+, CMO $100k+, CFO $250k+), rollup.ts, match.ts (ranked invoice-to-commitment suggestions with reasons, PRD §4), variance.ts. No database, no Prisma, no UI.
+Python oracles in tools/ (stdlib only): chain_oracle.py, rollup_oracle.py, match_oracle.py, variance_oracle.py, each JSON in, JSON out.
+fixtures/: hand-written JSON cases covering every rule in §3 and §4, including self-approval, seat collapse, delegation, over-budget, rejection, overage, unplanned lines, and the five threshold boundaries ($9,999.99 / $10,000.00 etc.).
+Tests: vitest parity test (TS vs Python over every fixture), fast-check property tests listed in PRD §8, unit tests per module.
+
+GATE (all must hold, then stop)
+- npm run lint, typecheck, test, build, foundation:drift and foundation:check-modules all green.
+- Oracle parity 100% on fixtures; coverage of src/lib/earmark >= 95%.
+- PR CI on GitHub green (wait for it; if it is red only because of something outside src/lib/earmark, report it).
+- PR body: what was built, gate results with numbers, every open-decision default from PRD §10 you relied on, any deviation from the PRD with its reason, and the Phase 1.5 next step (merge foundation v1.6.0 when tagged).
+
+RULES
+- Never edit template-owned paths (src/core, prisma/schema/core.prisma, tests/invariants, scripts/foundation-*). Never edit saas-foundation.
+- Integer cents everywhere; no floats in the money path.
+- Synthetic data only: no real people, companies or emails.
+- Never print or commit secrets or connection strings.
+- If a gate fails, stop and report rather than loosening it. Do not merge anything.
+- Commits end with the session's attribution lines.
