@@ -1,0 +1,97 @@
+{
+  "engine": "match",
+  "name": "po-exact",
+  "note": "PO number first, then agency + amount within 2 %, then agency alone, each with reasons",
+  "input": {
+    "invoice": {
+      "id": "inv-9001",
+      "agencyId": "ag-meridian",
+      "amountCents": 1000000,
+      "poNumber": "PO-2001"
+    },
+    "commitments": [
+      {
+        "id": "po-2001",
+        "agencyId": "ag-meridian",
+        "poNumber": "PO-2001",
+        "amountCents": 1000000,
+        "remainingCents": 1000000,
+        "state": "open"
+      },
+      {
+        "id": "po-2002",
+        "agencyId": "ag-meridian",
+        "poNumber": "PO-2002",
+        "amountCents": 3000000,
+        "remainingCents": 1020000,
+        "state": "open"
+      },
+      {
+        "id": "po-2003",
+        "agencyId": "ag-meridian",
+        "poNumber": "PO-2003",
+        "amountCents": 500000,
+        "remainingCents": 400000,
+        "state": "open"
+      },
+      {
+        "id": "po-2004",
+        "agencyId": "ag-other",
+        "poNumber": "PO-2004",
+        "amountCents": 1000000,
+        "remainingCents": 1000000,
+        "state": "open"
+      },
+      {
+        "id": "po-2005",
+        "agencyId": "ag-meridian",
+        "poNumber": "PO-2005",
+        "amountCents": 2000000,
+        "remainingCents": 0,
+        "state": "closed"
+      }
+    ]
+  },
+  "expect": {
+    "ok": true,
+    "suggestions": {
+      "invoiceId": "inv-9001",
+      "suggestions": [
+        {
+          "rank": 1,
+          "commitmentId": "po-2001",
+          "tier": 1,
+          "reasons": [
+            "po-number",
+            "agency",
+            "exact-remaining"
+          ],
+          "differenceCents": 0,
+          "wouldOverage": false
+        },
+        {
+          "rank": 2,
+          "commitmentId": "po-2002",
+          "tier": 3,
+          "reasons": [
+            "agency",
+            "amount-within-2pct"
+          ],
+          "differenceCents": -20000
+        },
+        {
+          "rank": 3,
+          "commitmentId": "po-2003",
+          "tier": 4,
+          "reasons": [
+            "agency",
+            "would-overage"
+          ],
+          "wouldOverage": true
+        }
+      ],
+      "excluded": []
+    },
+    "applied": null
+  }
+}

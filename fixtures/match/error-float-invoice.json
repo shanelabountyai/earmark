@@ -1,0 +1,59 @@
+{
+  "engine": "match",
+  "name": "error-float-invoice",
+  "input": {
+    "invoice": {
+      "id": "inv-9001",
+      "agencyId": "ag-meridian",
+      "amountCents": 10.25
+    },
+    "commitments": [
+      {
+        "id": "po-2001",
+        "agencyId": "ag-meridian",
+        "poNumber": "PO-2001",
+        "amountCents": 1000000,
+        "remainingCents": 1000000,
+        "state": "open"
+      },
+      {
+        "id": "po-2002",
+        "agencyId": "ag-meridian",
+        "poNumber": "PO-2002",
+        "amountCents": 3000000,
+        "remainingCents": 1020000,
+        "state": "open"
+      },
+      {
+        "id": "po-2003",
+        "agencyId": "ag-meridian",
+        "poNumber": "PO-2003",
+        "amountCents": 500000,
+        "remainingCents": 400000,
+        "state": "open"
+      },
+      {
+        "id": "po-2004",
+        "agencyId": "ag-other",
+        "poNumber": "PO-2004",
+        "amountCents": 1000000,
+        "remainingCents": 1000000,
+        "state": "open"
+      },
+      {
+        "id": "po-2005",
+        "agencyId": "ag-meridian",
+        "poNumber": "PO-2005",
+        "amountCents": 2000000,
+        "remainingCents": 0,
+        "state": "closed"
+      }
+    ]
+  },
+  "expect": {
+    "ok": false,
+    "error": {
+      "code": "NOT_INTEGER_CENTS"
+    }
+  }
+}

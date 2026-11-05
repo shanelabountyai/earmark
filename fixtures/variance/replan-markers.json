@@ -1,0 +1,83 @@
+{
+  "engine": "variance",
+  "name": "replan-markers",
+  "note": "a replan is a planned edit strictly after the first commitment",
+  "input": {
+    "periodId": "2026-11",
+    "lines": [
+      {
+        "lineId": "edited-after-commit",
+        "plannedCents": 100,
+        "actualCents": 100,
+        "plannedEditedAt": [
+          "2026-10-01",
+          "2026-10-20T08:00:00Z"
+        ],
+        "firstCommittedAt": "2026-10-10T00:00:00Z"
+      },
+      {
+        "lineId": "edited-before-commit",
+        "plannedCents": 100,
+        "actualCents": 100,
+        "plannedEditedAt": [
+          "2026-10-01"
+        ],
+        "firstCommittedAt": "2026-10-10"
+      },
+      {
+        "lineId": "edited-at-commit-instant",
+        "plannedCents": 100,
+        "actualCents": 100,
+        "plannedEditedAt": [
+          "2026-10-10T00:00:00Z"
+        ],
+        "firstCommittedAt": "2026-10-10"
+      },
+      {
+        "lineId": "never-committed",
+        "plannedCents": 100,
+        "actualCents": 0,
+        "plannedEditedAt": [
+          "2026-10-01",
+          "2026-11-01"
+        ]
+      },
+      {
+        "lineId": "never-edited",
+        "plannedCents": 100,
+        "actualCents": 0,
+        "firstCommittedAt": "2026-10-10"
+      }
+    ]
+  },
+  "expect": {
+    "ok": true,
+    "variance": {
+      "rows": [
+        {
+          "lineId": "edited-after-commit",
+          "replan": true
+        },
+        {
+          "lineId": "edited-at-commit-instant",
+          "replan": false
+        },
+        {
+          "lineId": "edited-before-commit",
+          "replan": false
+        },
+        {
+          "lineId": "never-committed",
+          "replan": false
+        },
+        {
+          "lineId": "never-edited",
+          "replan": false
+        }
+      ],
+      "totals": {
+        "replannedLines": 1
+      }
+    }
+  }
+}

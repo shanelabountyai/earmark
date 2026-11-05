@@ -1,0 +1,40 @@
+{
+  "engine": "match",
+  "name": "amount-within-2pct-boundary",
+  "note": "exactly 2 % over is within",
+  "input": {
+    "invoice": {
+      "id": "inv-9001",
+      "agencyId": "ag-meridian",
+      "amountCents": 1020000
+    },
+    "commitments": [
+      {
+        "id": "po-2001",
+        "agencyId": "ag-meridian",
+        "poNumber": "PO-2001",
+        "amountCents": 1000000,
+        "remainingCents": 1000000,
+        "state": "open"
+      }
+    ]
+  },
+  "expect": {
+    "ok": true,
+    "suggestions": {
+      "suggestions": [
+        {
+          "commitmentId": "po-2001",
+          "tier": 3,
+          "reasons": [
+            "agency",
+            "amount-within-2pct",
+            "would-overage"
+          ],
+          "differenceCents": 20000,
+          "wouldOverage": true
+        }
+      ]
+    }
+  }
+}

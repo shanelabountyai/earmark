@@ -1,0 +1,25 @@
+{
+  "engine": "variance",
+  "name": "error-duplicate-line",
+  "input": {
+    "periodId": "p",
+    "lines": [
+      {
+        "lineId": "a",
+        "plannedCents": 1,
+        "actualCents": 1
+      },
+      {
+        "lineId": "a",
+        "plannedCents": 1,
+        "actualCents": 1
+      }
+    ]
+  },
+  "expect": {
+    "ok": false,
+    "error": {
+      "code": "BAD_INPUT"
+    }
+  }
+}

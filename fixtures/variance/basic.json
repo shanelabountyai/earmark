@@ -1,0 +1,87 @@
+{
+  "engine": "variance",
+  "name": "basic",
+  "note": "zero planned with non-zero actual is unplanned, not a division",
+  "input": {
+    "periodId": "2026-11",
+    "lines": [
+      {
+        "lineId": "l-over",
+        "plannedCents": 1000000,
+        "actualCents": 1250000
+      },
+      {
+        "lineId": "l-under",
+        "plannedCents": 1000000,
+        "actualCents": 800000
+      },
+      {
+        "lineId": "l-on-plan",
+        "plannedCents": 500000,
+        "actualCents": 500000
+      },
+      {
+        "lineId": "l-unplanned",
+        "plannedCents": 0,
+        "actualCents": 30000
+      },
+      {
+        "lineId": "l-empty",
+        "plannedCents": 0,
+        "actualCents": 0
+      }
+    ]
+  },
+  "expect": {
+    "ok": true,
+    "variance": {
+      "periodId": "2026-11",
+      "rows": [
+        {
+          "lineId": "l-empty",
+          "varianceCents": 0,
+          "varianceBps": null,
+          "status": "on-plan",
+          "unplanned": false,
+          "replan": false
+        },
+        {
+          "lineId": "l-on-plan",
+          "varianceCents": 0,
+          "varianceBps": 0,
+          "status": "on-plan"
+        },
+        {
+          "lineId": "l-over",
+          "varianceCents": 250000,
+          "varianceBps": 2500,
+          "status": "over"
+        },
+        {
+          "lineId": "l-under",
+          "varianceCents": -200000,
+          "varianceBps": -2000,
+          "status": "under"
+        },
+        {
+          "lineId": "l-unplanned",
+          "varianceCents": 30000,
+          "varianceBps": null,
+          "status": "unplanned",
+          "unplanned": true
+        }
+      ],
+      "totals": {
+        "plannedCents": 2500000,
+        "actualCents": 2580000,
+        "varianceCents": 80000,
+        "varianceBps": 320,
+        "lines": 5,
+        "unplannedLines": 1,
+        "replannedLines": 0,
+        "overLines": 1,
+        "underLines": 1
+      }
+    }
+  }
+}

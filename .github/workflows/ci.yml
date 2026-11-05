@@ -43,6 +43,8 @@ jobs:
       - run: createdb earmark_test
       - run: npx prisma migrate deploy
       - run: npx vitest run
+      # Earmark Phase 1 gate: oracle parity over fixtures/ and >= 95 % coverage of src/lib/earmark (python3 is on the runner)
+      - run: npm run test:engines
       # Production build, served — the way it ships. login.spec.ts drives a real page.
       - run: npx playwright install --with-deps chromium
       - run: npx playwright test

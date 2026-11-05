@@ -1,0 +1,131 @@
+{
+  "engine": "chain",
+  "name": "rule2-everyone-is-one-person",
+  "input": {
+    "rules": {
+      "default": [
+        {
+          "seat": "Budget Owner",
+          "fromCents": 0
+        },
+        {
+          "seat": "Marketing Ops",
+          "fromCents": 1000000
+        },
+        {
+          "seat": "Finance",
+          "fromCents": 5000000
+        },
+        {
+          "seat": "CMO",
+          "fromCents": 10000000
+        },
+        {
+          "seat": "CFO",
+          "fromCents": 25000000
+        }
+      ],
+      "reallocation": [
+        {
+          "seat": "Marketing Ops",
+          "fromCents": 0
+        },
+        {
+          "seat": "Finance",
+          "fromCents": 2500000
+        }
+      ],
+      "overrides": [
+        {
+          "when": {
+            "costCenter": "Events"
+          },
+          "append": [
+            {
+              "seat": "Events Lead",
+              "fromCents": 0
+            }
+          ]
+        }
+      ]
+    },
+    "request": {
+      "amountCents": 30000000,
+      "requesterId": "u-req1"
+    },
+    "seats": [
+      {
+        "name": "Budget Owner",
+        "holders": [
+          {
+            "userId": "u-solo"
+          }
+        ]
+      },
+      {
+        "name": "Marketing Ops",
+        "holders": [
+          {
+            "userId": "u-solo"
+          }
+        ]
+      },
+      {
+        "name": "Finance",
+        "holders": [
+          {
+            "userId": "u-solo"
+          }
+        ]
+      },
+      {
+        "name": "CMO",
+        "holders": [
+          {
+            "userId": "u-solo"
+          }
+        ]
+      },
+      {
+        "name": "CFO",
+        "holders": [
+          {
+            "userId": "u-solo"
+          }
+        ]
+      }
+    ],
+    "now": "2026-11-05T12:00:00Z"
+  },
+  "expect": {
+    "chain": {
+      "ok": true,
+      "steps": [
+        {
+          "seat": "Budget Owner",
+          "approverIds": [
+            "u-solo"
+          ]
+        }
+      ],
+      "collapsed": [
+        {
+          "seat": "Marketing Ops",
+          "into": 0
+        },
+        {
+          "seat": "Finance",
+          "into": 0
+        },
+        {
+          "seat": "CMO",
+          "into": 0
+        },
+        {
+          "seat": "CFO",
+          "into": 0
+        }
+      ]
+    }
+  }
+}

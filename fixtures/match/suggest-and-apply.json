@@ -1,0 +1,47 @@
+{
+  "engine": "match",
+  "name": "suggest-and-apply",
+  "input": {
+    "invoice": {
+      "id": "inv-9001",
+      "agencyId": "ag-meridian",
+      "amountCents": 1000000,
+      "poNumber": "PO-2001"
+    },
+    "commitments": [
+      {
+        "id": "po-2001",
+        "agencyId": "ag-meridian",
+        "poNumber": "PO-2001",
+        "amountCents": 1000000,
+        "remainingCents": 1000000,
+        "state": "open"
+      }
+    ],
+    "apply": [
+      {
+        "commitmentId": "po-2001",
+        "amountCents": 1000000,
+        "matcherSeats": [
+          "Marketing Ops"
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "ok": true,
+    "suggestions": {
+      "suggestions": [
+        {
+          "commitmentId": "po-2001",
+          "tier": 1
+        }
+      ]
+    },
+    "applied": {
+      "remaining": {
+        "po-2001": 0
+      }
+    }
+  }
+}

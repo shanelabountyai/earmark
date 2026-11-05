@@ -1,0 +1,125 @@
+{
+  "engine": "chain",
+  "name": "rule2-collapse-over-budget-note-follows",
+  "note": "the over-budget note requirement follows the collapsed Finance step",
+  "input": {
+    "rules": {
+      "default": [
+        {
+          "seat": "Budget Owner",
+          "fromCents": 0
+        },
+        {
+          "seat": "Marketing Ops",
+          "fromCents": 1000000
+        },
+        {
+          "seat": "Finance",
+          "fromCents": 5000000
+        },
+        {
+          "seat": "CMO",
+          "fromCents": 10000000
+        },
+        {
+          "seat": "CFO",
+          "fromCents": 25000000
+        }
+      ],
+      "reallocation": [
+        {
+          "seat": "Marketing Ops",
+          "fromCents": 0
+        },
+        {
+          "seat": "Finance",
+          "fromCents": 2500000
+        }
+      ],
+      "overrides": [
+        {
+          "when": {
+            "costCenter": "Events"
+          },
+          "append": [
+            {
+              "seat": "Events Lead",
+              "fromCents": 0
+            }
+          ]
+        }
+      ]
+    },
+    "request": {
+      "amountCents": 7500000,
+      "requesterId": "u-req1",
+      "availableCents": 100
+    },
+    "seats": [
+      {
+        "name": "Budget Owner",
+        "holders": [
+          {
+            "userId": "u-multi"
+          }
+        ]
+      },
+      {
+        "name": "Marketing Ops",
+        "holders": [
+          {
+            "userId": "u-mo1"
+          }
+        ]
+      },
+      {
+        "name": "Finance",
+        "holders": [
+          {
+            "userId": "u-multi"
+          }
+        ]
+      },
+      {
+        "name": "CMO",
+        "holders": [
+          {
+            "userId": "u-cmo1"
+          }
+        ]
+      },
+      {
+        "name": "CFO",
+        "holders": [
+          {
+            "userId": "u-cfo1"
+          }
+        ]
+      }
+    ],
+    "now": "2026-11-05T12:00:00Z"
+  },
+  "expect": {
+    "chain": {
+      "ok": true,
+      "overBudget": true,
+      "steps": [
+        {
+          "seat": "Budget Owner",
+          "overBudget": true,
+          "requiresNote": true
+        },
+        {
+          "seat": "Marketing Ops",
+          "overBudget": false
+        }
+      ],
+      "collapsed": [
+        {
+          "seat": "Finance",
+          "into": 0
+        }
+      ]
+    }
+  }
+}

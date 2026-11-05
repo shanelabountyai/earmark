@@ -1,0 +1,113 @@
+{
+  "engine": "chain",
+  "name": "rule6-admin-top-threshold-refused",
+  "input": {
+    "op": "edit",
+    "role": "admin",
+    "before": {
+      "default": [
+        {
+          "seat": "Budget Owner",
+          "fromCents": 0
+        },
+        {
+          "seat": "Marketing Ops",
+          "fromCents": 1000000
+        },
+        {
+          "seat": "Finance",
+          "fromCents": 5000000
+        },
+        {
+          "seat": "CMO",
+          "fromCents": 10000000
+        },
+        {
+          "seat": "CFO",
+          "fromCents": 25000000
+        }
+      ],
+      "reallocation": [
+        {
+          "seat": "Marketing Ops",
+          "fromCents": 0
+        },
+        {
+          "seat": "Finance",
+          "fromCents": 2500000
+        }
+      ],
+      "overrides": [
+        {
+          "when": {
+            "costCenter": "Events"
+          },
+          "append": [
+            {
+              "seat": "Events Lead",
+              "fromCents": 0
+            }
+          ]
+        }
+      ]
+    },
+    "after": {
+      "default": [
+        {
+          "seat": "Budget Owner",
+          "fromCents": 0
+        },
+        {
+          "seat": "Marketing Ops",
+          "fromCents": 1000000
+        },
+        {
+          "seat": "Finance",
+          "fromCents": 5000000
+        },
+        {
+          "seat": "CMO",
+          "fromCents": 10000000
+        },
+        {
+          "seat": "CFO",
+          "fromCents": 50000000
+        }
+      ],
+      "reallocation": [
+        {
+          "seat": "Marketing Ops",
+          "fromCents": 0
+        },
+        {
+          "seat": "Finance",
+          "fromCents": 2500000
+        }
+      ],
+      "overrides": [
+        {
+          "when": {
+            "costCenter": "Events"
+          },
+          "append": [
+            {
+              "seat": "Events Lead",
+              "fromCents": 0
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "expect": {
+    "ok": false,
+    "required": "owner",
+    "changes": [
+      {
+        "kind": "threshold",
+        "seat": "CFO",
+        "requires": "owner"
+      }
+    ]
+  }
+}

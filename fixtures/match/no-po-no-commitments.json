@@ -1,0 +1,18 @@
+{
+  "engine": "match",
+  "name": "no-po-no-commitments",
+  "input": {
+    "invoice": {
+      "id": "inv-9001",
+      "agencyId": "ag-meridian",
+      "amountCents": 100
+    },
+    "commitments": []
+  },
+  "expect": {
+    "ok": true,
+    "suggestions": {
+      "suggestions": []
+    }
+  }
+}

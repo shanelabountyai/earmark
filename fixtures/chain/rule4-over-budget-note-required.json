@@ -1,0 +1,167 @@
+{
+  "engine": "chain",
+  "name": "rule4-over-budget-note-required",
+  "note": "the over-budget step needs a non-blank note",
+  "input": {
+    "rules": {
+      "default": [
+        {
+          "seat": "Budget Owner",
+          "fromCents": 0
+        },
+        {
+          "seat": "Marketing Ops",
+          "fromCents": 1000000
+        },
+        {
+          "seat": "Finance",
+          "fromCents": 5000000
+        },
+        {
+          "seat": "CMO",
+          "fromCents": 10000000
+        },
+        {
+          "seat": "CFO",
+          "fromCents": 25000000
+        }
+      ],
+      "reallocation": [
+        {
+          "seat": "Marketing Ops",
+          "fromCents": 0
+        },
+        {
+          "seat": "Finance",
+          "fromCents": 2500000
+        }
+      ],
+      "overrides": [
+        {
+          "when": {
+            "costCenter": "Events"
+          },
+          "append": [
+            {
+              "seat": "Events Lead",
+              "fromCents": 0
+            }
+          ]
+        }
+      ]
+    },
+    "request": {
+      "amountCents": 2500000,
+      "requesterId": "u-req1",
+      "availableCents": 2000000
+    },
+    "seats": [
+      {
+        "name": "Budget Owner",
+        "holders": [
+          {
+            "userId": "u-bo1"
+          },
+          {
+            "userId": "u-bo2"
+          }
+        ]
+      },
+      {
+        "name": "Marketing Ops",
+        "holders": [
+          {
+            "userId": "u-mo1"
+          }
+        ]
+      },
+      {
+        "name": "Finance",
+        "holders": [
+          {
+            "userId": "u-fin1"
+          }
+        ]
+      },
+      {
+        "name": "CMO",
+        "holders": [
+          {
+            "userId": "u-cmo1"
+          }
+        ]
+      },
+      {
+        "name": "CFO",
+        "holders": [
+          {
+            "userId": "u-cfo1"
+          }
+        ]
+      },
+      {
+        "name": "Events Lead",
+        "holders": [
+          {
+            "userId": "u-ev1"
+          }
+        ]
+      }
+    ],
+    "now": "2026-11-05T12:00:00Z",
+    "decisions": [
+      {
+        "step": 0,
+        "byId": "u-bo1",
+        "decision": "approve"
+      },
+      {
+        "step": 1,
+        "byId": "u-mo1",
+        "decision": "approve"
+      },
+      {
+        "step": 2,
+        "byId": "u-fin1",
+        "decision": "approve"
+      },
+      {
+        "step": 2,
+        "byId": "u-fin1",
+        "decision": "approve",
+        "note": "   "
+      },
+      {
+        "step": 2,
+        "byId": "u-fin1",
+        "decision": "approve",
+        "note": "Pulling forward Q1 paid social; replan next period."
+      }
+    ]
+  },
+  "expect": {
+    "outcome": {
+      "state": "approved",
+      "currentStep": null,
+      "results": [
+        {
+          "accepted": true
+        },
+        {
+          "accepted": true
+        },
+        {
+          "accepted": false,
+          "reason": "NOTE_REQUIRED"
+        },
+        {
+          "accepted": false,
+          "reason": "NOTE_REQUIRED"
+        },
+        {
+          "accepted": true
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "engine": "match",
+  "name": "error-bad-remaining",
+  "input": {
+    "invoice": {
+      "id": "inv-9001",
+      "agencyId": "ag-meridian",
+      "amountCents": 1
+    },
+    "commitments": [
+      {
+        "id": "x",
+        "agencyId": "ag-meridian",
+        "poNumber": "X",
+        "amountCents": 1,
+        "remainingCents": "lots",
+        "state": "open"
+      }
+    ]
+  },
+  "expect": {
+    "ok": false,
+    "error": {
+      "code": "NOT_INTEGER_CENTS"
+    }
+  }
+}

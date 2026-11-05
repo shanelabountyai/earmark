@@ -1,0 +1,20 @@
+{
+  "engine": "variance",
+  "name": "error-negative-actual",
+  "input": {
+    "periodId": "p",
+    "lines": [
+      {
+        "lineId": "a",
+        "plannedCents": 1,
+        "actualCents": -1
+      }
+    ]
+  },
+  "expect": {
+    "ok": false,
+    "error": {
+      "code": "CENTS_BELOW_MIN"
+    }
+  }
+}

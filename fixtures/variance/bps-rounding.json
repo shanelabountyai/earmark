@@ -1,0 +1,71 @@
+{
+  "engine": "variance",
+  "name": "bps-rounding",
+  "note": "half away from zero in both directions",
+  "input": {
+    "periodId": "p",
+    "lines": [
+      {
+        "lineId": "third-over",
+        "plannedCents": 3,
+        "actualCents": 4
+      },
+      {
+        "lineId": "third-under",
+        "plannedCents": 3,
+        "actualCents": 2
+      },
+      {
+        "lineId": "half-up",
+        "plannedCents": 4000,
+        "actualCents": 4001
+      },
+      {
+        "lineId": "half-down",
+        "plannedCents": 4000,
+        "actualCents": 3999
+      },
+      {
+        "lineId": "quarter",
+        "plannedCents": 8000,
+        "actualCents": 8001
+      },
+      {
+        "lineId": "double",
+        "plannedCents": 50,
+        "actualCents": 100
+      }
+    ]
+  },
+  "expect": {
+    "ok": true,
+    "variance": {
+      "rows": [
+        {
+          "lineId": "double",
+          "varianceBps": 10000
+        },
+        {
+          "lineId": "half-down",
+          "varianceBps": -3
+        },
+        {
+          "lineId": "half-up",
+          "varianceBps": 3
+        },
+        {
+          "lineId": "quarter",
+          "varianceBps": 1
+        },
+        {
+          "lineId": "third-over",
+          "varianceBps": 3333
+        },
+        {
+          "lineId": "third-under",
+          "varianceBps": -3333
+        }
+      ]
+    }
+  }
+}

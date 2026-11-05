@@ -1,0 +1,21 @@
+{
+  "engine": "variance",
+  "name": "empty",
+  "input": {
+    "periodId": "p",
+    "lines": []
+  },
+  "expect": {
+    "ok": true,
+    "variance": {
+      "rows": [],
+      "totals": {
+        "plannedCents": 0,
+        "actualCents": 0,
+        "varianceCents": 0,
+        "varianceBps": null,
+        "lines": 0
+      }
+    }
+  }
+}

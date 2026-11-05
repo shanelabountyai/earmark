@@ -1,0 +1,57 @@
+{
+  "engine": "match",
+  "name": "tie-break-remaining-then-id",
+  "note": "equal distance: larger remaining first, then id",
+  "input": {
+    "invoice": {
+      "id": "inv-9001",
+      "agencyId": "ag-meridian",
+      "amountCents": 500000
+    },
+    "commitments": [
+      {
+        "id": "po-b",
+        "agencyId": "ag-meridian",
+        "poNumber": "B",
+        "amountCents": 1,
+        "remainingCents": 400000,
+        "state": "open"
+      },
+      {
+        "id": "po-a",
+        "agencyId": "ag-meridian",
+        "poNumber": "A",
+        "amountCents": 1,
+        "remainingCents": 600000,
+        "state": "open"
+      },
+      {
+        "id": "po-c",
+        "agencyId": "ag-meridian",
+        "poNumber": "C",
+        "amountCents": 1,
+        "remainingCents": 600000,
+        "state": "open"
+      }
+    ]
+  },
+  "expect": {
+    "ok": true,
+    "suggestions": {
+      "suggestions": [
+        {
+          "rank": 1,
+          "commitmentId": "po-a"
+        },
+        {
+          "rank": 2,
+          "commitmentId": "po-c"
+        },
+        {
+          "rank": 3,
+          "commitmentId": "po-b"
+        }
+      ]
+    }
+  }
+}
