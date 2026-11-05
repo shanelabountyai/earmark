@@ -84,8 +84,6 @@ model Org {
   shareLinks     ShareLink[]
   projects       Project[]
   // module back-relations: each line ends in its module marker (spec §4)
-  billingAccount BillingAccount? // billing
-  outbox         Outbox[] // notifications
 }
 
 model Membership {
