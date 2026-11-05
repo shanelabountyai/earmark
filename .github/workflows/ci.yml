@@ -14,10 +14,10 @@ jobs:
       PGHOST: localhost
       PGUSER: postgres
       PGPASSWORD: postgres
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/saas_foundation_test?connection_limit=10&pool_timeout=20
-      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/saas_foundation_test?connection_limit=10&pool_timeout=20
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/earmark_test?connection_limit=10&pool_timeout=20
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/earmark_test?connection_limit=10&pool_timeout=20
       AUTH_SECRET: ci-only-secret-not-for-real-use-0123456789abc
-      APP_URL: http://localhost:4100
+      APP_URL: http://localhost:7600
     services:
       postgres:
         image: postgres:17
@@ -40,9 +40,11 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
-      - run: createdb saas_foundation_test
+      - run: createdb earmark_test
       - run: npx prisma migrate deploy
       - run: npx vitest run
+      # Earmark Phase 1 gate: oracle parity over fixtures/ and >= 95 % coverage of src/lib/earmark (python3 is on the runner)
+      - run: npm run test:engines
       # Production build, served — the way it ships. login.spec.ts drives a real page.
       - run: npx playwright install --with-deps chromium
       - run: npx playwright test

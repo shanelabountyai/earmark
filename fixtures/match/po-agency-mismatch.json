@@ -1,0 +1,87 @@
+{
+  "engine": "match",
+  "name": "po-agency-mismatch",
+  "note": "a PO on another agency's commitment still ranks above amount matches, flagged agency-mismatch",
+  "input": {
+    "invoice": {
+      "id": "inv-9001",
+      "agencyId": "ag-meridian",
+      "amountCents": 1000000,
+      "poNumber": "PO-2004"
+    },
+    "commitments": [
+      {
+        "id": "po-2001",
+        "agencyId": "ag-meridian",
+        "poNumber": "PO-2001",
+        "amountCents": 1000000,
+        "remainingCents": 1000000,
+        "state": "open"
+      },
+      {
+        "id": "po-2002",
+        "agencyId": "ag-meridian",
+        "poNumber": "PO-2002",
+        "amountCents": 3000000,
+        "remainingCents": 1020000,
+        "state": "open"
+      },
+      {
+        "id": "po-2003",
+        "agencyId": "ag-meridian",
+        "poNumber": "PO-2003",
+        "amountCents": 500000,
+        "remainingCents": 400000,
+        "state": "open"
+      },
+      {
+        "id": "po-2004",
+        "agencyId": "ag-other",
+        "poNumber": "PO-2004",
+        "amountCents": 1000000,
+        "remainingCents": 1000000,
+        "state": "open"
+      },
+      {
+        "id": "po-2005",
+        "agencyId": "ag-meridian",
+        "poNumber": "PO-2005",
+        "amountCents": 2000000,
+        "remainingCents": 0,
+        "state": "closed"
+      }
+    ]
+  },
+  "expect": {
+    "ok": true,
+    "suggestions": {
+      "suggestions": [
+        {
+          "rank": 1,
+          "commitmentId": "po-2004",
+          "tier": 2,
+          "reasons": [
+            "po-number",
+            "agency-mismatch",
+            "exact-remaining"
+          ]
+        },
+        {
+          "rank": 2,
+          "commitmentId": "po-2001",
+          "tier": 3
+        },
+        {
+          "rank": 3,
+          "commitmentId": "po-2002",
+          "tier": 3
+        },
+        {
+          "rank": 4,
+          "commitmentId": "po-2003",
+          "tier": 4
+        }
+      ]
+    }
+  }
+}

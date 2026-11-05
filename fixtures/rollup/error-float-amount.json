@@ -1,0 +1,157 @@
+{
+  "engine": "rollup",
+  "name": "error-float-amount",
+  "input": {
+    "programs": [
+      {
+        "id": "prog-demand",
+        "name": "Demand Gen"
+      },
+      {
+        "id": "prog-brand",
+        "name": "Brand"
+      }
+    ],
+    "campaigns": [
+      {
+        "id": "camp-paid-social",
+        "programId": "prog-demand"
+      },
+      {
+        "id": "camp-search",
+        "programId": "prog-demand"
+      },
+      {
+        "id": "camp-awareness",
+        "programId": "prog-brand"
+      }
+    ],
+    "lines": [
+      {
+        "id": "line-ps-nov",
+        "campaignId": "camp-paid-social",
+        "periodId": "2026-11",
+        "plannedCents": 10000000
+      },
+      {
+        "id": "line-se-nov",
+        "campaignId": "camp-search",
+        "periodId": "2026-11",
+        "plannedCents": 5000000
+      },
+      {
+        "id": "line-aw-nov",
+        "campaignId": "camp-awareness",
+        "periodId": "2026-11",
+        "plannedCents": 2000000
+      },
+      {
+        "id": "line-ps-dec",
+        "campaignId": "camp-paid-social",
+        "periodId": "2026-12",
+        "plannedCents": 8000000
+      }
+    ],
+    "commitments": [
+      {
+        "id": "po-x",
+        "lineId": "line-ps-nov",
+        "amountCents": 10.5,
+        "state": "open"
+      }
+    ],
+    "matches": [
+      {
+        "invoiceId": "inv-501",
+        "commitmentId": "po-1001",
+        "amountCents": 2000000,
+        "state": "approved"
+      },
+      {
+        "invoiceId": "inv-502",
+        "commitmentId": "po-1002",
+        "amountCents": 1500000,
+        "state": "approved"
+      },
+      {
+        "invoiceId": "inv-503",
+        "commitmentId": "po-1003",
+        "amountCents": 1000000,
+        "state": "pending"
+      },
+      {
+        "invoiceId": "inv-504",
+        "commitmentId": "po-1004",
+        "amountCents": 500000,
+        "state": "approved"
+      },
+      {
+        "invoiceId": "inv-505",
+        "commitmentId": "po-1003",
+        "amountCents": 300000,
+        "state": "rejected"
+      }
+    ],
+    "invoices": [
+      {
+        "id": "inv-501",
+        "amountCents": 2000000,
+        "state": "matched"
+      },
+      {
+        "id": "inv-502",
+        "amountCents": 1500000,
+        "state": "approved"
+      },
+      {
+        "id": "inv-503",
+        "amountCents": 1000000,
+        "state": "matched"
+      },
+      {
+        "id": "inv-504",
+        "amountCents": 500000,
+        "state": "approved"
+      },
+      {
+        "id": "inv-505",
+        "amountCents": 300000,
+        "state": "disputed"
+      },
+      {
+        "id": "inv-506",
+        "amountCents": 700000,
+        "state": "submitted",
+        "lineId": "line-ps-nov",
+        "submittedOn": "2026-10-20"
+      },
+      {
+        "id": "inv-507",
+        "amountCents": 250000,
+        "state": "submitted",
+        "lineId": null,
+        "submittedOn": "2026-11-04T09:30:00Z"
+      },
+      {
+        "id": "inv-508",
+        "amountCents": 120000,
+        "state": "voided",
+        "lineId": "line-se-nov"
+      },
+      {
+        "id": "inv-509",
+        "amountCents": 900000,
+        "state": "submitted",
+        "lineId": "line-ps-dec",
+        "submittedOn": "2026-11-01"
+      }
+    ],
+    "now": "2026-11-05T12:00:00Z"
+  },
+  "expect": {
+    "ok": false,
+    "error": {
+      "code": "NOT_INTEGER_CENTS"
+    }
+  }
+}

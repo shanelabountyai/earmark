@@ -1,0 +1,113 @@
+{
+  "engine": "rollup",
+  "name": "bps-rounding",
+  "note": "basis points round half away from zero; zero planned gives null, not a division",
+  "input": {
+    "programs": [
+      {
+        "id": "p"
+      }
+    ],
+    "campaigns": [
+      {
+        "id": "c",
+        "programId": "p"
+      }
+    ],
+    "lines": [
+      {
+        "id": "third",
+        "campaignId": "c",
+        "periodId": "x",
+        "plannedCents": 3
+      },
+      {
+        "id": "two-thirds",
+        "campaignId": "c",
+        "periodId": "x",
+        "plannedCents": 3
+      },
+      {
+        "id": "half-up",
+        "campaignId": "c",
+        "periodId": "x",
+        "plannedCents": 4000
+      },
+      {
+        "id": "zero-planned",
+        "campaignId": "c",
+        "periodId": "x",
+        "plannedCents": 0
+      },
+      {
+        "id": "exact",
+        "campaignId": "c",
+        "periodId": "x",
+        "plannedCents": 8
+      }
+    ],
+    "commitments": [
+      {
+        "id": "a",
+        "lineId": "third",
+        "amountCents": 1,
+        "state": "open"
+      },
+      {
+        "id": "b",
+        "lineId": "two-thirds",
+        "amountCents": 2,
+        "state": "open"
+      },
+      {
+        "id": "c1",
+        "lineId": "half-up",
+        "amountCents": 1,
+        "state": "open"
+      },
+      {
+        "id": "d",
+        "lineId": "zero-planned",
+        "amountCents": 5,
+        "state": "open"
+      },
+      {
+        "id": "e",
+        "lineId": "exact",
+        "amountCents": 1,
+        "state": "open"
+      }
+    ],
+    "matches": [],
+    "invoices": []
+  },
+  "expect": {
+    "ok": true,
+    "rollup": {
+      "lines": [
+        {
+          "lineId": "exact",
+          "committedBps": 1250
+        },
+        {
+          "lineId": "half-up",
+          "committedBps": 3
+        },
+        {
+          "lineId": "third",
+          "committedBps": 3333
+        },
+        {
+          "lineId": "two-thirds",
+          "committedBps": 6667
+        },
+        {
+          "lineId": "zero-planned",
+          "committedBps": null,
+          "availableCents": -5,
+          "overCommitted": true
+        }
+      ]
+    }
+  }
+}

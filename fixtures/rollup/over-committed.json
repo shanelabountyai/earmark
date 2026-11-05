@@ -1,0 +1,60 @@
+{
+  "engine": "rollup",
+  "name": "over-committed",
+  "note": "available is shown negative, never clamped (PRD \u00a74)",
+  "input": {
+    "programs": [
+      {
+        "id": "p"
+      }
+    ],
+    "campaigns": [
+      {
+        "id": "c",
+        "programId": "p"
+      }
+    ],
+    "lines": [
+      {
+        "id": "l1",
+        "campaignId": "c",
+        "periodId": "2026-11",
+        "plannedCents": 100000
+      }
+    ],
+    "commitments": [
+      {
+        "id": "po-1",
+        "lineId": "l1",
+        "amountCents": 90000,
+        "state": "open"
+      }
+    ],
+    "matches": [],
+    "invoices": [
+      {
+        "id": "i1",
+        "amountCents": 20000,
+        "state": "submitted",
+        "lineId": "l1"
+      }
+    ]
+  },
+  "expect": {
+    "ok": true,
+    "rollup": {
+      "lines": [
+        {
+          "lineId": "l1",
+          "availableCents": -10000,
+          "overCommitted": true,
+          "committedBps": 9000
+        }
+      ],
+      "org": {
+        "availableCents": -10000
+      },
+      "orgAvailableCents": -10000
+    }
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "engine": "variance",
+  "name": "error-bad-edit-date",
+  "input": {
+    "periodId": "p",
+    "lines": [
+      {
+        "lineId": "a",
+        "plannedCents": 1,
+        "actualCents": 1,
+        "plannedEditedAt": [
+          "whenever"
+        ],
+        "firstCommittedAt": "2026-10-10"
+      }
+    ]
+  },
+  "expect": {
+    "ok": false,
+    "error": {
+      "code": "BAD_INPUT"
+    }
+  }
+}

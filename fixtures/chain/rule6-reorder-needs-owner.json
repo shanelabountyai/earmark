@@ -1,0 +1,122 @@
+{
+  "engine": "chain",
+  "name": "rule6-reorder-needs-owner",
+  "note": "after the reorder Marketing Ops is the top step, so its threshold needs owner",
+  "input": {
+    "op": "edit",
+    "role": "admin",
+    "before": {
+      "default": [
+        {
+          "seat": "Budget Owner",
+          "fromCents": 0
+        },
+        {
+          "seat": "Marketing Ops",
+          "fromCents": 1000000
+        },
+        {
+          "seat": "Finance",
+          "fromCents": 5000000
+        },
+        {
+          "seat": "CMO",
+          "fromCents": 10000000
+        },
+        {
+          "seat": "CFO",
+          "fromCents": 25000000
+        }
+      ],
+      "reallocation": [
+        {
+          "seat": "Marketing Ops",
+          "fromCents": 0
+        },
+        {
+          "seat": "Finance",
+          "fromCents": 2500000
+        }
+      ],
+      "overrides": [
+        {
+          "when": {
+            "costCenter": "Events"
+          },
+          "append": [
+            {
+              "seat": "Events Lead",
+              "fromCents": 0
+            }
+          ]
+        }
+      ]
+    },
+    "after": {
+      "default": [
+        {
+          "seat": "Budget Owner",
+          "fromCents": 0
+        },
+        {
+          "seat": "Marketing Ops",
+          "fromCents": 1000000
+        },
+        {
+          "seat": "Finance",
+          "fromCents": 5000000
+        },
+        {
+          "seat": "CMO",
+          "fromCents": 10000000
+        },
+        {
+          "seat": "CFO",
+          "fromCents": 25000000
+        }
+      ],
+      "reallocation": [
+        {
+          "seat": "Finance",
+          "fromCents": 0
+        },
+        {
+          "seat": "Marketing Ops",
+          "fromCents": 2500000
+        }
+      ],
+      "overrides": [
+        {
+          "when": {
+            "costCenter": "Events"
+          },
+          "append": [
+            {
+              "seat": "Events Lead",
+              "fromCents": 0
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "expect": {
+    "ok": false,
+    "required": "owner",
+    "changes": [
+      {
+        "kind": "seat-reordered"
+      },
+      {
+        "kind": "threshold",
+        "seat": "Marketing Ops",
+        "requires": "owner"
+      },
+      {
+        "kind": "threshold",
+        "seat": "Finance",
+        "requires": "admin"
+      }
+    ]
+  }
+}

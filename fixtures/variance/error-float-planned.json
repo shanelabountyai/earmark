@@ -1,0 +1,20 @@
+{
+  "engine": "variance",
+  "name": "error-float-planned",
+  "input": {
+    "periodId": "p",
+    "lines": [
+      {
+        "lineId": "a",
+        "plannedCents": 0.5,
+        "actualCents": 1
+      }
+    ]
+  },
+  "expect": {
+    "ok": false,
+    "error": {
+      "code": "NOT_INTEGER_CENTS"
+    }
+  }
+}

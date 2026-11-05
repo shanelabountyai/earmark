@@ -1,11 +1,9 @@
-import { cancelOrgSubscription } from '@/modules/billing/provider'; // billing
 import type { ListedOrg } from '@/core/tenancy/listed';
 
 // Clone-owned, like cron-jobs.ts: what must happen before an org is deleted. Throwing stops the
 // deletion. Removing the billing module deletes the lines marked `// billing`.
 // FR-05: a deleted org must not keep charging.
 export async function beforeOrgDelete(orgId: string): Promise<void> {
-  await cancelOrgSubscription(orgId); // billing
 }
 
 // Clone-owned (v1.4.0): which of a user's orgs the template's org lists show — `/onboarding`, where every

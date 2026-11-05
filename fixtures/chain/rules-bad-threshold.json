@@ -1,0 +1,80 @@
+{
+  "engine": "chain",
+  "name": "rules-bad-threshold",
+  "input": {
+    "rules": {
+      "default": [
+        {
+          "seat": "Budget Owner",
+          "fromCents": "ten"
+        }
+      ]
+    },
+    "request": {
+      "amountCents": 100,
+      "requesterId": "u-req1"
+    },
+    "seats": [
+      {
+        "name": "Budget Owner",
+        "holders": [
+          {
+            "userId": "u-bo1"
+          },
+          {
+            "userId": "u-bo2"
+          }
+        ]
+      },
+      {
+        "name": "Marketing Ops",
+        "holders": [
+          {
+            "userId": "u-mo1"
+          }
+        ]
+      },
+      {
+        "name": "Finance",
+        "holders": [
+          {
+            "userId": "u-fin1"
+          }
+        ]
+      },
+      {
+        "name": "CMO",
+        "holders": [
+          {
+            "userId": "u-cmo1"
+          }
+        ]
+      },
+      {
+        "name": "CFO",
+        "holders": [
+          {
+            "userId": "u-cfo1"
+          }
+        ]
+      },
+      {
+        "name": "Events Lead",
+        "holders": [
+          {
+            "userId": "u-ev1"
+          }
+        ]
+      }
+    ],
+    "now": "2026-11-05T12:00:00Z"
+  },
+  "expect": {
+    "chain": {
+      "ok": false,
+      "error": {
+        "code": "RULES_INVALID"
+      }
+    }
+  }
+}

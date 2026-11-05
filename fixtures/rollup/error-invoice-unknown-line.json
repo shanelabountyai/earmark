@@ -1,0 +1,130 @@
+{
+  "engine": "rollup",
+  "name": "error-invoice-unknown-line",
+  "input": {
+    "programs": [
+      {
+        "id": "prog-demand",
+        "name": "Demand Gen"
+      },
+      {
+        "id": "prog-brand",
+        "name": "Brand"
+      }
+    ],
+    "campaigns": [
+      {
+        "id": "camp-paid-social",
+        "programId": "prog-demand"
+      },
+      {
+        "id": "camp-search",
+        "programId": "prog-demand"
+      },
+      {
+        "id": "camp-awareness",
+        "programId": "prog-brand"
+      }
+    ],
+    "lines": [
+      {
+        "id": "line-ps-nov",
+        "campaignId": "camp-paid-social",
+        "periodId": "2026-11",
+        "plannedCents": 10000000
+      },
+      {
+        "id": "line-se-nov",
+        "campaignId": "camp-search",
+        "periodId": "2026-11",
+        "plannedCents": 5000000
+      },
+      {
+        "id": "line-aw-nov",
+        "campaignId": "camp-awareness",
+        "periodId": "2026-11",
+        "plannedCents": 2000000
+      },
+      {
+        "id": "line-ps-dec",
+        "campaignId": "camp-paid-social",
+        "periodId": "2026-12",
+        "plannedCents": 8000000
+      }
+    ],
+    "commitments": [
+      {
+        "id": "po-1001",
+        "lineId": "line-ps-nov",
+        "amountCents": 6000000,
+        "state": "open",
+        "requestAmountCents": 6000000
+      },
+      {
+        "id": "po-1002",
+        "lineId": "line-ps-nov",
+        "amountCents": 1500000,
+        "state": "closed"
+      },
+      {
+        "id": "po-1003",
+        "lineId": "line-se-nov",
+        "amountCents": 2500000,
+        "state": "open"
+      },
+      {
+        "id": "po-1004",
+        "lineId": "line-ps-dec",
+        "amountCents": 4000000,
+        "state": "open"
+      }
+    ],
+    "matches": [
+      {
+        "invoiceId": "inv-501",
+        "commitmentId": "po-1001",
+        "amountCents": 2000000,
+        "state": "approved"
+      },
+      {
+        "invoiceId": "inv-502",
+        "commitmentId": "po-1002",
+        "amountCents": 1500000,
+        "state": "approved"
+      },
+      {
+        "invoiceId": "inv-503",
+        "commitmentId": "po-1003",
+        "amountCents": 1000000,
+        "state": "pending"
+      },
+      {
+        "invoiceId": "inv-504",
+        "commitmentId": "po-1004",
+        "amountCents": 500000,
+        "state": "approved"
+      },
+      {
+        "invoiceId": "inv-505",
+        "commitmentId": "po-1003",
+        "amountCents": 300000,
+        "state": "rejected"
+      }
+    ],
+    "invoices": [
+      {
+        "id": "i",
+        "amountCents": 1,
+        "state": "submitted",
+        "lineId": "nope"
+      }
+    ],
+    "now": "2026-11-05T12:00:00Z"
+  },
+  "expect": {
+    "ok": false,
+    "error": {
+      "code": "UNKNOWN_LINE"
+    }
+  }
+}

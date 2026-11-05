@@ -1,0 +1,36 @@
+{
+  "engine": "match",
+  "name": "apply-no-overage-not-flagged",
+  "input": {
+    "commitments": [
+      {
+        "id": "po-2001",
+        "agencyId": "ag-meridian",
+        "poNumber": "PO-2001",
+        "amountCents": 1000000,
+        "remainingCents": 1000000,
+        "state": "open"
+      }
+    ],
+    "apply": [
+      {
+        "commitmentId": "po-2001",
+        "amountCents": 999999,
+        "matcherSeats": []
+      }
+    ]
+  },
+  "expect": {
+    "ok": true,
+    "applied": {
+      "results": [
+        {
+          "ok": true,
+          "remainingAfter": 1,
+          "closes": false
+        }
+      ],
+      "overageFlagged": false
+    }
+  }
+}

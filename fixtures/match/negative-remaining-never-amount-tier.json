@@ -1,0 +1,33 @@
+{
+  "engine": "match",
+  "name": "negative-remaining-never-amount-tier",
+  "input": {
+    "invoice": {
+      "id": "inv-9001",
+      "agencyId": "ag-meridian",
+      "amountCents": 100
+    },
+    "commitments": [
+      {
+        "id": "po-neg",
+        "agencyId": "ag-meridian",
+        "poNumber": "N",
+        "amountCents": 100,
+        "remainingCents": -50,
+        "state": "open"
+      }
+    ]
+  },
+  "expect": {
+    "ok": true,
+    "suggestions": {
+      "suggestions": [
+        {
+          "commitmentId": "po-neg",
+          "tier": 4,
+          "wouldOverage": true
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,197 @@
+{
+  "engine": "match",
+  "name": "apply-sequence",
+  "note": "an overage needs the Finance seat and a note; a fully matched commitment closes and refuses more",
+  "input": {
+    "commitments": [
+      {
+        "id": "po-2001",
+        "agencyId": "ag-meridian",
+        "poNumber": "PO-2001",
+        "amountCents": 1000000,
+        "remainingCents": 1000000,
+        "state": "open"
+      },
+      {
+        "id": "po-2002",
+        "agencyId": "ag-meridian",
+        "poNumber": "PO-2002",
+        "amountCents": 3000000,
+        "remainingCents": 1020000,
+        "state": "open"
+      },
+      {
+        "id": "po-2003",
+        "agencyId": "ag-meridian",
+        "poNumber": "PO-2003",
+        "amountCents": 500000,
+        "remainingCents": 400000,
+        "state": "open"
+      },
+      {
+        "id": "po-2004",
+        "agencyId": "ag-other",
+        "poNumber": "PO-2004",
+        "amountCents": 1000000,
+        "remainingCents": 1000000,
+        "state": "open"
+      },
+      {
+        "id": "po-2005",
+        "agencyId": "ag-meridian",
+        "poNumber": "PO-2005",
+        "amountCents": 2000000,
+        "remainingCents": 0,
+        "state": "closed"
+      }
+    ],
+    "apply": [
+      {
+        "commitmentId": "po-2001",
+        "amountCents": 400000,
+        "matcherSeats": [
+          "Marketing Ops"
+        ]
+      },
+      {
+        "commitmentId": "po-2001",
+        "amountCents": 600000,
+        "matcherSeats": [
+          "Marketing Ops"
+        ]
+      },
+      {
+        "commitmentId": "po-2001",
+        "amountCents": 1,
+        "matcherSeats": [
+          "Finance"
+        ],
+        "note": "late"
+      },
+      {
+        "commitmentId": "po-2003",
+        "amountCents": 500000,
+        "matcherSeats": [
+          "Marketing Ops"
+        ]
+      },
+      {
+        "commitmentId": "po-2003",
+        "amountCents": 500000,
+        "matcherSeats": [
+          "Finance"
+        ]
+      },
+      {
+        "commitmentId": "po-2003",
+        "amountCents": 500000,
+        "matcherSeats": [
+          "Budget Owner",
+          "Finance"
+        ],
+        "note": "Agency billed the rush fee agreed in October."
+      },
+      {
+        "commitmentId": "po-2005",
+        "amountCents": 1,
+        "matcherSeats": [
+          "Finance"
+        ],
+        "note": "x"
+      },
+      {
+        "commitmentId": "po-9999",
+        "amountCents": 1,
+        "matcherSeats": []
+      },
+      {
+        "commitmentId": "po-2002",
+        "amountCents": 0,
+        "matcherSeats": [
+          "Finance"
+        ]
+      },
+      {
+        "commitmentId": "po-2002",
+        "amountCents": -5,
+        "matcherSeats": [
+          "Finance"
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "ok": true,
+    "suggestions": null,
+    "applied": {
+      "results": [
+        {
+          "ok": true,
+          "remainingBefore": 1000000,
+          "remainingAfter": 600000,
+          "variance": "under",
+          "overage": false,
+          "overageCents": 0,
+          "closes": false
+        },
+        {
+          "ok": true,
+          "remainingBefore": 600000,
+          "remainingAfter": 0,
+          "variance": "exact",
+          "overage": false,
+          "closes": true
+        },
+        {
+          "ok": false,
+          "code": "COMMITMENT_CLOSED",
+          "remainingBefore": 0
+        },
+        {
+          "ok": false,
+          "code": "OVERAGE_NEEDS_FINANCE",
+          "remainingBefore": 400000
+        },
+        {
+          "ok": false,
+          "code": "OVERAGE_NEEDS_NOTE",
+          "remainingBefore": 400000
+        },
+        {
+          "ok": true,
+          "remainingBefore": 400000,
+          "remainingAfter": -100000,
+          "variance": "over",
+          "overage": true,
+          "overageCents": 100000,
+          "closes": true
+        },
+        {
+          "ok": false,
+          "code": "COMMITMENT_CLOSED"
+        },
+        {
+          "ok": false,
+          "code": "UNKNOWN_COMMITMENT"
+        },
+        {
+          "ok": false,
+          "code": "BAD_AMOUNT",
+          "amountCents": 0
+        },
+        {
+          "ok": false,
+          "code": "BAD_AMOUNT"
+        }
+      ],
+      "remaining": {
+        "po-2001": 0,
+        "po-2002": 1020000,
+        "po-2003": -100000,
+        "po-2004": 1000000,
+        "po-2005": 0
+      },
+      "overageFlagged": true
+    }
+  }
+}

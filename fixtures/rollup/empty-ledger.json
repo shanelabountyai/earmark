@@ -1,0 +1,31 @@
+{
+  "engine": "rollup",
+  "name": "empty-ledger",
+  "input": {
+    "programs": [],
+    "campaigns": [],
+    "lines": [],
+    "commitments": [],
+    "matches": [],
+    "invoices": []
+  },
+  "expect": {
+    "ok": true,
+    "rollup": {
+      "lines": [],
+      "campaigns": [],
+      "programs": [],
+      "org": {
+        "lineCount": 0,
+        "plannedCents": 0,
+        "committedCents": 0,
+        "actualCents": 0,
+        "unmatchedProvisionCents": 0,
+        "availableCents": 0
+      },
+      "unassignedUnmatchedCents": 0,
+      "orgAvailableCents": 0,
+      "unmatchedInvoices": []
+    }
+  }
+}
