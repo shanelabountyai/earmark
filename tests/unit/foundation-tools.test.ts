@@ -62,7 +62,7 @@ describe('modulesToRemove (F-03)', () => {
     expect(modulesToRemove([]).map(([name]) => name)).toEqual(Object.keys(MODULES));
   });
   it('leaves a required module out of the removal list, and still removes the rest', () => {
-    expect(modulesToRemove(['notifications']).map(([name]) => name)).toEqual(['billing']);
+    expect(modulesToRemove(['notifications']).map(([name]) => name)).toEqual(['billing', 'sso', 'apikeys']);
   });
   it('throws on a name that is not a real module, instead of silently doing nothing', () => {
     expect(() => modulesToRemove(['typo'])).toThrow(/unknown module "typo"/);

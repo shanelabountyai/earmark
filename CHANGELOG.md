@@ -2,6 +2,100 @@
 
 Entries prefixed `security:` are mandatory for anything touching an invariant. Clones must take a `security:` release within 7 days.
 
+## 1.6.0 (2026-11-06)
+
+**M9: row-level security, opt-in (addendum §2).** `withOrg(ctx, fn)` and `asSystem(fn)` in `src/core/db/rls.ts`; a second
+client on `DATABASE_URL_SYSTEM` (owner); `RLS_MODE` (unset | `enforce`). `npm run rls:policies` generates the policy migration from
+the schema; `20261105000000_rls_policies` covers the 7 core and module tables with `orgId`. Every org-scoped query runs in `withOrg`;
+the cross-org paths are a closed list in `src/core/db/cross-org.ts` (INV-32). INV-29 to INV-33 added. A clone that merges this and
+sets nothing behaves as on 1.5.0: its role is the owner, which bypasses the policies.
+
+Measured round-trip cost (spike S4c; 200 reads of one Project row after 20 warm-up; integer microseconds):
+
+| Where | plain p50 / p95 | `withOrg` p50 / p95 |
+|---|---|---|
+| local Postgres 17 | 285 / 1082 | 617 / 1265 |
+| Neon pooler, from a laptop (aws-us-east-2) | 43809 / 129913 | 179714 / 262536 |
+
+`withOrg` is BEGIN + `set_config` + the query + COMMIT: four round trips where a plain read is one. From a laptop that is about 4x per
+read on Neon; from a Vercel function in the same region the round trip is a few milliseconds, but the ratio holds. With RLS off (the default) it
+costs nothing: no `set_config`, and reads marked `{ atomic: false }` skip the transaction (D-31). Under enforce, a page should do
+its reads in one `withOrg`, not one each.
+
+**M10: `sso` module, OIDC per org (addendum §3).** Removable like billing (`foundation:check-modules`). Tables `SsoConnection`,
+`SsoDomain`, `SsoState` and `SsoSubject` (`prisma/schema/sso.prisma`), plus one core column, `Session.mfaOrgId`. Migrations `20261106000000_sso`
+and `20261106000001_rls_policies_sso` (the regenerated policies, now 10 tables). `SSO_ENABLED=1` turns it on; unset, `/login`
+never routes to a provider. Owners manage the connection, DNS-verified domains, Test sign-in and *Require SSO* at
+`/o/[org]/settings/sso`. Built on `openid-client` 6.8.8 (pinned), with ID-token signature checks turned on. The approved §10 rules hold:
+provider MFA counts only with `amr: mfa`, and only in that org; JIT only on `allowedDomains` plus `hd` for Google. INV-35 to
+INV-38 added, run against a local mock provider (`tests/helpers/oidc-mock.ts`), and INV-22 gains the SSO cases. A clone that merges this and
+leaves `SSO_ENABLED` unset behaves as before. **Hand check before the tag:** one sign-in each through Okta and Google Workspace
+(results to be recorded here).
+
+**M11: audit-log viewer, security pages, per-org data export (addendum §4, §5).** `/o/[org]/settings/audit` (F-01: filter by
+actor, action and day, 50 a page, CSV download) and `/o/[org]/settings/security` (F-02: two-factor status and last sign-in per member,
+SSO status and the *Require SSO* switch) for owners and admins; `/account/security` lists sessions with last seen, country and
+method, and signs out any one but the current. Owners export the org from `/o/[org]/settings/danger`: a zip of JSON Lines plus
+`manifest.json` (row counts and sha256 per file), fresh sign-in, one an hour, kept 24 hours, emailed as a link to a signed-in page.
+A clone lists its own tables in the new clone-owned `src/app/export-hooks.ts`. INV-34 added. Migrations `20261106000002_m11_export_sessions`
+(`OrgExport`, sign-in columns) and `20261106000003_rls_policies_export` (11 tables). Deviations: addendum §5, "As built in M11".
+
+**M12: AI spend guards (addendum §6).** `withBudget(ctx, feature, maxCostMicros, fn)` in `src/core/ai/budget.ts` is a **hard cap**: under a
+lock on the org's `AiBudget` row it refuses (`BudgetExceeded`, a `Refused`) when this month's spend, plus every call in flight, plus
+this call's worst-case estimate would pass the cap; otherwise it holds the estimate (`AiHold`) while `fn` runs and swaps the hold for
+an `AiUsage` row priced from the billed tokens. Prices are data in `src/core/ai/prices.ts` (integer micro-dollars per MTok, as of
+2026-10-19); an unpriced model throws. Default cap $25.00 per org per month, hard stop on; demo orgs seed at $1.00. One email to the owners
+per month at 80% and one at the cap, both audited. `AI_ENABLED=0` refuses every call. The *AI spending* card (this month, the limit,
+pause) is on `/o/[org]/settings/security`; changing it needs `billing.manage`. INV-39 added. Migrations `20261107000000_ai_spend`
+(`AiUsage`, `AiBudget`, `AiHold`) and `20261107000001_rls_policies_ai` (14 tables). Inert until a clone calls `withBudget`.
+Deviations: addendum §6, "As built in M12".
+
+**M13: `apikeys` module, API keys and outbound webhooks (addendum §7, ported from Bookable's W- track).** Removable like
+billing (`foundation:check-modules`). Owners and admins (new permission `apikeys.manage`) issue keys at `/o/[org]/settings/apikeys`:
+shown once, stored as sha256 with a short visible prefix, scoped, revoked on the next request, rate-limited per key and scope
+(`read` 120 and `write` 20 a minute). `/api/v1/projects` (list, get, create) and `/api/v1/events?since=` (catch-up) show the shape:
+problem+json errors, keyset cursors capped at 100, and `Idempotency-Key` required on every POST (replayed for 24 hours, a reused key
+with another body is 422). Removing a member, a member leaving, or deleting an account revokes the keys that person created (owner decision; clone-owned `onMembershipEnded` in `org-hooks.ts`, now a required argument of `removeMember` and `deleteAccount`). Core gains `emit(ctx, type, payload, tx)` (`src/core/events.ts`), which writes the org's event log
+(`OrgEvent`, seq per org handed out at commit by a trigger) in the change's transaction, beside its audit line. The module fans
+the log out to signed webhook endpoints (`Webhook-Signature: t=…,v1=HMAC-SHA256`, 24-hour secret rotation overlap), retries six
+times with backoff, dead-letters, pauses after ten failures in a row, disables on a 410, and replays from the settings page with
+`replayed: true`. Clone-owned: `src/app/api-scopes.ts` and `src/app/event-types.ts`. INV-40 and INV-41 added; the outbound half of
+INV-12 lives with INV-41. Migrations `20261108000000_org_events` (core), `20261108000001_apikeys_init` and
+`20261108000002_rls_policies_apikeys`. `WEBHOOK_ALLOW_PRIVATE=1` (test only, refused in production) lets an endpoint be
+`http://localhost`. A clone that merges this and calls no `emit` behaves as before. Delivery timing: an API write sends its
+webhooks right after the response; everything else (retries, events from page actions) waits for `/api/cron`, which the
+template schedules **daily** (see addendum §7 "As built in M13", item 3).
+
+**CI enforce leg is opt-in for clones** (owner, 2026-11-05; addendum §7 item 14). The template always runs `ci (off)` and
+`ci (enforce)`; a clone runs `enforce` only once the repo variable `RLS_ENFORCE=1` is set
+(`gh variable set RLS_ENFORCE --body 1 --repo <clone repo>`). INV-29 seeds clone tables through a fixture hook.
+
+**Real-provider hand checks (owner, 2026-11-06; addendum §3, M10 gate).** Okta (Integrator Free org): a new user on a verified
+domain JIT-joins Globex as member; promoted to admin with no TOTP, the Okta `amr` carries `mfa` and the session gets `mfaOrgId`
+(no TOTP prompt). Google Workspace: a `labintelligence.co` user lands in Acme. Not done by hand, covered by INV-35 to 38 through
+the mock: an unverified email (every Okta refusal on the night was the bug below, never a real `false`), a personal Gmail on the
+Google connection (Google honours the login hint and skips the account picker), and an Okta sign-in without `mfa` in `amr`.
+**What Okta's `email_verified` is worth:** Okta reported `true` for an admin-created `okta-tester@example.com`, an address no one
+can receive mail at. With Okta, `email_verified` means "the org's Okta admin vouches for it", not proof of inbox control: whoever
+administers the org's Okta can create a user with any email on an allowed domain and JIT-join. That is the expected trust model for
+an org's own IdP; the DNS-verified domain is the real control. **Found by the Okta check and fixed:** Okta's ID
+token carries `email` but never `email_verified`, so every Okta user was refused. The callback now reads both from userinfo
+when the ID token lacks either, bound to the same `sub`; the mock gains an Okta mode and INV-35 a case (mutation-checked red).
+
+Upgrade (every feature is opt-in; a clone that merges and sets nothing behaves as on 1.5.0 at runtime):
+
+1. Merge the tag, `npm ci`, `npx prisma migrate deploy`. Ten migrations, all additive. If the clone has its own `orgId` tables,
+   run `npm run rls:policies` and commit the migration it writes, or INV-29 fails on them.
+2. Clone-owned files arrive with safe defaults; fill them in when the feature is used: `src/app/export-hooks.ts` (list your
+   org-scoped tables, or INV-34 fails on them), `src/app/api-scopes.ts`, `src/app/event-types.ts`, `src/app/modules.ts`,
+   `src/app/cron-jobs.ts`.
+3. **The one compile break:** `removeMember` and `deleteAccount` take `onMembershipEnded` (from `src/app/org-hooks.ts`) as a
+   required argument. Any clone call site outside `src/core` must pass it.
+4. `.env.example` adds `DATABASE_URL_SYSTEM`, `RLS_MODE`, `AI_ENABLED`, `SSO_ENABLED`, `WEBHOOK_ALLOW_PRIVATE` and the
+   `SSO_TEST_*` set. All may stay unset. Turning on enforce needs an `app_rw` role without `BYPASSRLS` (`npm run db:setup` locally;
+   the README has the Neon SQL), `RLS_MODE=enforce`, both URLs, and the repo variable above.
+5. Remove `sso` or `apikeys` you don't use, the same way as billing; `npm run foundation:check-modules` confirms it.
+
 ## 1.5.0 (2026-11-04)
 
 `vitest` 2.1 -> 5.1 (dev dependency only; F-05). It clears the dev-tree advisories found during v1.4.1: tinypool prototype-pollution RCE

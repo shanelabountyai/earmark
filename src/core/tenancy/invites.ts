@@ -5,7 +5,7 @@ import { assertNotDemo, type SessionCtx } from '@/core/auth/session';
 import { AuthzError, inOrg, type OrgCtx } from '@/core/authz/guards';
 import { can, mayAssign } from '@/core/authz/permissions';
 import { now } from '@/core/clock';
-import { db } from '@/core/db';
+import { asSystem, withOrg } from '@/core/db/rls';
 import { sendEmail } from '@/core/email/transport';
 import { env } from '@/core/env';
 import { Refused } from '@/core/errors';
@@ -24,7 +24,7 @@ export async function createInvite(ctx: OrgCtx, emailInput: string, role: Role) 
   if (!email) throw new Refused('Enter a valid email address.');
   const token = newToken();
   const t = now();
-  const orgName = await db.$transaction(async (tx) => {
+  const orgName = await withOrg(ctx, async (tx) => {
     await lockOrg(tx, ctx.orgId);
     const actor = await tx.membership.findUnique({ where: { orgId_userId: { orgId: ctx.orgId, userId: ctx.userId } }, include: { org: true } });
     if (!actor) notFound();
@@ -54,7 +54,7 @@ export async function createInvite(ctx: OrgCtx, emailInput: string, role: Role) 
 
 export async function revokeInvite(ctx: OrgCtx, id: string) {
   if (!can(ctx.role, 'members.manage')) throw new AuthzError('members.manage');
-  await db.$transaction(async (tx) => {
+  await withOrg(ctx, async (tx) => {
     const { count } = await tx.invite.updateMany({ where: { id, ...inOrg(ctx), acceptedAt: null, revokedAt: null }, data: { revokedAt: now() } });
     if (count !== 1) notFound();
     await audit(ctx, 'invite.revoked', { targetType: 'invite', targetId: id }, tx);
@@ -68,7 +68,8 @@ export async function revokeInvite(ctx: OrgCtx, id: string) {
 export async function acceptInvite(s: SessionCtx, token: string): Promise<string> {
   if (!(await hit(`invite:user:${s.userId}`, LIMITS.inviteAcceptPerUser))) throw new Refused('Too many attempts. Wait a few minutes and try again.');
   const t = now();
-  return db.$transaction(async (tx) => {
+  // Cross-org (cross-org.ts): the token names the org, so it cannot be scoped before it is read.
+  return asSystem((sys) => sys.$transaction(async (tx) => {
     const spent = await tx.invite.updateMany({
       where: { tokenHash: hashToken(token), email: s.email, acceptedAt: null, revokedAt: null, expiresAt: { gt: t } },
       data: { acceptedAt: t },
@@ -88,12 +89,12 @@ export async function acceptInvite(s: SessionCtx, token: string): Promise<string
     }
     await audit({ orgId: invite.orgId, userId: s.userId }, 'invite.accepted', { targetType: 'invite', targetId: invite.id, data: { role: invite.role } }, tx);
     return invite.org.slug;
-  });
+  }));
 }
 
 /** Pending invites to the signed-in user's address, for /onboarding. */
 export const pendingInvitesFor = (s: SessionCtx) =>
-  db.invite.findMany({
+  asSystem((sys) => sys.invite.findMany({
     where: { email: s.email, acceptedAt: null, revokedAt: null, expiresAt: { gt: now() } },
     select: { id: true, role: true, org: { select: { name: true } } },
-  });
+  }));

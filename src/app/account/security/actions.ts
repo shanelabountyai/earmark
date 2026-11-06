@@ -2,10 +2,11 @@
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { requestEmailChange } from '@/core/auth/link';
-import { assertNotDemo, signOut, signOutEverywhere } from '@/core/auth/session';
+import { assertNotDemo, revokeSession, signOut, signOutEverywhere } from '@/core/auth/session';
 import { confirmTotp, disableTotp, enrolTotp } from '@/core/auth/totp';
 import { userAction } from '@/core/authz/action';
 import { deleteAccount } from '@/core/tenancy/delete';
+import { onMembershipEnded } from '@/app/org-hooks';
 
 // Thin calls into core (D-12). A refusal (stale sign-in, owner turning TOTP off) comes back as { error }.
 const none = z.object({});
@@ -30,6 +31,11 @@ export const signOutHere = userAction(none, async () => {
   redirect('/');
 });
 
+export const signOutSession = userAction(z.object({ hash: z.string().regex(/^[0-9a-f]{64}$/) }), async (s, { hash }) => {
+  await revokeSession(s, hash);
+  redirect('/account/security');
+});
+
 export const signOutAll = userAction(none, async (s) => {
   assertNotDemo(s); // every /demo visitor shares the account: this would sign them all out
   await signOutEverywhere(s.userId);
@@ -42,6 +48,6 @@ export const changeEmail = userAction(z.object({ email: z.string() }), async (s,
 });
 
 export const deleteMyAccount = userAction(z.object({ confirm: z.string() }), async (s, { confirm }) => {
-  await deleteAccount(s, confirm);
+  await deleteAccount(s, confirm, onMembershipEnded);
   redirect('/');
 });

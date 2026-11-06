@@ -1,7 +1,7 @@
 import { afterAll, afterEach } from 'vitest';
 import { TOTP, Secret } from 'otpauth';
 import { advanceClock, now } from '@/core/clock';
-import { db } from '@/core/db';
+import { dbSystem as db } from '@/core/db/system'; // fixtures run as the owner role (RLS enforce leg)
 import { createSession, SESSION_COOKIE } from '@/core/auth/session';
 import { confirmTotp, enrolTotp } from '@/core/auth/totp';
 import { jar } from './next';

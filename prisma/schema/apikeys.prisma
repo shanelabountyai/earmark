@@ -1,0 +1,89 @@
+/// One key per integration (addendum §7, D-28). Only its sha256 is stored; `prefix` is the visible start of the key so
+/// the owner can tell keys apart. Scopes are names from src/app/api-scopes.ts. Revocation is read on every request.
+model ApiKey {
+  id          String    @id @default(uuid()) @db.Uuid
+  orgId       String    @db.Uuid
+  org         Org       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  label       String
+  prefix      String // "api_Ab3d…": shown in the list, never enough to use
+  keyHash     String    @unique
+  scopes      String[]
+  createdById String    @db.Uuid // no FK, like Invite.invitedById: the key outlives a removed member
+  lastUsedAt  DateTime? @db.Timestamptz(6)
+  revokedAt   DateTime? @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(6)
+
+  idempotency IdempotencyRecord[]
+
+  @@index([orgId])
+}
+
+/// Idempotent API writes: claimed in one statement on (apiKeyId, idemKey) before the work, finished in the work's
+/// transaction, replayed for 24 hours. A crash leaves `in_progress`, reclaimed after 10 minutes.
+model IdempotencyRecord {
+  id             String   @id @default(uuid()) @db.Uuid
+  orgId          String   @db.Uuid
+  apiKeyId       String   @db.Uuid
+  apiKey         ApiKey   @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+  idemKey        String
+  requestHash    String // sha256 of method, path and canonical body
+  status         String // in_progress | done
+  responseStatus Int?
+  responseBody   String? // "<content-type>\n<body>"
+  expiresAt      DateTime @db.Timestamptz(6)
+  createdAt      DateTime @db.Timestamptz(6)
+  updatedAt      DateTime @db.Timestamptz(6)
+
+  @@unique([apiKeyId, idemKey])
+  @@index([expiresAt])
+}
+
+/// Where an org's events are sent. The signing secret is sealed (sealSecret(secret, 'webhook')): the sender needs it
+/// back to sign, so it cannot be a hash. During a rotation the previous secret also signs until it expires (24 h).
+model WebhookEndpoint {
+  id                      String    @id @default(uuid()) @db.Uuid
+  orgId                   String    @db.Uuid
+  org                     Org       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  url                     String
+  secretSealed            String
+  previousSecretSealed    String?
+  previousSecretExpiresAt DateTime? @db.Timestamptz(6)
+  eventTypes              String[] // empty = every type
+  status                  String    @default("active") // active | paused | disabled
+  consecutiveFailures     Int       @default(0)
+  disabledAt              DateTime? @db.Timestamptz(6)
+  disabledReason          String?
+  cursorSeq               Int       @default(0) // the last OrgEvent.seq fanned out to this endpoint
+  createdAt               DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt               DateTime  @updatedAt @db.Timestamptz(6)
+
+  deliveries WebhookDelivery[]
+
+  @@index([orgId])
+}
+
+/// One event to one endpoint. Unique on (endpointId, eventId), so fan-out run twice can never send an event twice.
+model WebhookDelivery {
+  id                  String          @id @default(uuid()) @db.Uuid
+  orgId               String          @db.Uuid
+  org                 Org             @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  endpointId          String          @db.Uuid
+  endpoint            WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+  eventId             String          @db.Uuid
+  event               OrgEvent        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  seq                 Int
+  status              String          @default("pending") // pending | sending | succeeded | failed | dead
+  attempts            Int             @default(0)
+  nextAttemptAt       DateTime?       @db.Timestamptz(6)
+  lastResponseStatus  Int?
+  lastResponseExcerpt String? // at most 1 KB of what the receiver answered
+  lastError           String?
+  succeededAt         DateTime?       @db.Timestamptz(6)
+  replayed            Boolean         @default(false) // set by a replay; travels in the body
+  createdAt           DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime        @default(now()) @db.Timestamptz(6)
+
+  @@unique([endpointId, eventId])
+  @@index([status, nextAttemptAt])
+  @@index([orgId, createdAt])
+}

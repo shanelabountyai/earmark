@@ -1,7 +1,7 @@
 import { inOrg, requireOrg } from '@/core/authz/guards';
 import { can } from '@/core/authz/permissions';
 import { now } from '@/core/clock';
-import { db } from '@/core/db';
+import { withOrg } from '@/core/db/rls';
 import { ActionForm } from '@/core/ui/action-form';
 import { addProject, revokeShare, shareProject } from './actions';
 
@@ -10,10 +10,10 @@ export const metadata = { title: 'Projects' };
 // The example shareable resource. Notes are internal; a share link shows only the name.
 export default async function Projects({ params }: { params: Promise<{ org: string }> }) {
   const ctx = await requireOrg((await params).org);
-  const [projects, links] = await Promise.all([
-    db.project.findMany({ where: inOrg(ctx), orderBy: { createdAt: 'asc' } }),
-    db.shareLink.findMany({ where: { ...inOrg(ctx), resourceType: 'project', revokedAt: null, expiresAt: { gt: now() } }, orderBy: { createdAt: 'asc' } }),
-  ]);
+  const [projects, links] = await withOrg(ctx, (tx) => Promise.all([
+    tx.project.findMany({ where: inOrg(ctx), orderBy: { createdAt: 'asc' } }),
+    tx.shareLink.findMany({ where: { ...inOrg(ctx), resourceType: 'project', revokedAt: null, expiresAt: { gt: now() } }, orderBy: { createdAt: 'asc' } }),
+  ]), { atomic: false });
   const bind = <A extends unknown[], R>(fn: (slug: string, ...a: A) => R) => fn.bind(null, ctx.slug);
 
   return (

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { audit } from '@/core/audit';
-import { db } from '@/core/db';
+import { dbSystem as db } from '@/core/db/system'; // fixtures run as the owner role (RLS enforce leg)
 import { resetAuthTables } from '../helpers/auth';
 
 beforeEach(resetAuthTables);

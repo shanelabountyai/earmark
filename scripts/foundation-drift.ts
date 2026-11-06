@@ -9,11 +9,11 @@ import { MODULES } from './foundation-modules';
 export const OWNED = [
   'src/core', 'src/modules', 'src/proxy.ts', 'prisma/schema', 'prisma/migrations', 'tests/invariants', 'scripts/foundation-*.ts', 'FOUNDATION_VERSION',
   'src/app/(public)/login', 'src/app/(public)/demo', 'src/app/onboarding', 'src/app/account', 'src/app/s/[token]',
-  'src/app/o/[org]/settings/members', 'src/app/o/[org]/settings/security', 'src/app/o/[org]/settings/billing', 'src/app/o/[org]/settings/danger',
+  'src/app/o/[org]/settings/members', 'src/app/o/[org]/settings/security', 'src/app/o/[org]/settings/audit', 'src/app/o/[org]/settings/billing', 'src/app/o/[org]/settings/danger', 'src/app/o/[org]/settings/sso',
   'src/app/api/health', 'src/app/api/cron', 'src/app/api/webhooks/stripe',
 ];
 // A clone owns its own tables: `prisma/schema/<app>.prisma` and its migrations are additions, not drift.
-const CLONE_OWNED = /^prisma\/schema\/(?!core\.prisma$|billing\.prisma$|notifications\.prisma$)/;
+const CLONE_OWNED = /^prisma\/schema\/(?!core\.prisma$|billing\.prisma$|notifications\.prisma$|sso\.prisma$)/;
 
 export type Change = { status: 'A' | 'M' | 'D'; path: string; lines: string[] }; // lines: the +/- lines of a changed file
 

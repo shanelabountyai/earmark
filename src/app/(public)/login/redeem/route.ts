@@ -1,4 +1,5 @@
 // public: the token is the credential; same-origin POST (INV-17)
+import '@/app/modules'; // registers the sso module's hooks with core (INV-36)
 import { redeemLink } from '@/core/auth/link';
 import { setSessionCookie } from '@/core/auth/session';
 import { isSameOrigin } from '@/core/http';

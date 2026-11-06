@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { confirmEmailChange, requestEmailChange } from '@/core/auth/link';
 import { currentSession, sessionFor } from '@/core/auth/session';
-import { db } from '@/core/db';
+import { dbSystem as db } from '@/core/db/system'; // fixtures run as the owner role (RLS enforce leg)
 import { createInvite } from '@/core/tenancy/invites';
 import { makeUser, resetAuthTables, signInAs } from '../helpers/auth';
 import { actAs, addMember, makeOrg } from '../helpers/org';

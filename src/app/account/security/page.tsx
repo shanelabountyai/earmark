@@ -1,15 +1,15 @@
 import Link from 'next/link';
-import { requireUser } from '@/core/auth/session';
+import { listSessions, requireUser } from '@/core/auth/session';
 import { pendingEnrolment } from '@/core/auth/totp';
 import { ActionForm } from '@/core/ui/action-form';
-import { changeEmail, deleteMyAccount, signOutAll, signOutHere, startEnrol, turnOffTotp } from './actions';
+import { changeEmail, deleteMyAccount, signOutAll, signOutHere, signOutSession, startEnrol, turnOffTotp } from './actions';
 import { ConfirmForm } from './confirm-form';
 
 export const metadata = { title: 'Security' };
 
 export default async function Security({ searchParams }: { searchParams: Promise<{ mfa?: string; email?: string }> }) {
   const s = await requireUser();
-  const pending = await pendingEnrolment(s);
+  const [pending, sessions] = await Promise.all([pendingEnrolment(s), listSessions(s)]);
   const q = await searchParams;
   return (
     <main>
@@ -52,6 +52,31 @@ export default async function Security({ searchParams }: { searchParams: Promise
       </ActionForm>
 
       <h2>Sessions</h2>
+      <table>
+        <thead>
+          <tr><th>Signed in (UTC)</th><th>Last seen</th><th>Where</th><th>How</th><th></th></tr>
+        </thead>
+        <tbody>
+          {sessions.map((x) => (
+            <tr key={x.hash}>
+              <td>{x.createdAt.toISOString().slice(0, 16).replace('T', ' ')}</td>
+              <td>{x.lastSeenAt ? x.lastSeenAt.toISOString().slice(0, 16).replace('T', ' ') : ''}</td>
+              <td>{x.country ?? 'unknown'}</td>
+              <td>{x.method}</td>
+              <td>
+                {x.current ? (
+                  <strong>This session</strong>
+                ) : (
+                  <ActionForm action={signOutSession}>
+                    <input type="hidden" name="hash" value={x.hash} />
+                    <button type="submit">Sign out</button>
+                  </ActionForm>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
       <ActionForm action={signOutHere}>
         <button type="submit">Sign out</button>
       </ActionForm>

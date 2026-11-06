@@ -1,4 +1,4 @@
-import { db } from '@/core/db';
+import { withOrg } from '@/core/db/rls';
 import type { Project } from '@/generated/prisma/client';
 
 // The example shareable resource (spec §7c). The projection starts empty and each public field
@@ -13,6 +13,6 @@ export function toPublicProject(row: Project): PublicProject {
 
 /** Loads by the share link's own org, never by an id alone. */
 export async function loadPublicProject(orgId: string, id: string) {
-  const row = await db.project.findFirst({ where: { id, orgId } });
+  const row = await withOrg({ orgId }, (tx) => tx.project.findFirst({ where: { id, orgId } }), { atomic: false });
   return row && toPublicProject(row);
 }

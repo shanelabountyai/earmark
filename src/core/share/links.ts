@@ -3,7 +3,7 @@ import { audit } from '@/core/audit';
 import { AuthzError, inOrg, type OrgCtx } from '@/core/authz/guards';
 import { can } from '@/core/authz/permissions';
 import { now } from '@/core/clock';
-import { db } from '@/core/db';
+import { asSystem, withOrg } from '@/core/db/rls';
 import { env } from '@/core/env';
 import { hit, LIMITS } from '@/core/rate-limit';
 import { hashToken, newToken } from '@/core/tokens';
@@ -21,7 +21,7 @@ export async function createShareLink(ctx: OrgCtx, resourceType: ShareType, reso
   if (!can(ctx.role, 'share.create')) throw new AuthzError('share.create');
   if (!(await shareable[resourceType](ctx.orgId, resourceId))) notFound();
   const token = newToken();
-  const url = await db.$transaction(async (tx) => {
+  const url = await withOrg(ctx, async (tx) => {
     const link = await tx.shareLink.create({
       data: { ...inOrg(ctx), resourceType, resourceId, tokenHash: hashToken(token), createdById: ctx.userId, expiresAt: new Date(now().getTime() + days * 86_400_000) },
     });
@@ -34,7 +34,7 @@ export async function createShareLink(ctx: OrgCtx, resourceType: ShareType, reso
 /** Takes effect on the next read (INV-08): the lookup filters on revokedAt. */
 export async function revokeShareLink(ctx: OrgCtx, id: string) {
   if (!can(ctx.role, 'share.revoke')) throw new AuthzError('share.revoke');
-  await db.$transaction(async (tx) => {
+  await withOrg(ctx, async (tx) => {
     const { count } = await tx.shareLink.updateMany({ where: { id, ...inOrg(ctx), revokedAt: null }, data: { revokedAt: now() } });
     if (count !== 1) notFound();
     await audit(ctx, 'share.revoked', { targetType: 'shareLink', targetId: id }, tx);
@@ -47,7 +47,8 @@ export async function revokeShareLink(ctx: OrgCtx, id: string) {
  */
 export async function readShare(token: string, ip: string) {
   if (!(await hit(`share:ip:${ip}`, LIMITS.shareReadPerIp))) return 'limited' as const;
-  const link = await db.shareLink.findFirst({ where: { tokenHash: hashToken(token), revokedAt: null, expiresAt: { gt: now() } } });
+  // Cross-org (cross-org.ts): the token names the org. The loader then reads inside that org's scope.
+  const link = await asSystem((sys) => sys.shareLink.findFirst({ where: { tokenHash: hashToken(token), revokedAt: null, expiresAt: { gt: now() } } }));
   const load = link && Object.hasOwn(shareable, link.resourceType) && shareable[link.resourceType as ShareType];
   return (load && (await load(link.orgId, link.resourceId))) || null;
 }

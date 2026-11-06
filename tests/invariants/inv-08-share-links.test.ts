@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { advanceClock } from '@/core/clock';
-import { db } from '@/core/db';
+import { dbSystem as db } from '@/core/db/system'; // fixtures run as the owner role (RLS enforce leg)
 import { createShareLink, readShare, revokeShareLink } from '@/core/share/links';
 import { blankPublicProject, toPublicProject } from '@/core/share/project';
 import { actAs, addMember, makeOrg } from '../helpers/org';

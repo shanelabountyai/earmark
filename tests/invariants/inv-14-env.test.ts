@@ -19,6 +19,11 @@ describe('INV-14 env', () => {
     expect(() => parseEnv({ ...valid, AUTH_SECRET: 'short' })).not.toThrow(/short/);
   });
 
+  it('an empty value is unset, and still fails a required key', () => {
+    expect(parseEnv({ ...valid, RESEND_API_KEY: '' }).RESEND_API_KEY).toBeUndefined();
+    expect(() => parseEnv({ ...valid, AUTH_SECRET: '' })).toThrow(/AUTH_SECRET/);
+  });
+
   it('.env.example names exactly the schema keys', () => {
     const example = readFileSync('.env.example', 'utf8')
       .split('\n')
