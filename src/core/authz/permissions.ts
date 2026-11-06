@@ -1,11 +1,11 @@
 import type { Role } from '@/generated/prisma/enums';
 
 // Pure, no I/O (spec §7b). Unknown roles get nothing.
-export type Permission = 'org.update' | 'org.delete' | 'members.manage' | 'billing.manage' | 'share.create' | 'share.revoke' | 'audit.read' | 'results.write';
+export type Permission = 'org.update' | 'org.delete' | 'members.manage' | 'billing.manage' | 'share.create' | 'share.revoke' | 'audit.read' | 'results.write' | 'apikeys.manage';
 
 const grants: Record<Role, readonly Permission[]> = {
-  owner: ['org.update', 'org.delete', 'members.manage', 'billing.manage', 'share.create', 'share.revoke', 'audit.read', 'results.write'],
-  admin: ['org.update', 'members.manage', 'share.create', 'share.revoke', 'audit.read', 'results.write'],
+  owner: ['org.update', 'org.delete', 'members.manage', 'billing.manage', 'share.create', 'share.revoke', 'audit.read', 'results.write', 'apikeys.manage'],
+  admin: ['org.update', 'members.manage', 'share.create', 'share.revoke', 'audit.read', 'results.write', 'apikeys.manage'],
   member: ['share.create'],
   // D-21: enters and corrects a clone's results and nothing else; core checks results.write nowhere.
   scorekeeper: ['results.write'],

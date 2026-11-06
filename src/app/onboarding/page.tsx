@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { requireUser } from '@/core/auth/session';
-import { db } from '@/core/db';
+import { asSystem } from '@/core/db/rls';
 import { pendingInvitesFor } from '@/core/tenancy/invites';
 import { keepListedOrgs } from '@/core/tenancy/listed';
 import { ActionForm } from '@/core/ui/action-form';
@@ -14,7 +14,8 @@ export const metadata = { title: 'Your orgs' };
 export default async function Onboarding() {
   const s = await requireUser();
   const [all, invites] = await Promise.all([
-    db.membership.findMany({ where: { userId: s.userId }, select: { role: true, org: { select: { id: true, slug: true, name: true } } }, orderBy: { createdAt: 'asc' } }),
+    // Cross-org (cross-org.ts): the user's memberships in every org.
+    asSystem((sys) => sys.membership.findMany({ where: { userId: s.userId }, select: { role: true, org: { select: { id: true, slug: true, name: true } } }, orderBy: { createdAt: 'asc' } })),
     pendingInvitesFor(s),
   ]);
   const memberships = await keepListedOrgs(s.userId, all, filterListedOrgs);

@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { db } from '@/core/db';
+import { dbSystem as db } from '@/core/db/system'; // fixtures run as the owner role (RLS enforce leg)
 import { demoSignIn } from '@/core/auth/demo';
 import { SESSION_COOKIE } from '@/core/auth/session';
 import { seedDemo } from '../../scripts/seed-demo';

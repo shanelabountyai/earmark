@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 import pg from 'pg';
 
 // INV-08 (headers, revoke → 404) and INV-15 (share route), against the production build.
-const db = new pg.Pool({ connectionString: process.env.DATABASE_URL, max: 1 });
+const db = new pg.Pool({ connectionString: process.env.DATABASE_URL_SYSTEM ?? process.env.DATABASE_URL, max: 1 }); // fixtures as the owner (RLS enforce)
 test.afterAll(() => db.end());
 test.beforeAll(() => db.query('DELETE FROM "RateLimit"')); // the server sees every local run as one IP
 

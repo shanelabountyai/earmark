@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { Secret, TOTP } from 'otpauth';
 import pg from 'pg';
 
-const db = new pg.Pool({ connectionString: process.env.DATABASE_URL, max: 1 });
+const db = new pg.Pool({ connectionString: process.env.DATABASE_URL_SYSTEM ?? process.env.DATABASE_URL, max: 1 }); // fixtures as the owner (RLS enforce)
 test.afterAll(() => db.end());
 test.beforeAll(() => db.query('DELETE FROM "RateLimit"')); // the server sees every local run as one IP
 

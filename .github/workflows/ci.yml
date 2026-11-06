@@ -9,6 +9,12 @@ on:
 jobs:
   ci:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # addendum §2: off = the owner role (as every clone runs today); enforce = app_rw, NOBYPASSRLS. RLS is opt-in (D-23;
+        # owner decision 2026-11-05): a clone runs the enforce leg once it sets the repo variable RLS_ENFORCE=1. The template always runs both.
+        rls: ${{ fromJSON((github.repository == 'shanelabountyai/saas-foundation' || vars.RLS_ENFORCE == '1') && '["off","enforce"]' || '["off"]') }}
     env:
       # Ephemeral runner-local Postgres, gone when the job ends.
       PGHOST: localhost
@@ -42,6 +48,14 @@ jobs:
       - run: npm run typecheck
       - run: createdb earmark_test
       - run: npx prisma migrate deploy
+      - name: RLS enforce leg — app role, system URL
+        if: matrix.rls == 'enforce'
+        run: |
+          psql -d saas_foundation_test -c "CREATE ROLE app_rw LOGIN PASSWORD 'app_rw' NOBYPASSRLS NOSUPERUSER;"
+          psql -d saas_foundation_test -c "GRANT USAGE ON SCHEMA public TO app_rw; GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_rw; GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO app_rw;"
+          echo "RLS_MODE=enforce" >> "$GITHUB_ENV"
+          echo "DATABASE_URL_SYSTEM=$DATABASE_URL" >> "$GITHUB_ENV"
+          echo "DATABASE_URL=postgresql://app_rw:app_rw@localhost:5432/saas_foundation_test?connection_limit=8&pool_timeout=20" >> "$GITHUB_ENV"
       - run: npx vitest run
       # Earmark Phase 1 gate: oracle parity over fixtures/ and >= 95 % coverage of src/lib/earmark (python3 is on the runner)
       - run: npm run test:engines

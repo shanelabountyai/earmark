@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { Secret, TOTP } from 'otpauth';
 import { now } from '@/core/clock';
 import { db } from '@/core/db';
+import { asSystem } from '@/core/db/rls';
 import { env } from '@/core/env';
 import { Refused } from '@/core/errors';
 import { audit } from '@/core/audit';
@@ -96,7 +97,8 @@ export async function confirmTotp(code: string): Promise<string[] | null> {
 export async function disableTotp(): Promise<void> {
   const s = await requireUser();
   assertFresh(s);
-  if (await db.membership.count({ where: { userId: s.userId, role: { in: ['owner', 'admin'] } } })) {
+  // Cross-org (cross-org.ts): the user's role in every org.
+  if (await asSystem((sys) => sys.membership.count({ where: { userId: s.userId, role: { in: ['owner', 'admin'] } } }))) {
     throw new Refused('Owners and admins must keep two-factor sign-in on.');
   }
   await db.$transaction([

@@ -1,11 +1,12 @@
 // 2026-10-12 review, demo finding: what a /demo session may do, and what happens to demo accounts once
 // DEMO_MODE is off. INV-27 (tests/invariants/inv-27-demo.test.ts) covers who may sign in at /demo.
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { onMembershipEnded } from '@/app/org-hooks';
 
 // env.ts parses process.env at import; this file runs with the flag on, as a demo deployment does.
 vi.hoisted(() => { process.env.DEMO_MODE = '1'; });
 
-import { db } from '@/core/db';
+import { dbSystem as db } from '@/core/db/system'; // fixtures run as the owner role (RLS enforce leg)
 import { demoSignIn } from '@/core/auth/demo';
 import { redeemLink, requestEmailChange, requestLink } from '@/core/auth/link';
 import { currentSession, SESSION_COOKIE, sessionFor } from '@/core/auth/session';
@@ -61,7 +62,7 @@ describe('a demo session cannot destroy the demo or change who owns it', () => {
     await expect(disableTotp()).rejects.toThrow(DEMO);
 
     const admin = await viaDemo(d.admin);
-    await expect(deleteAccount((await currentSession())!, admin.email)).rejects.toThrow(DEMO);
+    await expect(deleteAccount((await currentSession())!, admin.email, onMembershipEnded)).rejects.toThrow(DEMO);
     await viaDemo(d.member);
     await expect(enrolTotp()).rejects.toThrow(DEMO);
 
@@ -86,9 +87,9 @@ describe('a demo session cannot destroy the demo or change who owns it', () => {
     const ctx = await requireOrg(d.slug);
     await expect(createInvite(ctx, 'mine@example.test', 'owner')).rejects.toThrow(DEMO);
     await expect(changeRole(ctx, member.id, 'owner')).rejects.toThrow(DEMO);
-    await expect(removeMember(ctx, member.id)).rejects.toThrow(DEMO);
+    await expect(removeMember(ctx, member.id, onMembershipEnded)).rejects.toThrow(DEMO);
     await viaDemo(d.member);
-    await expect(removeMember(await requireOrg(d.slug), member.id)).rejects.toThrow(DEMO);
+    await expect(removeMember(await requireOrg(d.slug), member.id, onMembershipEnded)).rejects.toThrow(DEMO);
 
     expect(await db.invite.count()).toBe(0);
     expect(await demoCounts(d.slug)).toEqual(before);

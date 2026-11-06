@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { onMembershipEnded } from '@/app/org-hooks';
 import { currentSession } from '@/core/auth/session';
-import { db } from '@/core/db';
+import { dbSystem as db } from '@/core/db/system'; // fixtures run as the owner role (RLS enforce leg)
 import { deleteAccount } from '@/core/tenancy/delete';
 import { changeRole, removeMember } from '@/core/tenancy/orgs';
 import { resetAuthTables, signInAs } from '../helpers/auth';
@@ -16,7 +17,7 @@ describe('INV-21 an org never reaches zero owners', () => {
     const owner = await addMember(org.id, 'owner', 'owner@example.test');
     const ctx = await actAs(owner.id, org.slug);
     await expect(changeRole(ctx, owner.id, 'admin')).rejects.toThrow(LAST);
-    await expect(removeMember(ctx, owner.id)).rejects.toThrow(LAST);
+    await expect(removeMember(ctx, owner.id, onMembershipEnded)).rejects.toThrow(LAST);
     expect(await roleOf(org.id, owner.id)).toBe('owner');
   });
 
@@ -24,7 +25,7 @@ describe('INV-21 an org never reaches zero owners', () => {
     const org = await makeOrg();
     const owner = await addMember(org.id, 'owner', 'owner@example.test');
     await signInAs(owner.id, { mfa: true });
-    await expect(deleteAccount((await currentSession())!, 'owner@example.test')).rejects.toThrow(LAST);
+    await expect(deleteAccount((await currentSession())!, 'owner@example.test', onMembershipEnded)).rejects.toThrow(LAST);
     expect(await db.user.count({ where: { id: owner.id } })).toBe(1);
   });
 
@@ -35,7 +36,7 @@ describe('INV-21 an org never reaches zero owners', () => {
     await changeRole(await actAs(a.id, org.slug), a.id, 'admin');
     expect(await roleOf(org.id, a.id)).toBe('admin');
     await signInAs(b.id, { mfa: true });
-    await expect(deleteAccount((await currentSession())!, 'b@example.test')).rejects.toThrow(LAST); // b is now the only owner
+    await expect(deleteAccount((await currentSession())!, 'b@example.test', onMembershipEnded)).rejects.toThrow(LAST); // b is now the only owner
   });
 
   it('two owners demoting each other at once: exactly one wins', async () => {

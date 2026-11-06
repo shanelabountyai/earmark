@@ -1,0 +1,57 @@
+/// One OIDC connection per org (addendum §3, D-24/25). The client secret is sealed with
+/// sealSecret(secret, 'sso'), never stored plain (INV-25 extended).
+model SsoConnection {
+  id                 String    @id @default(uuid()) @db.Uuid
+  orgId              String    @unique @db.Uuid
+  org                Org       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  issuer             String // https URL; discovery is <issuer>/.well-known/openid-configuration
+  clientId           String
+  clientSecretSealed String
+  defaultRole        Role      @default(member) // never owner (INV-38)
+  allowedDomains     String[] // JIT membership only for a verified email in one of these (§10.3); empty = invite-only
+  required           Boolean   @default(false) // members of this org cannot use a magic link (INV-36)
+  requiredAt         DateTime? @db.Timestamptz(6)
+  requiredById       String?   @db.Uuid // the owner who turned `required` on keeps magic links for 24h
+  enabledAt          DateTime? @db.Timestamptz(6) // null = off: /login never routes here
+  createdAt          DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime  @updatedAt @db.Timestamptz(6)
+}
+
+/// A domain an org proves it owns with a TXT record `_foundation-sso.<domain>`. Unverified domains never match
+/// a sign-in. The TXT value is derived from AUTH_SECRET (src/modules/sso/settings.ts), not stored.
+model SsoDomain {
+  id         String    @id @default(uuid()) @db.Uuid
+  orgId      String    @db.Uuid
+  org        Org       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  domain     String // lowercased; only one org may have it verified at a time
+  verifiedAt DateTime? @db.Timestamptz(6)
+  createdAt  DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@unique([orgId, domain])
+  @@index([domain])
+}
+
+/// Authorization-code + PKCE state: single use, 10 minutes, keyed by the sha256 of the state value (INV-37).
+model SsoState {
+  hash         String   @id
+  orgId        String   @db.Uuid
+  org          Org      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  nonce        String
+  codeVerifier String
+  test         Boolean  @default(false) // the settings page's Test sign-in: validates, writes no session
+  createdAt    DateTime @db.Timestamptz(6)
+  expiresAt    DateTime @db.Timestamptz(6)
+}
+
+/// A provider's stable subject id. Email matches once, at first sign-in; after that the subject is the key,
+/// so an email change at the provider cannot move the sign-in to another account.
+model SsoSubject {
+  issuer    String
+  subject   String
+  userId    String   @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  @@id([issuer, subject])
+  @@index([userId])
+}

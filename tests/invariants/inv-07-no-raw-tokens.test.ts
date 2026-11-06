@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { db } from '@/core/db';
+import { dbSystem as db } from '@/core/db/system'; // fixtures run as the owner role (RLS enforce leg)
 import { requestLink } from '@/core/auth/link';
 import { createInvite } from '@/core/tenancy/invites';
 import { createShareLink } from '@/core/share/links';

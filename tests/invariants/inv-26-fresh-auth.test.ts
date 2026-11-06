@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { onMembershipEnded } from '@/app/org-hooks';
 import { advanceClock } from '@/core/clock';
 import { currentSession, ReauthRequired } from '@/core/auth/session';
 import { deleteAccount, deleteOrg } from '@/core/tenancy/delete';
 import { actAs, addMember, makeOrg } from '../helpers/org';
 import { disableTotp, enrolTotp } from '@/core/auth/totp';
-import { db } from '@/core/db';
+import { dbSystem as db } from '@/core/db/system'; // fixtures run as the owner role (RLS enforce leg)
 import { enrol, makeUser, resetAuthTables, signInAs } from '../helpers/auth';
 
 beforeEach(resetAuthTables);
@@ -41,7 +42,7 @@ describe('INV-26 sensitive changes need a sign-in within 5 minutes', () => {
     const u = await makeUser();
     await signInAs(u.id);
     advanceClock(5 * 60_000 + 1000);
-    await expect(deleteAccount((await currentSession())!, u.email)).rejects.toBeInstanceOf(ReauthRequired);
+    await expect(deleteAccount((await currentSession())!, u.email, onMembershipEnded)).rejects.toBeInstanceOf(ReauthRequired);
     expect(await db.user.count()).toBe(1);
   });
 });

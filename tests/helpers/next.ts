@@ -19,6 +19,8 @@ vi.mock('next/headers', () => ({
   }),
 }));
 vi.mock('next/cache', () => ({ revalidatePath: () => {} }));
+// after() runs once the response is sent; here it is dropped, and a test runs the deferred work itself (buildExport).
+vi.mock('next/server', async (orig) => ({ ...(await orig<object>()), after: () => {} }));
 vi.mock('next/navigation', () => ({
   redirect: (to: string) => {
     throw new NavSignal('redirect', to);

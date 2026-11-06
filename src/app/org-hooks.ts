@@ -1,4 +1,6 @@
+import { revokeKeysCreatedBy } from '@/modules/apikeys/keys'; // apikeys
 import type { ListedOrg } from '@/core/tenancy/listed';
+import type { MembershipEnded } from '@/core/tenancy/orgs';
 
 // Clone-owned, like cron-jobs.ts: what must happen before an org is deleted. Throwing stops the
 // deletion. Removing the billing module deletes the lines marked `// billing`.
@@ -14,3 +16,10 @@ export async function beforeOrgDelete(orgId: string): Promise<void> {
 export async function filterListedOrgs(_userId: string, orgs: readonly ListedOrg[]): Promise<readonly ListedOrg[]> {
   return orgs;
 }
+
+// Clone-owned (v1.6.0): what ends with a membership (removed, left, or account deleted), in the same transaction. The
+// template revokes the API keys the person created (owner decision 2026-11-05, like K6's share links). A clone adds its
+// own per-person credentials here. Throwing stops the removal.
+export const onMembershipEnded: MembershipEnded = async (tx, orgId, userId) => {
+  await revokeKeysCreatedBy(tx, orgId, userId); // apikeys
+};

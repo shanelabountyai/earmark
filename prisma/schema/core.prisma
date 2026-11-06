@@ -22,12 +22,15 @@ model User {
   totpSecretSealed String? // sealSecret(base32, 'totp') — never plaintext (INV-25)
   totpLastStep     BigInt? // replay block (INV-24)
   totpEnrolledAt   DateTime?      @db.Timestamptz(6)
+  lastSignInAt     DateTime?      @db.Timestamptz(6) // the org security page (F-02); survives sign-out, unlike Session
+  lastSignInMethod String? // link | sso | demo
   createdAt        DateTime       @default(now()) @db.Timestamptz(6)
   updatedAt        DateTime       @updatedAt @db.Timestamptz(6)
   memberships      Membership[]
   sessions         Session[]
   loginTokens      LoginToken[]
   recoveryCodes    RecoveryCode[]
+  ssoSubjects      SsoSubject[] // sso
 }
 
 /// Magic-link token. Only sha256 stored; single use; 15 min.
@@ -57,9 +60,13 @@ model Session {
   userId    String    @db.Uuid
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   authAt    DateTime  @db.Timestamptz(6) // when the link was redeemed (INV-26 freshness)
-  mfaAt     DateTime? @db.Timestamptz(6) // when TOTP was verified in this session
+  mfaAt     DateTime? @db.Timestamptz(6) // when TOTP was verified in this session, or an SSO provider asserted MFA
+  mfaOrgId  String?   @db.Uuid // set when mfaAt came from this org's SSO provider (amr includes mfa): counts for that org only
   expiresAt DateTime  @db.Timestamptz(6)
   createdAt DateTime  @db.Timestamptz(6)
+  method     String    @default("link") // link | sso | demo
+  lastSeenAt DateTime? @db.Timestamptz(6) // written at most every 5 minutes (sessionFor)
+  country    String? // ISO code from the edge's IP lookup at sign-in; never the IP itself (addendum §4)
 
   @@index([userId])
 }
@@ -83,7 +90,19 @@ model Org {
   invites        Invite[]
   shareLinks     ShareLink[]
   projects       Project[]
+  exports        OrgExport[]
+  aiUsage        AiUsage[]
+  aiBudget       AiBudget?
+  aiHolds        AiHold[]
+  events         OrgEvent[]
+  eventSeq       Int             @default(0) // the last OrgEvent.seq handed out; only the commit trigger writes it
   // module back-relations: each line ends in its module marker (spec §4)
+  ssoConnection  SsoConnection? // sso
+  ssoDomains     SsoDomain[] // sso
+  ssoStates      SsoState[] // sso
+  apiKeys        ApiKey[] // apikeys
+  webhookEndpoints WebhookEndpoint[] // apikeys
+  webhookDeliveries WebhookDelivery[] // apikeys
 }
 
 model Membership {
@@ -142,6 +161,25 @@ model Project {
   @@index([orgId])
 }
 
+/// A per-org data export (addendum §5): a zip of JSON Lines plus manifest.json, built after the request and by
+/// cron, kept 24 hours. ponytail: the archive lives in Postgres (owner decision, M11), not Vercel Blob; move it
+/// to object storage if a clone's exports grow past a few MB.
+model OrgExport {
+  id            String    @id @default(uuid()) @db.Uuid
+  orgId         String    @db.Uuid
+  org           Org       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  requestedById String    @db.Uuid
+  status        String    @default("pending") // pending | ready | too_large | failed
+  archive       Bytes?
+  sha256        String? // of manifest.json, recorded in the export.* audit events
+  bytes         Int?
+  createdAt     DateTime  @default(now()) @db.Timestamptz(6)
+  readyAt       DateTime? @db.Timestamptz(6)
+  expiresAt     DateTime  @db.Timestamptz(6) // createdAt + 24 h; swept by /api/cron
+
+  @@index([orgId, createdAt])
+}
+
 model RateLimit {
   key         String // "link:ip:1.2.3.4", "link:email:a@b.c", "totp:user:<id>"
   windowStart DateTime @db.Timestamptz(6)
@@ -174,4 +212,67 @@ model CapturedMessage {
   createdAt DateTime @default(now()) @db.Timestamptz(6)
 
   @@index([to, createdAt])
+}
+
+// AI spend guards (addendum §6). AiUsage is a ledger: append-only by convention, summed to check the budget.
+model AiUsage {
+  id           String   @id @default(uuid()) @db.Uuid
+  orgId        String   @db.Uuid
+  org          Org      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  provider     String
+  model        String
+  inputTokens  Int
+  outputTokens Int
+  costMicros   BigInt // integer micro-dollars, never a float
+  feature      String // a clone-chosen label
+  actorId      String?  @db.Uuid // null for a call no user made (cron)
+  createdAt    DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([orgId, createdAt])
+}
+
+// One row per org, created on its first spend with the template default.
+model AiBudget {
+  orgId            String    @id @db.Uuid
+  org              Org       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  monthlyCapMicros BigInt    @default(25000000) // $25.00 (§10.5)
+  hardStop         Boolean   @default(true)
+  alertAtPct       Int       @default(80)
+  pausedAt         DateTime? @db.Timestamptz(6)
+  alertedAt        DateTime? @db.Timestamptz(6) // last alert-threshold email; one per calendar month
+  cappedAt         DateTime? @db.Timestamptz(6) // last cap-reached email; one per calendar month
+  updatedAt        DateTime  @updatedAt @db.Timestamptz(6)
+}
+
+// A call in flight: its worst-case cost, counted against the cap until the real AiUsage row replaces it. A hold left by
+// a crashed call stops counting at expiresAt and is deleted by the next check (§6 as built, hard cap).
+model AiHold {
+  id         String   @id @default(uuid()) @db.Uuid
+  orgId      String   @db.Uuid
+  org        Org      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  costMicros BigInt
+  createdAt  DateTime @default(now()) @db.Timestamptz(6)
+  expiresAt  DateTime @db.Timestamptz(6)
+
+  @@index([orgId, expiresAt])
+}
+
+/// The org's event log (addendum §7): what a clone publishes with emit(), in the same transaction as the change and its
+/// audit line. `seq` is per org, gapless and in commit order, handed out at COMMIT by a deferred trigger (migration
+/// `org_events`), so it is null only inside the writing transaction. The payload is stored once and is the snapshot
+/// every webhook delivery and replay sends. The apikeys module reads it; without the module nothing does.
+model OrgEvent {
+  id        String   @id @default(uuid()) @db.Uuid
+  orgId     String   @db.Uuid
+  org       Org      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  seq       Int?
+  type      String // a name from src/app/event-types.ts, e.g. "project.created"
+  payload   Json
+  key       String? // optional dedupe key: a second emit with the same key in the same org is dropped
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  deliveries WebhookDelivery[] // apikeys
+
+  @@unique([orgId, seq])
+  @@unique([orgId, key])
 }

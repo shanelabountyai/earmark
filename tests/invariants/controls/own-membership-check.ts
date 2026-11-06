@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { z } from 'zod';
 import { type ActionSpec } from '@/core/authz/action';
 import { requireUser } from '@/core/auth/session';
-import { db } from '@/core/db';
+import { dbSystem as db } from '@/core/db/system'; // fixtures run as the owner role (RLS enforce leg)
 
 export const rename = Object.assign(
   async (slug: string) => {
