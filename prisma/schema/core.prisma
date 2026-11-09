@@ -12,6 +12,7 @@ enum Role {
   admin
   member
   scorekeeper
+  guest // Earmark D-02/D-12: agency staff; FOUNDATION_PATCHES.md until upstream
 }
 
 model User {
@@ -103,6 +104,10 @@ model Org {
   apiKeys        ApiKey[] // apikeys
   webhookEndpoints WebhookEndpoint[] // apikeys
   webhookDeliveries WebhookDelivery[] // apikeys
+  earmarkSettings OrgSettings? // app
+  fiscalYears    FiscalYear[] // app
+  agencies       Agency[] // app
+  seats          Seat[] // app
 }
 
 model Membership {
@@ -113,6 +118,9 @@ model Membership {
   role      Role     @default(member)
   createdAt DateTime @default(now()) @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  guestOf   GuestMembership? // app
+  seatHolds SeatHolder[] // app
 
   @@id([orgId, userId])
   @@index([userId])

@@ -1,0 +1,331 @@
+// Earmark's tables (PRD §2). Clone-owned. Every model carries orgId and gets an RLS policy from `npm run rls:policies`.
+// Money is BigInt cents (D-04). Only top-level models reference Org; every child references its parent by the
+// composite (id, orgId), so a row can never point at another org's row: a foreign-key check bypasses RLS, the
+// composite key does not let it matter (D-13). Actor ids (requestedById, decidedById, …) are plain uuids, not
+// foreign keys, so history outlives a deleted user.
+
+enum RequestKind {
+  spend
+  reallocation
+}
+
+enum RequestState {
+  draft
+  submitted
+  approved
+  rejected
+  withdrawn
+}
+
+enum StepDecision {
+  approve
+  reject
+}
+
+enum InvoiceState {
+  submitted
+  matched
+  disputed
+  approved
+  voided
+}
+
+enum MatchVariance {
+  exact
+  under
+  over
+}
+
+/// One per org: currency, fiscal start month, and the live approval rules (D-03, D-14). Seeded from
+/// rules/approval-chains.json; an edit is a row update plus an audit event with before and after.
+model OrgSettings {
+  orgId            String   @id @db.Uuid
+  org              Org      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  currency         String   @default("USD")
+  fiscalStartMonth Int      @default(1)
+  rules            Json
+  updatedAt        DateTime @updatedAt @db.Timestamptz(6)
+}
+
+model FiscalYear {
+  id       String    @id @default(uuid()) @db.Uuid
+  orgId    String    @db.Uuid
+  org      Org       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  label    String
+  startsOn DateTime  @db.Date
+  lockedAt DateTime? @db.Timestamptz(6)
+  periods  Period[]
+  programs Program[]
+
+  @@unique([id, orgId])
+  @@unique([orgId, label])
+}
+
+model Period {
+  id           String         @id @default(uuid()) @db.Uuid
+  orgId        String         @db.Uuid
+  fiscalYearId String         @db.Uuid
+  fiscalYear   FiscalYear     @relation(fields: [fiscalYearId, orgId], references: [id, orgId], onDelete: Cascade)
+  index        Int // 1–12
+  startsOn     DateTime       @db.Date
+  endsOn       DateTime       @db.Date
+  lines        BudgetLine[]
+  notes        VarianceNote[]
+
+  @@unique([id, orgId])
+  @@unique([fiscalYearId, index])
+  @@index([orgId])
+}
+
+model Program {
+  id           String     @id @default(uuid()) @db.Uuid
+  orgId        String     @db.Uuid
+  fiscalYearId String     @db.Uuid
+  fiscalYear   FiscalYear @relation(fields: [fiscalYearId, orgId], references: [id, orgId], onDelete: Cascade)
+  name         String
+  campaigns    Campaign[]
+
+  @@unique([id, orgId])
+  @@index([orgId])
+}
+
+model Campaign {
+  id        String       @id @default(uuid()) @db.Uuid
+  orgId     String       @db.Uuid
+  programId String       @db.Uuid
+  program   Program      @relation(fields: [programId, orgId], references: [id, orgId], onDelete: Cascade)
+  name      String
+  lines     BudgetLine[]
+
+  @@unique([id, orgId])
+  @@index([orgId])
+}
+
+model BudgetLine {
+  id              String         @id @default(uuid()) @db.Uuid
+  orgId           String         @db.Uuid
+  campaignId      String         @db.Uuid
+  campaign        Campaign       @relation(fields: [campaignId, orgId], references: [id, orgId], onDelete: Cascade)
+  periodId        String         @db.Uuid
+  period          Period         @relation(fields: [periodId, orgId], references: [id, orgId], onDelete: Cascade)
+  name            String
+  plannedCents    BigInt
+  ownerSeat       String // the seat that owns the line (PRD §2); the chain's first step resolves through it
+  costCenter      String         @default("")
+  glCode          String         @default("")
+  plannedEditedAt DateTime?      @db.Timestamptz(6) // a replan marker once a commitment exists (PRD §4)
+  carryForward    Boolean        @default(false) // fiscal-year close: takes no new requests
+  requests        SpendRequest[]
+  reallocFrom     Reallocation[] @relation("reallocFrom")
+  reallocTo       Reallocation[] @relation("reallocTo")
+  notes           VarianceNote[]
+
+  @@unique([id, orgId])
+  @@index([orgId])
+}
+
+/// A vendor the client works with (D-01). Guests are tied to one through GuestMembership.
+model Agency {
+  id               String            @id @default(uuid()) @db.Uuid
+  orgId            String            @db.Uuid
+  org              Org               @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  name             String
+  domains          String[] // for guest email matching
+  paymentTermsDays Int               @default(30)
+  activeAt         DateTime          @default(now()) @db.Timestamptz(6)
+  offboardedAt     DateTime?         @db.Timestamptz(6)
+  guests           GuestMembership[]
+  requests         SpendRequest[]
+  commitments      Commitment[]
+  invoices         Invoice[]
+
+  @@unique([id, orgId])
+  @@index([orgId])
+}
+
+/// D-02 / D-12: a `guest` membership's agency, inside that client org. One row per guest Membership, deleted with it.
+/// A guest with no row sees nothing (fail closed).
+model GuestMembership {
+  orgId      String     @db.Uuid
+  userId     String     @db.Uuid
+  membership Membership @relation(fields: [orgId, userId], references: [orgId, userId], onDelete: Cascade)
+  agencyId   String     @db.Uuid
+  agency     Agency     @relation(fields: [agencyId, orgId], references: [id, orgId], onDelete: Cascade)
+  createdAt  DateTime   @default(now()) @db.Timestamptz(6)
+
+  @@id([orgId, userId])
+  @@index([agencyId])
+}
+
+/// A named approver position (PRD §1). Not a role: a chain step names a seat, the seat resolves to people.
+model Seat {
+  id      String       @id @default(uuid()) @db.Uuid
+  orgId   String       @db.Uuid
+  org     Org          @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  name    String
+  holders SeatHolder[]
+
+  @@unique([id, orgId])
+  @@unique([orgId, name])
+}
+
+/// A member holding a seat. Removing the membership removes the holding.
+model SeatHolder {
+  id           String     @id @default(uuid()) @db.Uuid
+  orgId        String     @db.Uuid
+  seatId       String     @db.Uuid
+  seat         Seat       @relation(fields: [seatId, orgId], references: [id, orgId], onDelete: Cascade)
+  userId       String     @db.Uuid
+  membership   Membership @relation(fields: [orgId, userId], references: [orgId, userId], onDelete: Cascade)
+  activeFrom   DateTime   @default(now()) @db.Timestamptz(6)
+  activeTo     DateTime?  @db.Timestamptz(6)
+  delegateToId String?    @db.Uuid
+
+  @@unique([seatId, userId])
+  @@index([orgId])
+}
+
+/// A request to commit money against one line. The chain is evaluated once at submit and frozen (chainSnapshot).
+model SpendRequest {
+  id            String         @id @default(uuid()) @db.Uuid
+  orgId         String         @db.Uuid
+  kind          RequestKind    @default(spend)
+  budgetLineId  String         @db.Uuid
+  budgetLine    BudgetLine     @relation(fields: [budgetLineId, orgId], references: [id, orgId], onDelete: Cascade)
+  agencyId      String?        @db.Uuid
+  agency        Agency?        @relation(fields: [agencyId, orgId], references: [id, orgId], onDelete: Cascade)
+  amountCents   BigInt
+  description   String
+  requestedById String         @db.Uuid
+  state         RequestState   @default(submitted)
+  overBudget    Boolean        @default(false)
+  chainSnapshot Json
+  resubmitsId   String?        @db.Uuid // PRD §3 rule 5: a resubmission links the rejected request
+  submittedAt   DateTime       @default(now()) @db.Timestamptz(6)
+  decidedAt     DateTime?      @db.Timestamptz(6)
+  steps         ApprovalStep[]
+  commitment    Commitment?
+  reallocation  Reallocation?
+
+  @@unique([id, orgId])
+  @@index([orgId, state])
+}
+
+model ApprovalStep {
+  id             String        @id @default(uuid()) @db.Uuid
+  orgId          String        @db.Uuid
+  requestId      String        @db.Uuid
+  request        SpendRequest  @relation(fields: [requestId, orgId], references: [id, orgId], onDelete: Cascade)
+  index          Int
+  seat           String
+  thresholdCents BigInt? // null for the over-budget step
+  source         String // chain | over-budget | override
+  approverIds    String[]      @db.Uuid // resolved at submit, frozen with the chain
+  blocked        Boolean       @default(false)
+  requiresNote   Boolean       @default(false)
+  decidedById    String?       @db.Uuid
+  decision       StepDecision?
+  decidedAt      DateTime?     @db.Timestamptz(6)
+  note           String        @default("")
+
+  @@unique([requestId, index])
+  @@index([orgId])
+}
+
+/// Approved money issued to an agency as a PO. Only an approved request creates one (D-05, E-INV-02: a trigger
+/// refuses any other insert). remainingCents is the one cached number (E-INV-05).
+model Commitment {
+  id             String         @id @default(uuid()) @db.Uuid
+  orgId          String         @db.Uuid
+  requestId      String         @db.Uuid
+  request        SpendRequest   @relation(fields: [requestId, orgId], references: [id, orgId], onDelete: Cascade)
+  agencyId       String         @db.Uuid
+  agency         Agency         @relation(fields: [agencyId, orgId], references: [id, orgId], onDelete: Cascade)
+  poNumber       String
+  amountCents    BigInt
+  remainingCents BigInt
+  issuedAt       DateTime       @default(now()) @db.Timestamptz(6)
+  closedAt       DateTime?      @db.Timestamptz(6)
+  closeReason    String?
+  matches        InvoiceMatch[]
+
+  @@unique([id, orgId])
+  @@unique([requestId, orgId]) // one commitment per request (requestId is a primary key, so this is per request)
+  @@unique([orgId, poNumber])
+  @@index([orgId, agencyId])
+}
+
+model Invoice {
+  id                   String         @id @default(uuid()) @db.Uuid
+  orgId                String         @db.Uuid
+  agencyId             String         @db.Uuid
+  agency               Agency         @relation(fields: [agencyId, orgId], references: [id, orgId], onDelete: Cascade)
+  number               String
+  poNumber             String? // as written on the invoice; the match engine's first tier
+  amountCents          BigInt
+  invoicedOn           DateTime       @db.Date
+  dueOn                DateTime       @db.Date
+  submittedById        String         @db.Uuid
+  state                InvoiceState   @default(submitted)
+  fileRef              String? // a URL the guest pastes (PRD §10.3)
+  approvedForPaymentAt DateTime?      @db.Timestamptz(6)
+  createdAt            DateTime       @default(now()) @db.Timestamptz(6)
+  matches              InvoiceMatch[]
+
+  @@unique([id, orgId])
+  @@unique([orgId, agencyId, number])
+  @@index([orgId, state])
+}
+
+model InvoiceMatch {
+  id           String        @id @default(uuid()) @db.Uuid
+  orgId        String        @db.Uuid
+  invoiceId    String        @db.Uuid
+  invoice      Invoice       @relation(fields: [invoiceId, orgId], references: [id, orgId], onDelete: Cascade)
+  commitmentId String        @db.Uuid
+  commitment   Commitment    @relation(fields: [commitmentId, orgId], references: [id, orgId], onDelete: Cascade)
+  amountCents  BigInt
+  matchedById  String        @db.Uuid
+  matchedAt    DateTime      @default(now()) @db.Timestamptz(6)
+  variance     MatchVariance
+  overage      Boolean       @default(false)
+  note         String        @default("")
+
+  @@index([orgId])
+  @@index([commitmentId])
+}
+
+/// Money moved between two lines, routed through the `reallocation` chain (PRD §2, §10.7).
+model Reallocation {
+  id          String       @id @default(uuid()) @db.Uuid
+  orgId       String       @db.Uuid
+  fromLineId  String       @db.Uuid
+  fromLine    BudgetLine   @relation("reallocFrom", fields: [fromLineId, orgId], references: [id, orgId], onDelete: Cascade)
+  toLineId    String       @db.Uuid
+  toLine      BudgetLine   @relation("reallocTo", fields: [toLineId, orgId], references: [id, orgId], onDelete: Cascade)
+  amountCents BigInt
+  requestId   String       @db.Uuid
+  request     SpendRequest @relation(fields: [requestId, orgId], references: [id, orgId], onDelete: Cascade)
+
+  @@unique([requestId, orgId])
+  @@index([orgId])
+}
+
+/// The explainer's draft and the published note (D-07). A person publishes; the model only drafts.
+model VarianceNote {
+  id            String     @id @default(uuid()) @db.Uuid
+  orgId         String     @db.Uuid
+  budgetLineId  String     @db.Uuid
+  budgetLine    BudgetLine @relation(fields: [budgetLineId, orgId], references: [id, orgId], onDelete: Cascade)
+  periodId      String     @db.Uuid
+  period        Period     @relation(fields: [periodId, orgId], references: [id, orgId], onDelete: Cascade)
+  draft         String
+  published     String?
+  publishedAt   DateTime?  @db.Timestamptz(6)
+  publishedById String?    @db.Uuid
+  aiUsageId     String?    @db.Uuid
+  createdById   String     @db.Uuid
+  createdAt     DateTime   @default(now()) @db.Timestamptz(6)
+
+  @@index([orgId])
+}

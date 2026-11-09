@@ -15,8 +15,9 @@ Synthetic data only. Not deployed in v0.1.
 |---|---|
 | 0 Kickoff | done: cloned from `v1.5.0`, `new-project earmark 7600`, `billing` and `notifications` removed |
 | 1 Engines | done: pure engines in `src/lib/earmark/`, Python oracles in `tools/`, fixtures in `fixtures/`, parity + property + unit tests |
-| 1.5 Upgrade | next: merge foundation `v1.6.0` once tagged (brings the `sso` and `apikeys` modules, row-level security) |
-| 2–5 | see `prd-earmark.md` §7 |
+| 1.5 Upgrade | done: foundation `v1.6.1` merged; `sso` and `apikeys` kept, `RLS_MODE=enforce` |
+| 2 Persistence | done (PR open): `earmark.prisma` (17 tables, all RLS-protected), `guest` role + `GuestMembership`, server actions, E-INV-01..08 |
+| 3–5 | see `prd-earmark.md` §7 |
 
 ## Quickstart (about 10 minutes)
 
@@ -42,13 +43,19 @@ set `PGUSER`/`PGPASSWORD` or `LOCAL_PG_URL_BASE` for a different Postgres. A rea
 |---|---|---|
 | `billing` | removed in Phase 0 | Earmark is sold by contract, not self-serve card (PRD §6) |
 | `notifications` | removed in Phase 0 | alerts go by email through core; no SMS (PRD §6) |
-| `sso` | arrives with foundation v1.6.0 in Phase 1.5 | client staff sign in with their own IdP; guests use magic links |
-| `apikeys` | arrives with foundation v1.6.0 in Phase 1.5 | a client's AP system reads commitments and posts invoices |
+| `sso` | kept (v1.6.0, Phase 1.5) | client staff sign in with their own IdP; guests use magic links |
+| `apikeys` | kept (v1.6.0, Phase 1.5) | a client's AP system reads commitments and posts invoices |
 
 The removal followed the template's "Removing a module" recipe exactly (the paths in `scripts/foundation-modules.ts`
 plus the marked lines); `npm run foundation:check-modules` and `npm run foundation:drift` stay green.
 
-### Row-level security on Neon (optional, `RLS_MODE=enforce`)
+### Row-level security: Earmark runs `RLS_MODE=enforce` everywhere (D-08)
+
+After `npm run db:setup`, point `DATABASE_URL` at the `DATABASE_URL_APP_RW` value and set `RLS_MODE=enforce` in both
+`.env.local` and `.env.test`. Earmark never runs in off mode. After adding an org-owned model, run `npm run rls:policies <timestamp>_rls_policies_<name>`
+and commit the migration; INV-30 fails until you do.
+
+### Row-level security on Neon
 
 `db:setup` gives you two roles locally: the owner (`DATABASE_URL` while RLS is off, `DATABASE_URL_SYSTEM`, `DIRECT_URL`) and
 `<name>_app_rw` with `NOBYPASSRLS` (`DATABASE_URL_APP_RW`). To enforce locally, set `DATABASE_URL` to the app_rw URL and
@@ -93,8 +100,10 @@ commit the migration; INV-30 fails until you do. The pooler accepts an SQL-creat
   runs through both implementations.
 - `src/app/`: routes. `src/app/cron-jobs.ts` is where Earmark's cron work goes (alerts, Phase 3). `src/app/org-hooks.ts` holds
   `beforeOrgDelete` and `filterListedOrgs`.
-- `prisma/schema/`: `core.prisma` (template-owned). Earmark's tables arrive in `earmark.prisma` in Phase 2.
-- `tests/invariants/`: the foundation's security rules as tests. `tests/earmark/`: the engine tests. `tests/fixtures/app.ts` holds the clone's harness rows.
+- `src/earmark/`: persistence (Phase 2). `actions.ts` (every server action, via `orgAction`), `core.ts` (Earmark permissions,
+  the guest scope, `toGuestCommitment`, rules/seats/available loaders), `explainer.ts` (variance explainer under `withBudget`).
+- `prisma/schema/`: `core.prisma` (template-owned; two patched lines, see `FOUNDATION_PATCHES.md`) and `earmark.prisma` (Earmark's 17 tables).
+- `tests/invariants/`: the foundation's security rules as tests. `tests/earmark/`: the engine tests, and `tests/earmark/invariants/` E-INV-01..08. `tests/fixtures/app.ts` holds the clone's harness rows.
 
 ## Staying current
 
