@@ -10,8 +10,6 @@ export const CROSS_ORG_FILES: Readonly<Record<string, string>> = {
   'src/core/auth/link.ts': 'email change revokes invites to the old address in every org (deviation: not in the kickoff list)',
   'src/core/tenancy/export.ts': 'cron builds and sweeps exports in every org; the manifest reads _prisma_migrations',
   'src/core/auth/demo.ts': "demo sign-in lists every demo user's orgs (sign-in)",
-  'src/modules/billing/webhook.ts': 'Stripe webhook: the event names the org',
-  'src/modules/notifications/outbox.ts': 'cron drain and sweep across every org',
   'scripts/seed-demo.ts': 'seed:demo writes several orgs',
   'src/modules/sso/hooks.ts': '/login routing by email domain, the SSO-required link check, domain uniqueness, cron sweep', // sso
   'src/modules/sso/flow.ts': 'the SSO callback: the state row names the org only once it is read', // sso

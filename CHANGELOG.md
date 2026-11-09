@@ -2,6 +2,21 @@
 
 Entries prefixed `security:` are mandatory for anything touching an invariant. Clones must take a `security:` release within 7 days.
 
+## 1.6.1 (2026-11-07)
+
+Fix: `src/core/db/cross-org.ts` listed `src/modules/billing/webhook.ts` and `src/modules/notifications/outbox.ts` without
+their `// billing` / `// notifications` markers, so removing either module left a stale entry and INV-32 ("every listed file
+exists") failed in the clone. Found by Earmark Phase 1.5 (`ci (off)` red on earmark PR #2). The template never saw it because
+`foundation:check-modules` removes modules and runs typecheck, build and drift, not the invariants. Both lines now carry their
+marker, and a new unit test fails if any line in a `MARKED_FILES` file names a module path without that module's marker
+(mutation-checked red). Not `security:`: INV-32 was over-strict in clones, never permissive.
+
+Also: `foundation:status` counted any line containing `security:` as a security entry (it flagged 1.5.0's "Not `security:`").
+It now matches only lines that start with `security:`.
+
+Upgrade: merge, `npm ci`. A clone that removed `billing` or `notifications` deletes the matching marked line(s) in
+`src/core/db/cross-org.ts`, as the "Removing a module" recipe says; `foundation:drift` allows it. No migration, no env change.
+
 ## 1.6.0 (2026-11-06)
 
 **M9: row-level security, opt-in (addendum §2).** `withOrg(ctx, fn)` and `asSystem(fn)` in `src/core/db/rls.ts`; a second

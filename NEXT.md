@@ -1,15 +1,23 @@
 # NEXT
 
-## ▶ Next session: v1.6.0 M14, finish the release (Opus). Waiting only on the owner's review of Pulseboard PR #4.
-State 2026-11-06: PR #12 green on `d06f41c` (off, enforce, modules-removed). Owner's Okta + Google hand checks DONE and
-recorded in CHANGELOG; they found a real bug (Okta ID token has no `email_verified`), fixed via userinfo fallback + INV-35 case.
-Pulseboard PR #4 has the latest template merged (`1d2a4c6`, worktree `~/Projects/pulseboard-pr4`), CI green; D-027 annotated.
-CHANGELOG already has the 1.6.0 upgrade steps (no separate UPGRADING.md; 1.5.0 precedent).
-**On the owner's "approved":** bump `FOUNDATION_VERSION` to v1.6.0, retitle `## Unreleased (1.6.0)` → `## 1.6.0 (<date>)`,
-merge PR #12, tag `v1.6.0`, push the tag to every clone repo in CLONES.md, confirm `foundation:status` in quorum, then the
-kickoff's "After M14" list (Earmark first with `RLS_ENFORCE=1`, then Pulseboard, then foundation-rollout).
-Local: `.env.test` gained `DATABASE_URL_SYSTEM` (test DB); without it tests' system client hit the dev DB. `.env.local`
-`SSO_TEST_OKTA_DOMAIN=example.com` (Okta user `okta-tester@example.com`, admin of Globex in the dev DB).
+## ▶ v1.6.1 (PR open, unmerged): cross-org module markers + status regex
+Earmark Phase 1.5 found INV-32 red in any clone that removed `billing` or `notifications` (unmarked cross-org entries).
+Fixed on branch `v1.6.1`. After the owner merges: tag `v1.6.1`, push the tag to the clones, and roll clones to v1.6.1
+instead of v1.6.0 (every clone that removed billing/notifications would hit the same INV-32 failure on v1.6.0).
+
+## ▶ Next session: v1.6.0 clone rollout (`foundation-rollout` skill; Opus for Pulseboard, its `/ingest` key migration is auth code and stops for the owner)
+**v1.6.0 released 2026-11-06:** PR #12 merged (`b131bc0`), tag `v1.6.0` pushed to the template and to all 15 clone repos
+(the 14 in CLONES.md + earmark). `foundation:status` in quorum: "current v1.4.0, latest v1.6.0" (quorum's folder sits on the
+stale branch `next-v1.4.0-merged`; its `main` is v1.4.1). Okta/Google hand checks done and recorded in CHANGELOG; they found
+and fixed the Okta `email_verified` bug.
+**Order (kickoff "After M14"):** Earmark Phase 1.5 is the owner's (merge v1.6.0, keep `sso` + `apikeys`, `RLS_MODE=enforce`,
+`gh variable set RLS_ENFORCE --body 1 --repo shanelabountyai/earmark`). Claude: Pulseboard first (its proof PR #4 already
+carries v1.6.0, worktree `~/Projects/pulseboard-pr4`), then the v1.4.1 order, one at a time, merge once green. The v1.5.0
+rollout hold is moot: clones go straight to v1.6.0, which carries it.
+**Small bug noticed:** `foundation:status` lists the 1.5.0 line "Not `security:`: ..." as a SECURITY entry (its regex matches
+any line containing `security:`). Fix in the next template patch.
+**Cleanups still owed:** footnote M12 worktree (`git -C ../footnote worktree remove ../footnote-m12 && dropdb footnote_m12_test`)
+once footnote PR #2 is closed; `~/Projects/pulseboard-pr4` once Pulseboard's upgrade merges.
 
 ## ▶ Next session: v1.6.0 M14 (release). Model: Sonnet is enough for the mechanics, but merging RLS/SSO/auth release PR #12 is a phase gate: Opus. Prompt: `docs/v1.6.0-KICKOFF.md`, M14 row + header; read PR #12's M13 section first.
 **Before the tag:** the owner's Okta and Google hand checks (M10, `.env.local` lines 6-8) are still owed, and the Pulseboard proof PR must be reviewed by the owner (addendum §9 M13 gate).

@@ -1,6 +1,7 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { drift, hashOf, patchedHash, type Change } from '../../scripts/foundation-drift';
-import { MODULES, modulesToRemove } from '../../scripts/foundation-modules';
+import { MARKED_FILES, MODULES, modulesToRemove } from '../../scripts/foundation-modules';
 import { portInUse, rewrite } from '../../scripts/new-project';
 
 const none = () => false;
@@ -95,5 +96,29 @@ describe('new-project rewrite', () => {
     expect(portInUse(claudeMd, '4400')).toBe(true);
     expect(portInUse(claudeMd, '4700')).toBe(false); // the next free port must stay pickable
     expect(portInUse(claudeMd, '4800')).toBe(false); // not in the table at all
+  });
+});
+
+// v1.6.1: check-modules removes modules and runs typecheck, build and drift, but not the invariants, so a module
+// reference left unmarked in a MARKED_FILES file survives removal and only fails later in a clone (INV-32 named the
+// deleted billing/notifications files as stale cross-org entries). Every line in a marked file that names a module's
+// path must carry that module's marker, so the removal recipe takes it with the module.
+describe('marked files (v1.6.1)', () => {
+  const marker = (m: string) => new RegExp(`(// ${m}|\\{/\\* ${m} \\*/\\})\\s*$`);
+  const unmarked = (files: { f: string; text: string }[]) =>
+    files.flatMap(({ f, text }) =>
+      text.split('\n').flatMap((line, i) =>
+        Object.keys(MODULES)
+          .filter((m) => line.includes(`modules/${m}/`) || line.includes(`modules/${m}'`) || line.includes(`schema/${m}.prisma`))
+          .filter((m) => !marker(m).test(line))
+          .map((m) => `${f}:${i + 1} names ${m} without // ${m}`),
+      ),
+    );
+  it('every line that names a module path carries that module\'s marker', () => {
+    expect(unmarked(MARKED_FILES.map((f) => ({ f, text: readFileSync(f, 'utf8') })))).toEqual([]);
+  });
+  it('negative control: the v1.6.0 cross-org line without its marker is caught', () => {
+    const planted = [{ f: 'src/core/db/cross-org.ts', text: "  'src/modules/billing/webhook.ts': 'Stripe webhook: the event names the org'," }];
+    expect(unmarked(planted)).toHaveLength(1);
   });
 });
