@@ -56,8 +56,10 @@ describe('INV-27 demo sign-in', () => {
   it('the seed marks only its own users, and re-running it adds none', async () => {
     await db.user.create({ data: { email: 'real@example.test' } });
     await seedDemo();
+    const seeded = await db.user.count({ where: { isDemo: true } }); // seed-agnostic: a clone's seed has its own users
+    expect(seeded).toBeGreaterThanOrEqual(6);
     await seedDemo();
-    expect(await db.user.count({ where: { isDemo: true } })).toBe(6);
+    expect(await db.user.count({ where: { isDemo: true } })).toBe(seeded);
     expect((await db.user.findUniqueOrThrow({ where: { email: 'real@example.test' } })).isDemo).toBe(false);
     expect(await db.user.count({ where: { isDemo: true, totpEnrolledAt: { not: null } } })).toBe(4);
   });

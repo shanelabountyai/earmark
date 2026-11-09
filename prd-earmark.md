@@ -34,6 +34,13 @@ Earmark is build-log #23: a B2B marketing budget and agency-spend governance too
 | D-18 | **The chain's `Budget Owner` step resolves to the holders of the line's `ownerSeat`.** The default `ownerSeat` is `Budget Owner`. | Northwind has four budget owners. A line names which one approves it without a chain per line. |
 | D-19 | **The approval rules are also enforced in the database:**<br>• A trigger refuses a `Commitment` whose request is not approved or whose amount exceeds the request (E-INV-02).<br>• `CHECK`s keep money positive and `remainingCents ≤ amountCents`.<br>**Two ordering and atomicity rules:**<br>• Actions resolve every id before they validate amounts or dates, so a foreign id is always the 404 of a missing one.<br>• Offboarding marks the agency and closes its POs in one transaction (its guests see nothing from that moment), then removes each guest through core's `removeMember`. | Defence in depth for the one control the product exists to enforce. The ordering is what INV-02/03 require of every action. |
 
+**Phase 3 decisions (2026-11-09).**
+
+| Id | Decision | Why |
+| --- | --- | --- |
+| D-20 | **The demo seed is `scripts/seed-earmark.ts`, called from `seed-demo.ts`, and it replants the org's Earmark rows on every run.** Northwind and Contoso replace the template's Acme and Globex. Budget Owner × 4 is one seat per program (`Brand Owner`, `Demand Gen Owner`, …), each line's `ownerSeat` (D-18). The campaign manager (`member@`) also holds `Demand Gen Owner`, so step 4's self-approval refusal is real. Every request runs through the chain engine and every match through `applyMatch`, so the seeded ledger obeys the same rules as live data. INV-27's demo-user count is made seed-agnostic (a `FOUNDATION_PATCHES.md` line). | Replanting keeps frozen approver ids pointing at users that exist after a test truncates the user table. Seeding through the engines means the demo cannot show a state the app could never reach. |
+| D-21 | **Phase 3 ships as seven commits on `phase-3`**: (1) demo seed; (2) dashboard, budget tree and line page with replan marker; (3) request form, chain view, approvals inbox, rules settings; (4) commitments and the guest view, guest invoice submit; (5) invoice match with suggestions, approve-for-payment, variance view and published notes; (6) planning CRUD, seats, reallocation, guest agency at invite; (7) alerts cron and the e2e for demo steps 1–8. Step 8's API half needs Phase 4's scopes, so Phase 3's e2e covers the URL half. | One item per session; each commit leaves the gate green. |
+
 ## 1. Who uses it
 
 Four people inside a client company and one outside it.

@@ -5,7 +5,7 @@ import { seedDemo } from '../scripts/seed-demo';
 // The export itself is refused here (a demo account is shared); INV-34 builds and verifies one against its manifest.
 test.beforeAll(async () => { await seedDemo(); });
 
-for (const [slug, name] of [['acme', 'Acme Studio'], ['globex', 'Globex Labs']] as const) {
+for (const [slug, name] of [['northwind', 'Northwind'], ['contoso', 'Contoso']] as const) {
   test(`settings pages render for the ${name} demo owner`, async ({ page }) => {
     await page.goto('/demo');
     await page.getByRole('button', { name: `owner@${slug}.demo.test` }).click();
