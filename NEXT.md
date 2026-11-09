@@ -6,7 +6,7 @@ Seven commits (D-21 in `prd-earmark.md`). **Done: (1) demo seed** (`scripts/seed
 
 **▶ Next item: (2) dashboard, budget tree and line page.** `/o/[org]` home: planned, committed, actual, available, aged unmatched invoices (rollup engine over the whole org). Program → campaign → line tree. Line page: requests, POs, matches, history with the *replan* marker (`plannedEditedAt`, `isReplan` in `variance.ts`). Demo steps 1–2. Seeded: Northwind `Demand Gen → Paid Social → Q2 Paid Social` carries the replan marker.
 
-Then: (3) request form, chain view, approvals inbox, rules settings → (4) commitments, guest view, guest invoice submit → (5) match with suggestions, approve-for-payment, variance view, published notes → (6) planning CRUD, seats, reallocation, guest agency at invite → (7) alerts cron, e2e demo steps 1–8 (URL half of step 8; the API half is Phase 4).
+Then: (3) request form, chain view, approvals inbox, rules settings → (4) commitments, guest view, guest invoice submit → (5) match with suggestions, approve-for-payment, variance view, published notes → (6) planning CRUD, seats, reallocation, guest agency at invite → (7) alerts cron, e2e demo steps 1–8 with D-22's stand-ins: step 1 via `/demo`, step 6 asserts the event row, step 8 URL half only. Phase 4's gate re-runs 1, 6, 8 for real.
 
 **Seed facts for the e2e:** sign in at `/demo`. Requester `member@northwind.demo.test` also holds Demand Gen Owner (self-approval refusal); `demandgen@` approves Demand Gen lines; `admin@` holds Marketing Ops; `finance@` Finance; Dana is `dana@meridian.demo.test`, guest in both orgs.
 
