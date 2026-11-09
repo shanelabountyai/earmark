@@ -28,7 +28,7 @@ function isoDate(text: string, what: string): Date {
 const json = (v: unknown) => v as Prisma.InputJsonValue;
 
 /** Locks one row of the org for the rest of the transaction, so two decisions or matches on it serialize. */
-const lock = (tx: Tx, table: 'SpendRequest' | 'Commitment', id: string, orgId: string) =>
+const lock = (tx: Tx, table: 'SpendRequest' | 'Commitment' | 'Invoice', id: string, orgId: string) =>
   tx.$queryRawUnsafe(`SELECT 1 FROM "${table}" WHERE id = $1::uuid AND "orgId" = $2::uuid FOR UPDATE`, id, orgId);
 
 // ---------- requests (PRD §3) ----------
@@ -194,6 +194,9 @@ export const matchInvoice = orgAction(
   async (ctx, i) => {
     requirePerm(ctx, 'invoice.match');
     return withOrg(ctx, async (tx) => {
+      // Invoice first, then PO, always in that order: the invoice lock stops one invoice being matched against two POs
+      // at once for more than it billed; the PO lock stops two invoices taking one PO's remaining at once.
+      await lock(tx, 'Invoice', i.invoiceId, ctx.orgId);
       await lock(tx, 'Commitment', i.commitmentId, ctx.orgId);
       const inv = (await tx.invoice.findFirst({ where: { id: i.invoiceId, ...inOrg(ctx) }, include: { matches: { select: { amountCents: true } } } })) ?? notFound();
       const c = (await tx.commitment.findFirst({ where: { id: i.commitmentId, ...inOrg(ctx) } })) ?? notFound();

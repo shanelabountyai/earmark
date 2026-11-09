@@ -155,6 +155,18 @@ describe('E-INV-05: Commitment.remainingCents equals the recomputed value after 
     );
   }, 120_000);
 
+  it('one invoice matched against two POs at the same moment is never matched for more than it billed', async () => {
+    const w = await world('acme');
+    const c1 = await commitmentFor(w, w.agency.id, 500_000n, 'PO-1');
+    const c2 = await commitmentFor(w, w.agency.id, 500_000n, 'PO-2');
+    const inv = await db.invoice.create({ data: { orgId: w.orgId, agencyId: w.agency.id, number: 'N-1', amountCents: 100_000n, invoicedOn: new Date('2026-01-10'), dueOn: new Date('2026-02-09'), submittedById: w.requester.id } });
+    await signInAs(w.ops.id, { mfa: true });
+    const results = await Promise.all([c1, c2].map((c) => matchInvoice(w.slug, { invoiceId: inv.id, commitmentId: c.id, amount: '1,000.00' })));
+    expect(results.filter((r) => r && 'error' in r)).toHaveLength(1);
+    const matched = (await db.invoiceMatch.findMany({ where: { invoiceId: inv.id } })).reduce((a, m) => a + m.amountCents, 0n);
+    expect(matched).toBe(100_000n);
+  });
+
   it('a non-Finance matcher cannot take a commitment below zero', async () => {
     const w = await world('acme');
     const c = await commitmentFor(w, w.agency.id, 100_000n, 'PO-1');
