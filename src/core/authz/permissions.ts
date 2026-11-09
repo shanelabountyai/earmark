@@ -9,6 +9,8 @@ const grants: Record<Role, readonly Permission[]> = {
   member: ['share.create'],
   // D-21: enters and corrects a clone's results and nothing else; core checks results.write nowhere.
   scorekeeper: ['results.write'],
+  // Earmark D-02/D-12: agency staff hold no core permission; Earmark's own checks scope them to one agency.
+  guest: [],
 };
 
 export const can = (role: Role, p: Permission) => grants[role]?.includes(p) ?? false;
