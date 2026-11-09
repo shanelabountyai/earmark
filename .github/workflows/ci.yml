@@ -51,11 +51,11 @@ jobs:
       - name: RLS enforce leg — app role, system URL
         if: matrix.rls == 'enforce'
         run: |
-          psql -d saas_foundation_test -c "CREATE ROLE app_rw LOGIN PASSWORD 'app_rw' NOBYPASSRLS NOSUPERUSER;"
-          psql -d saas_foundation_test -c "GRANT USAGE ON SCHEMA public TO app_rw; GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_rw; GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO app_rw;"
+          psql -d earmark_test -c "CREATE ROLE app_rw LOGIN PASSWORD 'app_rw' NOBYPASSRLS NOSUPERUSER;"
+          psql -d earmark_test -c "GRANT USAGE ON SCHEMA public TO app_rw; GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_rw; GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO app_rw;"
           echo "RLS_MODE=enforce" >> "$GITHUB_ENV"
           echo "DATABASE_URL_SYSTEM=$DATABASE_URL" >> "$GITHUB_ENV"
-          echo "DATABASE_URL=postgresql://app_rw:app_rw@localhost:5432/saas_foundation_test?connection_limit=8&pool_timeout=20" >> "$GITHUB_ENV"
+          echo "DATABASE_URL=postgresql://app_rw:app_rw@localhost:5432/earmark_test?connection_limit=8&pool_timeout=20" >> "$GITHUB_ENV"
       - run: npx vitest run
       # Earmark Phase 1 gate: oracle parity over fixtures/ and >= 95 % coverage of src/lib/earmark (python3 is on the runner)
       - run: npm run test:engines
