@@ -1,6 +1,7 @@
 // One runnable check per finding fixed from the 2026-10-12 review (see CHANGELOG.md, Unreleased).
 import { beforeEach, describe, expect, it } from 'vitest';
-import { db } from '@/core/db';
+import { onMembershipEnded } from '@/app/org-hooks';
+import { dbSystem as db } from '@/core/db/system'; // fixtures run as the owner role (RLS enforce leg)
 import { requestEmailChange } from '@/core/auth/link';
 import { currentSession } from '@/core/auth/session';
 import { LIMITS } from '@/core/rate-limit';
@@ -28,7 +29,7 @@ describe('an invite grants no more than its issuer could grant now', () => {
     const b = await addMember(org.id, 'owner', 'b@example.test');
     await createInvite(await actAs(a.id, org.slug), 'spare@example.test', 'owner');
     const token = await inviteToken('spare@example.test');
-    await removeMember(await actAs(b.id, org.slug), a.id);
+    await removeMember(await actAs(b.id, org.slug), a.id, onMembershipEnded);
 
     const { userId, result } = await accept('spare@example.test', token);
     await expect(result).rejects.toThrow('not valid');

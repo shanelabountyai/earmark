@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { onMembershipEnded } from '@/app/org-hooks';
 import { sessionFor, signOutEverywhere } from '@/core/auth/session';
 import { requireOrg } from '@/core/authz/guards';
 import { removeMember } from '@/core/tenancy/orgs';
@@ -26,7 +27,7 @@ describe('INV-05 membership removal (M3 scope)', () => {
     const owner = await addMember(org.id, 'owner', 'owner@example.test');
     const bob = await addMember(org.id, 'member', 'bob@example.test');
     await actAs(bob.id, org.slug); // admitted now
-    await removeMember(await actAs(owner.id, org.slug), bob.id);
+    await removeMember(await actAs(owner.id, org.slug), bob.id, onMembershipEnded);
     await signInAs(bob.id, { mfa: true });
     await expect(requireOrg(org.slug)).rejects.toMatchObject({ kind: 'notFound' });
   });

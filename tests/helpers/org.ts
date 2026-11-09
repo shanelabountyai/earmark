@@ -1,6 +1,6 @@
 import { requireOrg } from '@/core/authz/guards';
 import { now } from '@/core/clock';
-import { db } from '@/core/db';
+import { dbSystem as db } from '@/core/db/system'; // fixtures run as the owner role (RLS enforce leg)
 import type { Role } from '@/generated/prisma/enums';
 import { signInAs } from './auth';
 

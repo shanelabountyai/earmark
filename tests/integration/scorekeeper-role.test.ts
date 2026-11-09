@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { onMembershipEnded } from '@/app/org-hooks';
 import { AuthzError, requireOrg } from '@/core/authz/guards';
 import { can, type Permission } from '@/core/authz/permissions';
-import { db } from '@/core/db';
+import { dbSystem as db } from '@/core/db/system'; // fixtures run as the owner role (RLS enforce leg)
 import { createInvite } from '@/core/tenancy/invites';
 import { changeRole, removeMember } from '@/core/tenancy/orgs';
 import { Role } from '@/generated/prisma/enums';
@@ -42,7 +43,7 @@ describe('scorekeeper role (D-21)', () => {
     await createInvite(ctx, 'new@example.test', 'scorekeeper');
     await changeRole(ctx, member.id, 'scorekeeper');
     expect(await roleOf(org.id, member.id)).toBe('scorekeeper');
-    await removeMember(ctx, member.id);
+    await removeMember(ctx, member.id, onMembershipEnded);
     expect(await roleOf(org.id, member.id)).toBeNull();
     expect(await db.invite.count({ where: { role: 'scorekeeper', revokedAt: null } })).toBe(1);
   });

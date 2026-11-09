@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { now } from '@/core/clock';
 import { db } from '@/core/db';
+import { asSystem } from '@/core/db/rls';
 import { env } from '@/core/env';
 import { sendEmail } from '@/core/email/transport';
 import { hit, LIMITS } from '@/core/rate-limit';
@@ -8,6 +9,7 @@ import { hashToken, newToken } from '@/core/tokens';
 import { audit } from '@/core/audit';
 import { Refused } from '@/core/errors';
 import { assertFresh, createSession, otherSessions, type SessionCtx } from './session';
+import { ssoRefusesLink } from './sso-hook';
 
 const TTL_MS = 15 * 60_000;
 const COOLDOWN_MS = 60_000;
@@ -31,6 +33,8 @@ export async function requestLink(input: string, ip: string): Promise<void> {
   if (await db.loginToken.count({ where: { email, createdAt: { gt: new Date(t.getTime() - COOLDOWN_MS) } } })) return;
 
   const user = await db.user.findUnique({ where: { email }, select: { id: true } });
+  // SSO-required org (INV-36): no link is sent, and the answer is the same as for any other address.
+  if (user && (await ssoRefusesLink(user.id))) return;
   const token = newToken();
   await db.loginToken.create({
     data: { hash: hashToken(token), purpose: user ? 'login' : 'signup', email, userId: user?.id ?? null, createdAt: t, expiresAt: new Date(t.getTime() + TTL_MS) },
@@ -57,6 +61,8 @@ export async function redeemLink(token: string): Promise<string | null> {
   });
   if (spent.count !== 1) return null;
   const row = await db.loginToken.findUniqueOrThrow({ where: { hash } });
+  // Checked again here: the link may predate the org turning SSO-required on (INV-36).
+  if (row.userId && (await ssoRefusesLink(row.userId))) return null;
   const userId = row.userId ?? (await db.user.upsert({ where: { email: row.email }, create: { email: row.email }, update: {}, select: { id: true } })).id;
   return createSession(userId);
 }
@@ -101,14 +107,16 @@ export async function confirmEmailChange(s: SessionCtx, token: string): Promise<
   if (spent.count !== 1) return false;
   const { email } = await db.loginToken.findUniqueOrThrow({ where: { hash } });
   try {
-    await db.$transaction(async (tx) => {
+    // Cross-org (cross-org.ts): invites to the old address are revoked in every org. Under RLS the app role
+    // would silently match none of them (caught by INV-06 in the enforce leg).
+    await asSystem((sys) => sys.$transaction(async (tx) => {
       await tx.user.update({ where: { id: s.userId }, data: { email } });
       await tx.session.deleteMany({ where: otherSessions(s) });
       // K1: any other unused sign-in link for this account (sent to the old address) dies too.
       await tx.loginToken.updateMany({ where: { userId: s.userId, purpose: { in: ['login', 'signup'] }, usedAt: null }, data: { usedAt: t } });
       await tx.invite.updateMany({ where: { email: s.email, acceptedAt: null, revokedAt: null }, data: { revokedAt: t } });
       await audit({ userId: s.userId }, 'account.email_changed', { targetType: 'user', targetId: s.userId }, tx);
-    });
+    }));
   } catch (e) {
     if ((e as { code?: string }).code === 'P2002') return false; // taken since the link was sent
     throw e;

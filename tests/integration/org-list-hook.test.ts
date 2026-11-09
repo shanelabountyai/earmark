@@ -4,7 +4,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import type { ReactElement } from 'react';
-import { db } from '@/core/db';
+import { dbSystem as db } from '@/core/db/system'; // fixtures run as the owner role (RLS enforce leg)
 import { keepListedOrgs, type ListedOrg, type OrgListFilter } from '@/core/tenancy/listed';
 import { resetAuthTables, signInAs } from '../helpers/auth';
 

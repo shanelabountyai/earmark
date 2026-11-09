@@ -1,5 +1,5 @@
 import { cache } from 'react';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { now } from '@/core/clock';
 import { db } from '@/core/db';
@@ -26,6 +26,7 @@ export type SessionCtx = {
   email: string;
   authAt: Date;
   mfaAt: Date | null;
+  mfaOrgId: string | null; // mfaAt came from this org's SSO provider, and counts only there (addendum §10.2)
   totpEnrolled: boolean;
   isDemo: boolean;
 };
@@ -37,12 +38,30 @@ export class ReauthRequired extends Refused {
   }
 }
 
-export async function createSession(userId: string, opts: { mfa?: boolean } = {}): Promise<string> {
+export type SignInMethod = 'link' | 'sso' | 'demo';
+const SEEN_EVERY_MS = 5 * 60_000;
+
+/** Country only, from the edge's IP lookup (Vercel sets the header); the IP itself is never read (addendum §4). */
+async function requestCountry(): Promise<string | null> {
+  try {
+    return /^[A-Z]{2}$/.exec((await headers()).get('x-vercel-ip-country') ?? '')?.[0] ?? null;
+  } catch {
+    return null; // outside a request (scripts, tests)
+  }
+}
+
+/** `mfaOrgId`: an SSO sign-in whose ID token's `amr` includes `mfa`; it satisfies the MFA rule for that org only. */
+export async function createSession(userId: string, opts: { mfa?: boolean; mfaOrgId?: string; method?: SignInMethod } = {}): Promise<string> {
   const token = newToken();
   const t = now();
-  await db.session.create({
-    data: { hash: hashToken(token), userId, authAt: t, mfaAt: opts.mfa ? t : null, createdAt: t, expiresAt: new Date(t.getTime() + TTL_MS) },
-  });
+  const mfaAt = opts.mfa || opts.mfaOrgId ? t : null;
+  const method = opts.method ?? 'link';
+  await db.$transaction([
+    db.session.create({
+      data: { hash: hashToken(token), userId, authAt: t, mfaAt, mfaOrgId: opts.mfaOrgId ?? null, createdAt: t, lastSeenAt: t, method, country: await requestCountry(), expiresAt: new Date(t.getTime() + TTL_MS) },
+    }),
+    db.user.update({ where: { id: userId }, data: { lastSignInAt: t, lastSignInMethod: method } }),
+  ]);
   return token;
 }
 
@@ -61,7 +80,9 @@ export async function sessionFor(token: string | undefined, e: { DEMO_MODE?: str
   // all, whichever way the session was made: /demo before the flag went off, or a sign-in link (INV-27).
   if (s.user.isDemo && e.DEMO_MODE !== '1') return null;
   if (s.user.totpEnrolledAt && !s.mfaAt && now().getTime() - s.authAt.getTime() > PENDING_MFA_MS) return null;
-  return { hash: s.hash, userId: s.userId, email: s.user.email, authAt: s.authAt, mfaAt: s.mfaAt, totpEnrolled: !!s.user.totpEnrolledAt, isDemo: s.user.isDemo };
+  // At most one write per session per 5 minutes, for the sessions list (addendum §4).
+  if (!s.lastSeenAt || now().getTime() - s.lastSeenAt.getTime() > SEEN_EVERY_MS) await db.session.updateMany({ where: { hash: s.hash }, data: { lastSeenAt: now() } });
+  return { hash: s.hash, userId: s.userId, email: s.user.email, authAt: s.authAt, mfaAt: s.mfaAt, mfaOrgId: s.mfaOrgId, totpEnrolled: !!s.user.totpEnrolledAt, isDemo: s.user.isDemo };
 }
 
 /** One query per request. */
@@ -111,3 +132,23 @@ export async function signOutEverywhere(userId: string) {
 
 /** A TOTP change, a recovery-code use or an email change keeps only this session (INV-23). */
 export const otherSessions = (s: SessionCtx) => ({ userId: s.userId, hash: { not: s.hash } });
+
+/** The user's live sessions for /account/security, newest first; `current` marks the one making this request. */
+export async function listSessions(s: SessionCtx) {
+  const rows = await db.session.findMany({
+    where: { userId: s.userId, expiresAt: { gt: now() } },
+    orderBy: { createdAt: 'desc' },
+    select: { hash: true, createdAt: true, lastSeenAt: true, country: true, method: true },
+  });
+  return rows.map((r) => ({ ...r, current: r.hash === s.hash }));
+}
+
+/**
+ * Signs out one other session (addendum §4): deleting its row is the revocation (INV-05), and the rest hold. The row
+ * key is the token's sha256, which signs no one in (INV-07), so the page can name it. The current session is refused.
+ */
+export async function revokeSession(s: SessionCtx, hash: string) {
+  assertNotDemo(s); // a shared demo account: this would sign out another visitor
+  if (hash === s.hash) throw new Refused('That is this session. Use Sign out instead.');
+  await db.session.deleteMany({ where: { userId: s.userId, hash } });
+}

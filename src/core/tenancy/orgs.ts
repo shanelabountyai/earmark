@@ -1,11 +1,11 @@
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { notFound } from 'next/navigation';
 import { audit } from '@/core/audit';
 import { assertNotDemo, type SessionCtx } from '@/core/auth/session';
 import { AuthzError, type OrgCtx } from '@/core/authz/guards';
 import { mayAssign } from '@/core/authz/permissions';
 import { now } from '@/core/clock';
-import { db } from '@/core/db';
+import { withOrg } from '@/core/db/rls';
 import { Refused } from '@/core/errors';
 import type { Prisma } from '@/generated/prisma/client';
 import { Role } from '@/generated/prisma/enums';
@@ -22,8 +22,10 @@ export async function createOrg(s: SessionCtx, name: string): Promise<string> {
   for (let i = 0; i < 5; i++) {
     const slug = i === 0 ? base : `${base}-${randomBytes(3).toString('hex')}`;
     try {
-      await db.$transaction(async (tx) => {
-        const org = await tx.org.create({ data: { slug, name, memberships: { create: { userId: s.userId, role: 'owner' } } } });
+      // The id is chosen here so the owner membership can be written inside the new org's own scope (RLS).
+      const id = randomUUID();
+      await withOrg({ orgId: id }, async (tx) => {
+        const org = await tx.org.create({ data: { id, slug, name, memberships: { create: { userId: s.userId, role: 'owner' } } } });
         await audit({ orgId: org.id, userId: s.userId }, 'org.created', { targetType: 'org', targetId: org.id }, tx);
       });
       return slug;
@@ -54,7 +56,7 @@ export async function assertOwnerRemains(tx: Tx, orgId: string, losingUserId: st
  */
 async function withMembers(ctx: OrgCtx, userId: string, fn: (tx: Tx, actor: Role, target: Role) => Promise<void>) {
   assertNotDemo(ctx.session);
-  await db.$transaction(async (tx) => {
+  await withOrg(ctx, async (tx) => {
     await lockOrg(tx, ctx.orgId);
     const [actor, target] = await Promise.all(
       [ctx.userId, userId].map((id) => tx.membership.findUnique({ where: { orgId_userId: { orgId: ctx.orgId, userId: id } }, select: { role: true } })),
@@ -87,7 +89,13 @@ export async function changeRole(ctx: OrgCtx, userId: string, role: Role) {
 }
 
 /** Removes a member, or the caller themself (leaving needs no permission). Never the last owner. */
-export async function removeMember(ctx: OrgCtx, userId: string) {
+/**
+ * What else ends with a membership, run in its transaction (the app passes `onMembershipEnded` from org-hooks.ts).
+ * Required, so no caller can forget it: a credential the person made must not outlive their access (K6, owner 2026-11-05).
+ */
+export type MembershipEnded = (tx: Prisma.TransactionClient, orgId: string, userId: string) => Promise<void>;
+
+export async function removeMember(ctx: OrgCtx, userId: string, ended: MembershipEnded) {
   const self = userId === ctx.userId;
   await withMembers(ctx, userId, async (tx, actor, from) => {
     if (!self && !mayAssign(actor, from, null)) throw new AuthzError('members.manage');
@@ -97,6 +105,7 @@ export async function removeMember(ctx: OrgCtx, userId: string) {
     // URL keeps read access to the org's resource after the person who shared it is gone.
     await tx.shareLink.updateMany({ where: { orgId: ctx.orgId, createdById: userId, revokedAt: null }, data: { revokedAt: now() } });
     await revokeInvitesBeyond(tx, ctx.orgId, userId, null);
+    await ended(tx, ctx.orgId, userId);
     await audit(ctx, self ? 'member.left' : 'member.removed', { targetType: 'user', targetId: userId, data: { role: from } }, tx);
   });
 }

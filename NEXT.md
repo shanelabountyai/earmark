@@ -1,5 +1,80 @@
 # NEXT
 
+## ▶ v1.6.1 (PR open, unmerged): cross-org module markers + status regex
+Earmark Phase 1.5 found INV-32 red in any clone that removed `billing` or `notifications` (unmarked cross-org entries).
+Fixed on branch `v1.6.1`. After the owner merges: tag `v1.6.1`, push the tag to the clones, and roll clones to v1.6.1
+instead of v1.6.0 (every clone that removed billing/notifications would hit the same INV-32 failure on v1.6.0).
+
+## ▶ Next session: v1.6.0 clone rollout (`foundation-rollout` skill; Opus for Pulseboard, its `/ingest` key migration is auth code and stops for the owner)
+**v1.6.0 released 2026-11-06:** PR #12 merged (`b131bc0`), tag `v1.6.0` pushed to the template and to all 15 clone repos
+(the 14 in CLONES.md + earmark). `foundation:status` in quorum: "current v1.4.0, latest v1.6.0" (quorum's folder sits on the
+stale branch `next-v1.4.0-merged`; its `main` is v1.4.1). Okta/Google hand checks done and recorded in CHANGELOG; they found
+and fixed the Okta `email_verified` bug.
+**Order (kickoff "After M14"):** Earmark Phase 1.5 is the owner's (merge v1.6.0, keep `sso` + `apikeys`, `RLS_MODE=enforce`,
+`gh variable set RLS_ENFORCE --body 1 --repo shanelabountyai/earmark`). Claude: Pulseboard first (its proof PR #4 already
+carries v1.6.0, worktree `~/Projects/pulseboard-pr4`), then the v1.4.1 order, one at a time, merge once green. The v1.5.0
+rollout hold is moot: clones go straight to v1.6.0, which carries it.
+**Small bug noticed:** `foundation:status` lists the 1.5.0 line "Not `security:`: ..." as a SECURITY entry (its regex matches
+any line containing `security:`). Fix in the next template patch.
+**Cleanups still owed:** footnote M12 worktree (`git -C ../footnote worktree remove ../footnote-m12 && dropdb footnote_m12_test`)
+once footnote PR #2 is closed; `~/Projects/pulseboard-pr4` once Pulseboard's upgrade merges.
+
+## ▶ Next session: v1.6.0 M14 (release). Model: Sonnet is enough for the mechanics, but merging RLS/SSO/auth release PR #12 is a phase gate: Opus. Prompt: `docs/v1.6.0-KICKOFF.md`, M14 row + header; read PR #12's M13 section first.
+**Before the tag:** the owner's Okta and Google hand checks (M10, `.env.local` lines 6-8) are still owed, and the Pulseboard proof PR must be reviewed by the owner (addendum §9 M13 gate).
+
+**M13 done 2026-11-05** (`84d8baa`, `2419b84` on `v1.6.0`, PR #12): `apikeys` module, core `emit` + `OrgEvent`, INV-40/41.
+**Owner decisions:** (1) a member's API keys are revoked when their membership ends (removal, leaving, account deletion), via the
+clone-owned `onMembershipEnded` hook, now a required argument of `removeMember`/`deleteAccount`; (2) retries and page-action events
+ride the **daily** `/api/cron` (kept daily for cost; addendum §7 item 3); (3) Pulseboard reissues its `pk_` write keys as `api_` keys
+(no row copy) with an `ingest` scope at 3,000/min. Deviations: addendum §7 "As built in M13" (13 items). Gate: off 282 + 21 skipped,
+enforce 302 + 1 skipped, e2e enforce 14/14, check-modules passes with all four modules removed; scope, revocation, dedupe and the
+membership hook each mutation-checked red. **Pulseboard proof PR #4** (https://github.com/shanelabountyai/pulseboard/pull/4, unmerged; clone decisions D-025 to D-027): `ci (off)` and
+`modules-removed` green; `ci (enforce)` was red because the template made enforce mandatory for clones. **Fixed in the template**
+(owner, 2026-11-05: enforce is opt-in via repo variable `RLS_ENFORCE=1`; addendum §7 item 14). **Next step:** merge the template's latest
+`v1.6.0` commit into PR #4's branch (in a worktree; Pulseboard's folder is on `foundation-v1.4.0` with draft PR #2 open, leave it), take
+the template `ci.yml` (drop the clone's D-027 if it only records the enforce failure), watch CI green, then the owner reviews the diff.
+Local e2e trap: vitest leaves an org with slug `acme`, and the demo seed then shows no "Acme Studio"; truncate the test DB before e2e.
+
+**M12 done 2026-11-05** (`ef2ce1f`, `55a3390` on `v1.6.0`, PR #12): AI spend guards, INV-39. **Owner decision: hard cap by reservation**
+(`AiHold` under a row lock; the signature gains `maxCostMicros`), addendum §6 "As built in M12". Gate: off 266 + 16 skipped, enforce 281 + 1 skipped,
+e2e enforce 14/14. Proof: footnote PR #2 (`v1.6.0-withbudget-proof`, unmerged), worked in the worktree `~/Projects/footnote-m12` against its own DB
+`footnote_m12_test`, so Shane's uncommitted `CLAUDE.md` edit in `footnote/` is untouched. Remove both once the PR is closed:
+`git -C ../footnote worktree remove ../footnote-m12 && dropdb footnote_m12_test`. INV-34 is red there on purpose (footnote's `CorpusChunk`, `StaffRole`,
+`Answer`, `ApiKey` need export decisions in its real upgrade; `ApiKey` must never be exported whole).
+
+**M11 done 2026-11-05** (`e3f2280` on `v1.6.0`, PR #12): audit viewer, org and account security pages, per-org data export, INV-34.
+Gate: off 254 + 13 skipped, enforce 266 + 1 skipped, e2e enforce 14/14, demo-org exports verify against their manifests,
+check-modules pass. Owner decision: export archives live in Postgres (`OrgExport`, 24 h), not Vercel Blob (addendum §5 "As built in M11", item 1).
+**Still open from M10:** CI on `e3f2280`; owner's Okta and Google hand checks (`.env.local` lines 6-8), due before the M14 tag. Doc sync hazard
+unchanged: never sync the Claude Doc copy of the addendum back to the file.
+
+### (done) M10 handoff, 2026-11-05: Okta app set up (Integrator Free org `integrator-1711217`, redirect `http://localhost:4100/login/sso/callback`)
+
+### (done) M9 handoff, 2026-11-04
+
+**Owner decisions 2026-11-04:** (1) The RLS/SSO/enterprise release is **v1.6.0**, not v1.5.0: v1.5.0 is already tagged (`cdc146b`,
+vitest 5) and pushed tags never move. `docs/v1.6.0-ADDENDUM.md` and `docs/v1.6.0-KICKOFF.md` are renamed and carry a note; the branch
+is `v1.6.0`, the PR "v1.6.0: RLS, SSO, enterprise modules". (2) Claude created the local `app_rw` role (NOBYPASSRLS, no superuser),
+granted DML on `saas_foundation_test` plus default privileges; its URL is `DATABASE_URL_APP_RW` in `.env.test` (gitignored, password
+never printed). M9's `db:setup` takes it over and writes `DATABASE_URL` (app_rw) / `DATABASE_URL_SYSTEM` (owner).
+
+**Kickoff pre-flight:** addendum APPROVED 2026-11-04 (§10: 2 and 3 tightened). Still the owner's: Okta and Google
+`SSO_TEST_*` in `.env.local`, which does not exist yet (needed by M10, not M9). Done: every clone on v1.4.1; `app_rw`.
+
+**Merge rule (owner, 2026-11-04): "merge without me if saas foundation based".** Template release PRs and clone upgrade PRs merge
+once green (v1.6.0's at M14); kickoff, memory and `foundation-rollout` skill all say so. An owner "hold" overrides it.
+
+**v1.5.0 (vitest) clone rollout is ON HOLD** (owner): only tradepost PR #4 open, unmerged. The rest wait for the owner's go;
+`foundation-rollout` skill resumes it. A clone can also skip straight to v1.6.0 later (it carries v1.5.0).
+
+## ▶ 2026-11-04 (later): v1.5.0 released (vitest 5, F-05, `cdc146b`); rolling out to clones under the standing rule
+
+Owner, 2026-11-04: run updates end to end without asking (memory `foundation-updates-autonomous`; procedure in
+`~/.claude/skills/foundation-rollout/SKILL.md`, per-clone agent `~/.claude/agents/clone-upgrader.md`, both user-level so clones
+don't inherit them). v1.5.0: vitest 2.1 -> 5.1, dev only, not `security:`; full `npm audit` 14 -> 8 moderate (lint-only minimatch).
+Clones roll out in batches; housefile goes last (its phase-branch merge is running).
+**ON HOLD (owner, 2026-11-04).** Done: tradepost PR #4 (open, unmerged, CI was pending). Not started: every other clone. Resume only on the owner's go.
+
 ## ▶ 2026-11-04: v1.4.1 is live in every clone. Next item: housefile phase branches (in housefile's folder).
 
 All 13 `security:` v1.4.1 PRs merged by owner request (checks re-verified green before each). Production redeployed: gavel and

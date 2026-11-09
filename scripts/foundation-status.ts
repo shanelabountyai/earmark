@@ -24,6 +24,6 @@ const security: string[] = [];
 for (const line of git('show', `${latest}:CHANGELOG.md`).split('\n')) {
   const h = /^## (v?\d+\.\d+\.\d+)/.exec(line);
   if (h) inRange = newer(h[1]!, current);
-  else if (inRange && /security:/i.test(line)) security.push(line.trim());
+  else if (inRange && /^security:/i.test(line.trim())) security.push(line.trim());
 }
 console.log(security.length ? `SECURITY entries since ${current} (upgrade within 7 days):\n  ${security.join('\n  ')}` : 'no security: entries in between');

@@ -1,7 +1,8 @@
 // One runnable check per LOW finding fixed from audit/FOUNDATION-REVIEW-2026-09-26.md on
 // 2026-09-28 (K1, K2, K5, K6, K13 — see that file for what each is and why it matters).
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { db } from '@/core/db';
+import { onMembershipEnded } from '@/app/org-hooks';
+import { dbSystem as db } from '@/core/db/system'; // fixtures run as the owner role (RLS enforce leg)
 import { now } from '@/core/clock';
 import { clientIp } from '@/core/http';
 import { confirmEmailChange, redeemLink, requestEmailChange } from '@/core/auth/link';
@@ -96,7 +97,7 @@ describe('K6: a share link does not outlive its creator\'s membership', () => {
     const link = await db.shareLink.create({
       data: { orgId: org.id, resourceType: 'project', resourceId: project.id, tokenHash: hashToken(newToken()), createdById: bob.id, expiresAt: new Date(now().getTime() + 86_400_000) },
     });
-    await removeMember(await actAs(owner.id, org.slug), bob.id);
+    await removeMember(await actAs(owner.id, org.slug), bob.id, onMembershipEnded);
     expect((await db.shareLink.findUniqueOrThrow({ where: { id: link.id } })).revokedAt).not.toBeNull();
   });
 });
