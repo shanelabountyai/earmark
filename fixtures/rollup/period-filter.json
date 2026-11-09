@@ -187,13 +187,13 @@
       "org": {
         "lineCount": 3,
         "plannedCents": 17000000,
-        "committedCents": 8500000,
+        "committedCents": 10000000,
         "actualCents": 3500000,
         "unmatchedProvisionCents": 700000,
-        "availableCents": 7800000
+        "availableCents": 6300000
       },
       "unassignedUnmatchedCents": 250000,
-      "orgAvailableCents": 7550000,
+      "orgAvailableCents": 6050000,
       "unmatchedInvoices": [
         {
           "invoiceId": "inv-506"

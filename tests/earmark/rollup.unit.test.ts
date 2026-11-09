@@ -11,7 +11,7 @@ const base: Ledger = {
   ],
   commitments: [
     { id: 'po-1', lineId: 'l1', amountCents: 60000n, state: 'open' },
-    { id: 'po-2', lineId: 'l1', amountCents: 20000n, state: 'closed' },
+    { id: 'po-2', lineId: 'l1', amountCents: 20000n, state: 'closed' }, // counts its 20000 matched (D-23)
     { id: 'po-3', lineId: 'l3', amountCents: 5n, state: 'open' },
   ],
   matches: [
@@ -32,16 +32,16 @@ describe('rollup (PRD §2 derived values, §4)', () => {
   it('derives line, campaign, program and org rows', () => {
     const r = rollup(base);
     expect(r.lines.map((l) => l.lineId)).toEqual(['l1', 'l2', 'l3']);
-    expect(r.lines[0]).toMatchObject({ plannedCents: 100000n, committedCents: 60000n, actualCents: 20000n, unmatchedProvisionCents: 7000n, availableCents: 33000n, overCommitted: false, committedBps: 6000n, actualBps: 2000n, programId: 'p1', campaignId: 'c1' });
+    expect(r.lines[0]).toMatchObject({ plannedCents: 100000n, committedCents: 80000n, actualCents: 20000n, unmatchedProvisionCents: 7000n, availableCents: 13000n, overCommitted: false, committedBps: 8000n, actualBps: 2000n, programId: 'p1', campaignId: 'c1' });
     expect(r.lines[1]).toMatchObject({ committedCents: 0n, actualCents: 0n, availableCents: 50000n, committedBps: 0n });
     expect(r.campaigns).toEqual([
-      { campaignId: 'c1', programId: 'p1', lineCount: 2, plannedCents: 100010n, committedCents: 60005n, actualCents: 20000n, unmatchedProvisionCents: 7001n, availableCents: 33004n },
+      { campaignId: 'c1', programId: 'p1', lineCount: 2, plannedCents: 100010n, committedCents: 80005n, actualCents: 20000n, unmatchedProvisionCents: 7001n, availableCents: 13004n },
       { campaignId: 'c2', programId: 'p1', lineCount: 1, plannedCents: 50000n, committedCents: 0n, actualCents: 0n, unmatchedProvisionCents: 0n, availableCents: 50000n },
     ]);
-    expect(r.programs).toEqual([{ programId: 'p1', lineCount: 3, plannedCents: 150010n, committedCents: 60005n, actualCents: 20000n, unmatchedProvisionCents: 7001n, availableCents: 83004n }]);
-    expect(r.org).toEqual({ lineCount: 3, plannedCents: 150010n, committedCents: 60005n, actualCents: 20000n, unmatchedProvisionCents: 7001n, availableCents: 83004n });
+    expect(r.programs).toEqual([{ programId: 'p1', lineCount: 3, plannedCents: 150010n, committedCents: 80005n, actualCents: 20000n, unmatchedProvisionCents: 7001n, availableCents: 63004n }]);
+    expect(r.org).toEqual({ lineCount: 3, plannedCents: 150010n, committedCents: 80005n, actualCents: 20000n, unmatchedProvisionCents: 7001n, availableCents: 63004n });
     expect(r.unassignedUnmatchedCents).toBe(3000n);
-    expect(r.orgAvailableCents).toBe(80004n);
+    expect(r.orgAvailableCents).toBe(60004n);
     expect(r.unmatchedInvoices).toEqual([
       { invoiceId: 'i3', amountCents: 7000n, lineId: 'l1', ageDays: 14 },
       { invoiceId: 'i4', amountCents: 3000n, lineId: null, ageDays: 0 },
@@ -98,7 +98,7 @@ describe('rollup (PRD §2 derived values, §4)', () => {
   it('rollupToJson writes integers', () => {
     const j = rollupToJson(rollup(base)) as { org: { plannedCents: number }; lines: { committedBps: number | null }[]; unmatchedInvoices: { amountCents: number }[] };
     expect(j.org.plannedCents).toBe(150010);
-    expect(j.lines[0]!.committedBps).toBe(6000);
+    expect(j.lines[0]!.committedBps).toBe(8000);
     expect(j.unmatchedInvoices[0]!.amountCents).toBe(7000);
     expect(JSON.stringify(j)).not.toContain('n"');
   });

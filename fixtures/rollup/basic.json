@@ -1,7 +1,7 @@
 {
   "engine": "rollup",
   "name": "basic",
-  "note": "closed commitments are not committed but their approved matches are actual; pending and rejected matches are not actual; only submitted invoices are provisions",
+  "note": "a closed commitment counts as committed only what was matched to it (D-23); approved matches are actual; pending and rejected matches are not actual; only submitted invoices are provisions",
   "input": {
     "programs": [
       {
@@ -198,12 +198,12 @@
         {
           "lineId": "line-ps-nov",
           "plannedCents": 10000000,
-          "committedCents": 6000000,
+          "committedCents": 7500000,
           "actualCents": 3500000,
           "unmatchedProvisionCents": 700000,
-          "availableCents": 3300000,
+          "availableCents": 1800000,
           "overCommitted": false,
-          "committedBps": 6000,
+          "committedBps": 7500,
           "actualBps": 3500
         },
         {
@@ -228,10 +228,10 @@
           "programId": "prog-demand",
           "lineCount": 2,
           "plannedCents": 18000000,
-          "committedCents": 10000000,
+          "committedCents": 11500000,
           "actualCents": 4000000,
           "unmatchedProvisionCents": 1600000,
-          "availableCents": 6400000
+          "availableCents": 4900000
         },
         {
           "campaignId": "camp-search",
@@ -249,22 +249,22 @@
           "programId": "prog-demand",
           "lineCount": 3,
           "plannedCents": 23000000,
-          "committedCents": 12500000,
+          "committedCents": 14000000,
           "actualCents": 4000000,
           "unmatchedProvisionCents": 1600000,
-          "availableCents": 8900000
+          "availableCents": 7400000
         }
       ],
       "org": {
         "lineCount": 4,
         "plannedCents": 25000000,
-        "committedCents": 12500000,
+        "committedCents": 14000000,
         "actualCents": 4000000,
         "unmatchedProvisionCents": 1600000,
-        "availableCents": 10900000
+        "availableCents": 9400000
       },
       "unassignedUnmatchedCents": 250000,
-      "orgAvailableCents": 10650000,
+      "orgAvailableCents": 9150000,
       "unmatchedInvoices": [
         {
           "invoiceId": "inv-506",

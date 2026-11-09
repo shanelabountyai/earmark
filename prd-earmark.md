@@ -41,6 +41,7 @@ Earmark is build-log #23: a B2B marketing budget and agency-spend governance too
 | D-20 | **The demo seed is `scripts/seed-earmark.ts`, called from `seed-demo.ts`, and it replants the org's Earmark rows on every run.** Northwind and Contoso replace the template's Acme and Globex. Budget Owner × 4 is one seat per program (`Brand Owner`, `Demand Gen Owner`, …), each line's `ownerSeat` (D-18). The campaign manager (`member@`) also holds `Demand Gen Owner`, so step 4's self-approval refusal is real. Every request runs through the chain engine and every match through `applyMatch`, so the seeded ledger obeys the same rules as live data. INV-27's demo-user count is made seed-agnostic (a `FOUNDATION_PATCHES.md` line). | Replanting keeps frozen approver ids pointing at users that exist after a test truncates the user table. Seeding through the engines means the demo cannot show a state the app could never reach. |
 | D-21 | **Phase 3 ships as seven commits on `phase-3`**: (1) demo seed; (2) dashboard, budget tree and line page with replan marker; (3) request form, chain view, approvals inbox, rules settings; (4) commitments and the guest view, guest invoice submit; (5) invoice match with suggestions, approve-for-payment, variance view and published notes; (6) planning CRUD, seats, reallocation, guest agency at invite; (7) alerts cron and the e2e for demo steps 1–8. Step 8's API half needs Phase 4's scopes, so Phase 3's e2e covers the URL half. | One item per session; each commit leaves the gate green. |
 | D-22 | **Phase 3's gate runs steps 1, 6 and 8 with stand-ins, and Phase 4's gate re-runs them for real** (Shane, 2026-11-09). Step 1 signs in through `/demo`, not Google. Step 6 asserts the `commitment.issued` event row is written, not that the webhook reaches the demo receiver. Step 8 checks the URL 404 only, not the API with Contoso's key. Phase 4's e2e covers all three as written. | Google sign-in, webhook delivery and API scopes are Phase 4 work (§7). Writing the stand-ins down keeps the Phase 3 gate from quietly checking less than it says. |
+| D-23 | **A closed PO counts as committed what was matched to it** (pending or approved, not rejected; an overage in full); an open PO counts its amount (Shane, 2026-11-09). Changed in `rollup.ts`, `rollup_oracle.py` and the fixtures together. | The Phase 1 rule counted open POs only, so closing a PO dropped its billed money out of *available*: on the seed, Q2 Paid Social showed its full $225,000 available after $18,000 was billed. Engine and oracle shared the rule, so parity could not catch it; the dashboard on real seed data did. |
 
 ## 1. Who uses it
 
@@ -77,7 +78,7 @@ All tables carry `orgId` and get an RLS policy from `rls:policies`. Amounts are 
 | `VarianceNote` | The explainer's draft and the published note | `budgetLineId`, `periodId`, `draft`, `published?`, `aiUsageId?` |
 | `Seat` / `SeatHolder` | Named approver positions and who holds them | `name`, `userId`, `activeFrom`, `activeTo`, `delegateToId?` |
 
-**Derived, never stored:** committed per line = sum of open commitments; actual per line = sum of approved matches; available = planned − committed − unmatched actuals; rollups to campaign, program and org. `Commitment.remainingCents` is the one cached number, protected by a check that recomputes it in tests (E-INV-05).
+**Derived, never stored:** committed per line = sum of open commitments, plus what was matched to closed ones (D-23); actual per line = sum of approved matches; available = planned − committed − unmatched actuals; rollups to campaign, program and org. `Commitment.remainingCents` is the one cached number, protected by a check that recomputes it in tests (E-INV-05).
 
 **States**
 
@@ -128,7 +129,7 @@ So a $7,500 request stops at Budget Owner; $25,000 adds Marketing Ops ($10k+); $
 ## 4. Money rules
 
 - **Planned** is set per line per period and can be edited until the fiscal year is locked. Edits after the first commitment against a line are allowed but audited and shown as a *replan* marker on the variance view.
-- **Committed** is the sum of open commitments on the line. A commitment cannot exceed the request it came from.
+- **Committed** is the sum of open commitments on the line, plus what was matched to its closed ones: closing a PO releases only the unspent rest (D-23). A commitment cannot exceed the request it came from.
 - **Actual** is the sum of approved invoice matches. An invoice can match several commitments; a commitment can take several invoices. A match that takes a commitment negative is refused unless the matcher holds the Finance seat and adds a note (an *overage*, tracked).
 - **Unmatched invoices** are the control exception: visible on the org dashboard from the moment they are submitted, aged in days, and they count against *available* as a provision so nobody spends money an invoice is already claiming.
 - **Available** = planned − committed − unmatched provision, never below the line's display even when negative.
