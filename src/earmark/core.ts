@@ -5,6 +5,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { notFound } from 'next/navigation';
+import { audit } from '@/core/audit';
 import { inOrg, type OrgCtx } from '@/core/authz/guards';
 import { now } from '@/core/clock';
 import type { Tx } from '@/core/db/rls';
@@ -97,6 +98,36 @@ export function dollars(text: string, what = 'Amount', min: Cents = 1n): Cents {
     if (!(e instanceof MoneyError)) throw e;
   }
   throw new Refused(`${what} must be a ${min > 0n ? 'positive' : 'non-negative'} dollar amount, like 12,000.00.`);
+}
+
+/** A YYYY-MM-DD field, checked in the body after the ids resolve (see submitRequest). */
+export function isoDate(text: string, what: string): Date {
+  const d = new Date(`${text}T00:00:00Z`);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text) || Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== text) throw new Refused(`${what} must be a date (YYYY-MM-DD).`);
+  return d;
+}
+
+// ---------- invoices (PRD §4): one set of rules for the guest form and POST /api/v1/invoices ----------
+
+// `amountCents` is parsed only after the agency resolves: a foreign id must be the notFound, never a validation error (INV-02).
+export type InvoiceInput = { agencyId: string; number: string; poNumber: string; amountCents: () => Cents; invoicedOn: string; dueOn: string; fileRef: string };
+
+/** Files an invoice. `scope` is the guest's agency (`{}` for staff and API keys); `submittedById` the user, or the key's creator. */
+export async function fileInvoice(tx: Tx, ctx: { orgId: string; userId: string | null }, scope: Scope, i: InvoiceInput, submittedById: string) {
+  // A guest's other agency is the same notFound as one that does not exist (E-INV-03). Not a spread of
+  // { id: scope.agencyId }: that would overwrite the id asked for and file the invoice under the guest's own agency.
+  const agency = (await tx.agency.findFirst({ where: { id: i.agencyId, ...inOrg(ctx) } })) ?? notFound();
+  if (scope.agencyId && agency.id !== scope.agencyId) notFound();
+  const amountCents = i.amountCents();
+  const invoicedOn = isoDate(i.invoicedOn, 'Invoice date');
+  const dueOn = isoDate(i.dueOn, 'Due date');
+  if (agency.offboardedAt) throw new Refused(`${agency.name} has been offboarded.`);
+  if (await tx.invoice.findFirst({ where: { ...inOrg(ctx), agencyId: agency.id, number: i.number }, select: { id: true } })) throw new Refused(`Invoice ${i.number} is already in.`);
+  const inv = await tx.invoice.create({
+    data: { ...inOrg(ctx), agencyId: agency.id, number: i.number, poNumber: i.poNumber || null, amountCents, invoicedOn, dueOn, submittedById, fileRef: i.fileRef || null },
+  });
+  await audit(ctx, 'invoice.submitted', { targetType: 'invoice', targetId: inv.id, data: { amountCents: amountCents.toString() } }, tx);
+  return inv;
 }
 
 // ---------- rules (D-03, D-14) ----------

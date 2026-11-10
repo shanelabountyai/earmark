@@ -19,14 +19,8 @@ import { chainToJson, ruleEditToJson } from '@/lib/earmark/cases';
 import { applyDecisions, authorizeRuleEdit, type ChainResult, evaluateChain, parseRules, type RulesJson } from '@/lib/earmark/chain';
 import { applyMatch, FINANCE_SEAT } from '@/lib/earmark/match';
 import { formatUsd } from '@/lib/earmark/money';
-import { dollars, heldSeats, lineAvailable, requirePerm, rulesOf, scopeOf, seatsFor } from './core';
+import { dollars, fileInvoice, heldSeats, isoDate, lineAvailable, requirePerm, rulesOf, scopeOf, seatsFor } from './core';
 
-/** A YYYY-MM-DD form field, checked in the body after the ids resolve (see submitRequest). */
-function isoDate(text: string, what: string): Date {
-  const d = new Date(`${text}T00:00:00Z`);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(text) || Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== text) throw new Refused(`${what} must be a date (YYYY-MM-DD).`);
-  return d;
-}
 const json = (v: unknown) => v as Prisma.InputJsonValue;
 /** After a write, every org page re-renders with it (the action returns a value, so nothing redirects). */
 const refresh = (ctx: OrgCtx) => revalidatePath(`/o/${ctx.slug}`, 'layout');
@@ -235,23 +229,7 @@ export const submitInvoice = orgAction(
   }),
   async (ctx, i) => {
     requirePerm(ctx, 'invoice.submit');
-    const out = await withOrg(ctx, async (tx) => {
-      const scope = await scopeOf(tx, ctx);
-      // A guest's other agency is the same notFound as one that does not exist (E-INV-03). Not a spread of
-      // { id: scope.agencyId }: that would overwrite the id asked for and file the invoice under the guest's own agency.
-      const agency = (await tx.agency.findFirst({ where: { id: i.agencyId, ...inOrg(ctx) } })) ?? notFound();
-      if (scope.agencyId && agency.id !== scope.agencyId) notFound();
-      const amountCents = dollars(i.amount);
-      const invoicedOn = isoDate(i.invoicedOn, 'Invoice date');
-      const dueOn = isoDate(i.dueOn, 'Due date');
-      if (agency.offboardedAt) throw new Refused(`${agency.name} has been offboarded.`);
-      if (await tx.invoice.findFirst({ where: { ...inOrg(ctx), agencyId: agency.id, number: i.number }, select: { id: true } })) throw new Refused(`Invoice ${i.number} is already in.`);
-      const inv = await tx.invoice.create({
-        data: { ...inOrg(ctx), agencyId: agency.id, number: i.number, poNumber: i.poNumber || null, amountCents, invoicedOn, dueOn, submittedById: ctx.userId, fileRef: i.fileRef || null },
-      });
-      await audit(ctx, 'invoice.submitted', { targetType: 'invoice', targetId: inv.id, data: { amountCents: amountCents.toString() } }, tx);
-      return { id: inv.id, number: inv.number };
-    });
+    const out = await withOrg(ctx, async (tx) => fileInvoice(tx, ctx, await scopeOf(tx, ctx), { ...i, amountCents: () => dollars(i.amount) }, ctx.userId));
     refresh(ctx);
     return { id: out.id, notice: `Invoice ${out.number} submitted; it is listed below.` };
   },

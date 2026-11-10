@@ -6,9 +6,13 @@ Five commits (D-31 in `prd-earmark.md`).
 
 **(1) done:** SSO. `seed:demo` turns Require SSO on for both demo orgs. Guests are exempt from it (D-32), which needed a template patch to `src/modules/sso/hooks.ts`, listed in `FOUNDATION_PATCHES.md`. The cross-org line for D-30's `alerts.ts` was never excused, so drift had been red since `14ff5d5`; it is excused now. Tests: `tests/earmark/invariants/sso.test.ts`; `e2e/enterprise.spec.ts` covers step 1 for real (the mock IdP stands in for Google), step 7's link half, and step 12. Full sweep: 22/22.
 
-**▶ Next: (2) API.** Add the `invoices` scope to `src/app/api-scopes.ts`. Add `GET /api/v1/commitments/[id]` (scope `read`, guest-safe projection, an identical 404 body for a foreign or missing id) and `POST /api/v1/invoices` (scope `invoices`, `idempotent`, the same rules as the guest submit action). Template pattern: `src/app/api/v1/projects/route.ts`. Then step 8's API half in `e2e/enterprise.spec.ts`: Contoso's key on a Northwind PO id returns the same 404 body as a nonexistent id.
+**(2) done:** API (D-33). The `invoices` scope; `GET /api/v1/commitments/[id]` (guest projection, one 404 body for foreign or missing); `POST /api/v1/invoices` through `fileInvoice` in `src/earmark/core.ts`, shared with the guest form. Tests: `tests/earmark/invariants/api.test.ts`; `e2e/enterprise.spec.ts` step 8's API half (the key is planted: demo accounts cannot mint keys). The `notFound()` test mock now carries Next's real digest, so the API's 404 mapping is exercised in vitest. Step 7's link test now deletes Dana's tokens first: `link.ts`'s 60s per-address cooldown swallowed the request on back-to-back sweeps. Gate: unit 519 + 1 skipped = 520, e2e 23/23 twice back to back.
 
-**Then:** (3) a demo webhook receiver plus step 6 for real; (4) the explainer action (plain `fetch` to the Messages API on `claude-haiku-5-5`, a fixed-usage stub when `ANTHROPIC_API_KEY` is unset; the seed plants AI usage so the fourth draft is refused) plus step 10; (5) e2e steps 11, 13 and 14. Steps 9 and 12 are already done. Gate (§7): the manual Google and Okta sign-ins, recorded in `docs/DEMO.md`, are Shane's.
+**▶ Next: (3) webhooks.** A demo webhook receiver plus demo step 6 for real (the `commitment.issued` delivery reaches it, not just the event row).
+
+**For `docs/DEMO.md` (step 8 live):** the shared demo owner cannot create an API key, so the live demo needs a key minted another way (a non-demo owner, or a seed-printed key). Decide when DEMO.md is written.
+
+**Then:** (4) the explainer action (plain `fetch` to the Messages API on `claude-haiku-5-5`, a fixed-usage stub when `ANTHROPIC_API_KEY` is unset; the seed plants AI usage so the fourth draft is refused) plus step 10; (5) e2e steps 11, 13 and 14. Steps 9 and 12 are already done. Gate (§7): the manual Google and Okta sign-ins, recorded in `docs/DEMO.md`, are Shane's.
 
 **Not built in Phase 3, on purpose (D-26):** rename/delete of plan rows; fiscal-year close/lock with carry-forward (nothing sets `lockedAt` yet).
 

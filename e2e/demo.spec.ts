@@ -70,7 +70,7 @@ test('steps 3–5: frozen chain, self-approval refused, rule edit applies only t
 });
 
 // Demo step 7, and step 8's URL half (D-22): Dana invoices a Meridian PO in Northwind; the same PO id under Contoso's
-// slug is a 404. The API half with Contoso's key is Phase 4.
+// slug is a 404. The API half with Contoso's key is in enterprise.spec.ts.
 test('steps 7–8: a guest invoices her PO; the same id under another client is a 404', async ({ browser }) => {
   const number = `MER-E2E-${Date.now()}`;
   const dana = await as(browser, 'dana@meridian.demo.test');

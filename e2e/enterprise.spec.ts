@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { sealSecret } from '../src/core/auth/secret-box';
+import { hashToken, newToken } from '../src/core/tokens';
 import { dbSystem as db } from '../src/core/db/system';
 import { startOidcMock, type OidcMock } from '../tests/helpers/oidc-mock';
 
@@ -43,11 +44,11 @@ test('step 1: Northwind staff sign in through the provider and land on the dashb
 
 test('step 7 (link half): with Require SSO on, Dana the guest still gets a magic link', async ({ page }) => {
   const email = 'dana@meridian.demo.test';
-  const before = await db.loginToken.count({ where: { email } });
+  await db.loginToken.deleteMany({ where: { email } }); // link.ts's 60s per-address cooldown would swallow a rerun's request
   await page.goto('/login');
   await page.getByLabel('Email').fill(email);
   await page.getByRole('button', { name: 'Email me a link' }).click();
-  await expect.poll(() => db.loginToken.count({ where: { email } })).toBe(before + 1);
+  await expect.poll(() => db.loginToken.count({ where: { email } })).toBe(1);
 });
 
 test('step 12: the security page shows who signs in by SSO and that SSO is required', async ({ page }) => {
@@ -56,4 +57,23 @@ test('step 12: the security page shows who signs in by SSO and that SSO is requi
   await page.goto('/o/northwind/settings/security');
   await expect(page.getByRole('row', { name: new RegExp(STAFF) })).toContainText('SSO');
   await expect(page.locator('main')).toContainText('On. Required: yes.');
+});
+
+// Step 8's API half (D-22, D-31): Northwind's PO id through Contoso's read key gets the same 404 body as an id that does
+// not exist. The key is planted, as the SSO rows are: the shared demo account cannot mint keys (keys.ts assertNotDemo).
+test("step 8 (API half): Contoso's key on a Northwind PO id gets the same 404 body as a missing id", async ({ request }) => {
+  const po = await db.commitment.findFirstOrThrow({ where: { orgId }, select: { id: true } });
+  const contoso = await db.org.findUniqueOrThrow({ where: { slug: 'contoso' }, select: { id: true } });
+  const owner = await db.user.findUniqueOrThrow({ where: { email: 'owner@contoso.demo.test' }, select: { id: true } });
+  const key = `api_${newToken()}`; // keys.ts KEY_PREFIX
+  const k = await db.apiKey.create({ data: { orgId: contoso.id, label: 'e2e step 8', scopes: ['read'], prefix: key.slice(0, 10), keyHash: hashToken(key), createdById: owner.id } });
+  try {
+    const get = (id: string) => request.get(`/api/v1/commitments/${id}`, { headers: { authorization: `Bearer ${key}` } });
+    const foreign = await get(po.id);
+    const missing = await get(crypto.randomUUID());
+    expect(foreign.status()).toBe(404);
+    expect([missing.status(), await missing.text()]).toEqual([foreign.status(), await foreign.text()]);
+  } finally {
+    await db.apiKey.delete({ where: { id: k.id } });
+  }
 });
