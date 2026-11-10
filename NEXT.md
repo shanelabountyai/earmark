@@ -1,6 +1,6 @@
 # NEXT — Earmark
 
-## ▶ Now: Phase 3 complete on `phase-3`, PR to open (off `main` after PR #3 merged 2026-11-09). Model: Opus.
+## ▶ Now: Phase 3 complete; PR #4 (`phase-3` → `main`) open, CI green 3/3, waiting on Shane's merge (off `main` after PR #3 merged 2026-11-09). Model: Opus.
 
 Seven commits (D-21 in `prd-earmark.md`). **Done: (1) demo seed** (D-20); **(2) dashboard, budget tree, line page** (D-23); **(3) requests, chain view, approvals inbox, rules settings** (D-24); **(4) commitments, guest view, guest invoice submit**; **(5) match, approve-for-payment, variance view, published notes** (D-25): `/o/[org]/invoices` (to match / to approve queues), `/o/[org]/invoices/[id]` (ranked suggestions with reasons, match form, Finance-only *Approve for payment* emitting `invoice.approved_for_payment`), `/o/[org]/variance` (per period, replan marker, latest published note), publish form on the line page. Demo step 9 is e2e in `e2e/demo.spec.ts`; tests in `tests/earmark/invariants/payment.test.ts`.
 
@@ -8,7 +8,7 @@ Seven commits (D-21 in `prd-earmark.md`). **Done: (1) demo seed** (D-20); **(2) 
 
 **(7) done:** alerts cron (`src/earmark/alerts.ts`, `rules/alerts.json`, D-30) and e2e demo steps 1, 2, 6 with D-22's stand-ins. `e2e/demo.spec.ts` now covers steps 1–9 (step 8's URL half); full sweep 19/19.
 
-**▶ Next: the Phase 3 gate is green: open the PR `phase-3` → `main`** (seven items, D-20 to D-30), watch CI, merge. Then Phase 4 (enterprise wiring, PRD §8): SSO for the two demo orgs, apikeys scopes and events, `export-hooks.ts`, the variance explainer action under `withBudget` (it should hand its draft to `publishVarianceNote`'s draft row), audit viewer checks; e2e steps 9–14 and the real re-runs of 1, 6, 8.
+**▶ Next: Shane merges PR #4** (https://github.com/shanelabountyai/earmark/pull/4; the auto-mode classifier refuses an unreviewed merge). Then branch `phase-4` off `main`. Then Phase 4 (enterprise wiring, PRD §8): SSO for the two demo orgs, apikeys scopes and events, `export-hooks.ts`, the variance explainer action under `withBudget` (it should hand its draft to `publishVarianceNote`'s draft row), audit viewer checks; e2e steps 9–14 and the real re-runs of 1, 6, 8.
 
 **Not built in Phase 3, on purpose (D-26):** rename/delete of plan rows; fiscal-year close/lock with carry-forward (nothing sets `lockedAt` yet).
 
