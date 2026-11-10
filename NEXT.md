@@ -4,9 +4,11 @@
 
 Seven commits (D-21 in `prd-earmark.md`). **Done: (1) demo seed** (D-20); **(2) dashboard, budget tree, line page** (D-23); **(3) requests, chain view, approvals inbox, rules settings** (D-24); **(4) commitments, guest view, guest invoice submit**; **(5) match, approve-for-payment, variance view, published notes** (D-25): `/o/[org]/invoices` (to match / to approve queues), `/o/[org]/invoices/[id]` (ranked suggestions with reasons, match form, Finance-only *Approve for payment* emitting `invoice.approved_for_payment`), `/o/[org]/variance` (per period, replan marker, latest published note), publish form on the line page. Demo step 9 is e2e in `e2e/demo.spec.ts`; tests in `tests/earmark/invariants/payment.test.ts`.
 
-**▶ Next item: (6) planning CRUD, seats, reallocation, guest agency at invite.** Planning CRUD: fiscal year, programs, campaigns, lines, planned edits setting `plannedEditedAt` (the replan marker reads it). Seats: holders, active windows, delegation (`SeatHolder.delegateToId`). Reallocation: `Reallocation` table and the `reallocation` chain exist in the rules. Guest agency at invite: `assignGuestAgency` after accept (template owns invite accept).
+**(6) done in four commits:** planning (`/plan`, planned edits on the line page, D-26), seats (`/settings/seats`, owner only, D-27), reallocation (line page form, `reallocation` chain, planned moves on approval, D-28), guest agency binding and agencies (`/settings/agencies`, D-29). Tests: `tests/earmark/invariants/{planning,seats,reallocation,agencies}.test.ts`.
 
-Then: (7) alerts cron, e2e demo steps 1, 2, 6 with D-22's stand-ins: step 1 via `/demo`, step 6 asserts the event row. Phase 4's gate re-runs 1, 6, 8 for real.
+**▶ Next item: (7) alerts cron and e2e demo steps 1, 2, 6** with D-22's stand-ins: step 1 via `/demo`, step 6 asserts the `commitment.issued` event row. Alerts are data in `rules/alerts.json` (PRD §4): committed reaches 80 % of planned; actual reaches 100 %; an invoice unmatched 14 days; an agency's invoices exceed its open commitments. Each emails the line's owner seat; register the job in `cron-jobs.ts`. Phase 4's gate re-runs 1, 6, 8 for real. After (7): Phase 3 gate (e2e demo steps 1–8 pass), PR `phase-3` → `main`.
+
+**Not built in Phase 3, on purpose (D-26):** rename/delete of plan rows; fiscal-year close/lock with carry-forward (nothing sets `lockedAt` yet).
 
 **UI pattern learned in (5):** a form whose success removes it from the page (fully matched → suggestions vanish; approved → approve button vanishes) loses its `notice`. Assert the page's new state in e2e, not the notice.
 

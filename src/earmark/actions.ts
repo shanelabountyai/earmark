@@ -504,7 +504,7 @@ export const clearDelegation = orgAction(null, z.object({ seatId: ref('seat'), u
 /** Ties a `guest` member to one agency in this org (D-12). Phase 3 binds it at invite time. */
 export const assignGuestAgency = orgAction(null, z.object({ userId: ref('member'), agencyId: ref('agency') }), async (ctx, i) => {
   requirePerm(ctx, 'agency.manage');
-  return withOrg(ctx, async (tx) => {
+  await withOrg(ctx, async (tx) => {
     const m = (await tx.membership.findFirst({ where: { userId: i.userId, ...inOrg(ctx) } })) ?? notFound();
     const agency = (await tx.agency.findFirst({ where: { id: i.agencyId, ...inOrg(ctx) } })) ?? notFound();
     if (m.role !== 'guest') throw new Refused('Only a guest can be tied to an agency.');
@@ -512,6 +512,22 @@ export const assignGuestAgency = orgAction(null, z.object({ userId: ref('member'
     await tx.guestMembership.upsert({ where: { orgId_userId: { orgId: ctx.orgId, userId: m.userId } }, create: { ...inOrg(ctx), userId: m.userId, agencyId: agency.id }, update: { agencyId: agency.id } });
     await audit(ctx, 'guest.agency.assigned', { targetType: 'user', targetId: m.userId, data: { agencyId: agency.id } }, tx);
   });
+  refresh(ctx);
+  return { notice: 'Guest tied to the agency.' };
+});
+
+/** An agency the client works with; `domains` are its email domains, used to suggest a new guest's agency (D-29). */
+export const createAgency = orgAction(null, z.object({ name, domains: z.string().max(500).default('') }), async (ctx, i) => {
+  requirePerm(ctx, 'agency.manage');
+  const domains = [...new Set(i.domains.split(/[\s,]+/).map((d) => d.trim().toLowerCase().replace(/^@/, '')).filter(Boolean))];
+  if (domains.some((d) => !/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(d))) throw new Refused('Domains look like meridian.com, separated by commas.');
+  await withOrg(ctx, async (tx) => {
+    if (await tx.agency.findFirst({ where: { ...inOrg(ctx), name: i.name }, select: { id: true } })) throw new Refused(`${i.name} already exists.`);
+    const a = await tx.agency.create({ data: { ...inOrg(ctx), name: i.name, domains } });
+    await audit(ctx, 'agency.created', { targetType: 'agency', targetId: a.id, data: { name: a.name, domains } }, tx);
+  });
+  refresh(ctx);
+  return { notice: `${i.name} added.` };
 });
 
 /**
@@ -531,5 +547,6 @@ export const offboardAgency = orgAction(null, z.object({ agencyId: ref('agency')
     return tx.guestMembership.findMany({ where: { ...inOrg(ctx), agencyId: agency.id }, select: { userId: true } });
   });
   for (const g of guests) await removeMember(ctx, g.userId, onMembershipEnded);
-  return { guestsRemoved: guests.length };
+  refresh(ctx);
+  return { guestsRemoved: guests.length, notice: `Offboarded; ${guests.length} guest${guests.length === 1 ? '' : 's'} removed.` };
 });

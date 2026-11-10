@@ -226,7 +226,7 @@ describe('E-INV-07: offboarding an agency revokes its guests in that client only
     await signInAs(dana.id);
     await expect(requireOrg('northwind')).resolves.toMatchObject({ role: 'guest' });
 
-    expect(await as(n.owner.id, () => offboardAgency(n.slug, { agencyId: n.agency.id }))).toEqual({ guestsRemoved: 1 });
+    expect(await as(n.owner.id, () => offboardAgency(n.slug, { agencyId: n.agency.id }))).toMatchObject({ guestsRemoved: 1 });
 
     await signInAs(dana.id);
     expect(JSON.parse(await outcome(requireOrg('northwind')))).toMatchObject({ nav: 'notFound' });
