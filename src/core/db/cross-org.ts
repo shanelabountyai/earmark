@@ -16,4 +16,5 @@ export const CROSS_ORG_FILES: Readonly<Record<string, string>> = {
   'src/modules/apikeys/keys.ts': 'an API key names its org: the hashed-key lookup runs before any org is known', // apikeys
   'src/modules/apikeys/webhooks.ts': 'webhook fan-out and delivery: the cron sweep crosses every org', // apikeys
   // clone entries below
+  'src/earmark/alerts.ts': 'the alerts cron reads every org with budget lines, then works inside each with withOrg (PRD §4, D-30)',
 };

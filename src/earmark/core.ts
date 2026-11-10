@@ -146,7 +146,7 @@ const matchState = (s: InvoiceState): MatchState => (s === 'approved' ? 'approve
  * counted, and the lines carrying the replan marker. `orgWide` also counts submitted invoices that name no PO of
  * these lines (the dashboard); without it only invoices naming one of their POs count (a line's available).
  */
-export async function ledgerOf(tx: Tx, ctx: OrgCtx, where: Prisma.BudgetLineWhereInput, opts: { orgWide?: boolean } = {}) {
+export async function ledgerOf(tx: Tx, ctx: Pick<OrgCtx, 'orgId'>, where: Prisma.BudgetLineWhereInput, opts: { orgWide?: boolean } = {}) {
   const lines = await tx.budgetLine.findMany({ where: { ...where, ...inOrg(ctx) }, select: { id: true, campaignId: true, periodId: true, plannedCents: true, plannedEditedAt: true, campaign: { select: { programId: true } } } });
   const commitments = await tx.commitment.findMany({
     where: { ...inOrg(ctx), request: { budgetLineId: { in: lines.map((l) => l.id) } } },

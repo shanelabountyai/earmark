@@ -1,12 +1,14 @@
 # NEXT — Earmark
 
-## ▶ Now: Phase 3 on `phase-3` (off `main` after PR #3 merged 2026-11-09). Model: Opus.
+## ▶ Now: Phase 3 complete on `phase-3`, PR to open (off `main` after PR #3 merged 2026-11-09). Model: Opus.
 
 Seven commits (D-21 in `prd-earmark.md`). **Done: (1) demo seed** (D-20); **(2) dashboard, budget tree, line page** (D-23); **(3) requests, chain view, approvals inbox, rules settings** (D-24); **(4) commitments, guest view, guest invoice submit**; **(5) match, approve-for-payment, variance view, published notes** (D-25): `/o/[org]/invoices` (to match / to approve queues), `/o/[org]/invoices/[id]` (ranked suggestions with reasons, match form, Finance-only *Approve for payment* emitting `invoice.approved_for_payment`), `/o/[org]/variance` (per period, replan marker, latest published note), publish form on the line page. Demo step 9 is e2e in `e2e/demo.spec.ts`; tests in `tests/earmark/invariants/payment.test.ts`.
 
 **(6) done in four commits:** planning (`/plan`, planned edits on the line page, D-26), seats (`/settings/seats`, owner only, D-27), reallocation (line page form, `reallocation` chain, planned moves on approval, D-28), guest agency binding and agencies (`/settings/agencies`, D-29). Tests: `tests/earmark/invariants/{planning,seats,reallocation,agencies}.test.ts`.
 
-**▶ Next item: (7) alerts cron and e2e demo steps 1, 2, 6** with D-22's stand-ins: step 1 via `/demo`, step 6 asserts the `commitment.issued` event row. Alerts are data in `rules/alerts.json` (PRD §4): committed reaches 80 % of planned; actual reaches 100 %; an invoice unmatched 14 days; an agency's invoices exceed its open commitments. Each emails the line's owner seat; register the job in `cron-jobs.ts`. Phase 4's gate re-runs 1, 6, 8 for real. After (7): Phase 3 gate (e2e demo steps 1–8 pass), PR `phase-3` → `main`.
+**(7) done:** alerts cron (`src/earmark/alerts.ts`, `rules/alerts.json`, D-30) and e2e demo steps 1, 2, 6 with D-22's stand-ins. `e2e/demo.spec.ts` now covers steps 1–9 (step 8's URL half); full sweep 19/19.
+
+**▶ Next: the Phase 3 gate is green: open the PR `phase-3` → `main`** (seven items, D-20 to D-30), watch CI, merge. Then Phase 4 (enterprise wiring, PRD §8): SSO for the two demo orgs, apikeys scopes and events, `export-hooks.ts`, the variance explainer action under `withBudget` (it should hand its draft to `publishVarianceNote`'s draft row), audit viewer checks; e2e steps 9–14 and the real re-runs of 1, 6, 8.
 
 **Not built in Phase 3, on purpose (D-26):** rename/delete of plan rows; fiscal-year close/lock with carry-forward (nothing sets `lockedAt` yet).
 

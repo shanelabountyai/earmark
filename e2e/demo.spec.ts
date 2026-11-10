@@ -1,4 +1,5 @@
 import { type Browser, expect, type Page, test } from '@playwright/test';
+import { dbSystem } from '../src/core/db/system';
 
 // INV-27, flag-on half (the flag-off half is tests/invariants/inv-27-demo.test.ts). playwright.config.ts starts the
 // server with DEMO_MODE=1; e2e/global-setup.ts seeds the same database once per sweep.
@@ -123,4 +124,38 @@ test('step 9: match to the ranked suggestion, approve for payment, variance view
   await expect(finance.locator('dl[aria-label="Invoice"]')).toContainText('Statusapproved');
   await finance.getByRole('navigation').getByRole('link', { name: 'Variance' }).click();
   await expect(finance.getByRole('heading', { name: 'Variance' })).toBeVisible();
+});
+
+// Demo steps 1, 2 and 6 with D-22's stand-ins: step 1 signs in through /demo, not Google; step 6 asserts the
+// commitment.issued event row, not the webhook reaching the demo receiver. Phase 4 re-runs both for real.
+test('step 1: the dashboard shows the four totals and the aged unmatched invoices', async ({ browser }) => {
+  const owner = await as(browser, 'owner@northwind.demo.test');
+  for (const t of ['Planned', 'Committed', 'Actual', 'Available']) await expect(owner.locator('main')).toContainText(t);
+  await expect(owner.getByRole('heading', { name: /^Unmatched invoices \(\d+\)$/ })).toBeVisible();
+});
+
+test('step 2: Demand Gen → Q2 Paid Social shows its history with the replan marker', async ({ browser }) => {
+  const owner = await as(browser, 'owner@northwind.demo.test');
+  await owner.getByRole('link', { name: 'Q2 Paid Social' }).first().click();
+  await expect(owner.getByRole('heading', { level: 1 })).toContainText('Q2 Paid Social');
+  await expect(owner.getByRole('heading', { level: 1 }).getByText('Replan')).toBeVisible();
+  await expect(owner.getByRole('list', { name: 'Line history' })).toContainText('Planned edited to');
+});
+
+test('step 6: the last approval issues a PO and writes the commitment.issued event', async ({ browser }) => {
+  const what = `Launch PO ${Date.now()}`;
+  const member = await as(browser, 'member@northwind.demo.test');
+  const url = await submit(member, what);
+  // Budget Owner, then Marketing Ops if the chain still has it (steps 3–5 may have raised its threshold this sweep).
+  for (const email of ['demandgen@northwind.demo.test', 'admin@northwind.demo.test']) {
+    const page = await as(browser, email);
+    await page.goto(url);
+    if ((await page.locator('main').innerText()).includes('State: approved')) break;
+    await page.getByRole('button', { name: 'Approve' }).click();
+    await expect(page.getByRole('table', { name: 'Request audit' })).toContainText(`${email}request.step.approved`);
+  }
+  await member.goto(url);
+  const po = await member.getByRole('link', { name: /^PO-/ }).innerText();
+  const event = await dbSystem.orgEvent.findFirst({ where: { type: 'commitment.issued', payload: { path: ['commitment', 'poNumber'], equals: po } } });
+  expect(event).not.toBeNull();
 });
