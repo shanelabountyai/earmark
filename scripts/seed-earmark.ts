@@ -2,7 +2,9 @@
 // Synthetic only: no real people, no real vendors. Every run deletes the org's Earmark rows and plants them again,
 // so the ledger is the same on every seed and its frozen approver ids always name users that exist.
 import { readFileSync } from 'node:fs';
+import { sealSecret } from '@/core/auth/secret-box';
 import { now } from '@/core/clock';
+import { demoReceiverSecret, demoReceiverUrl } from '@/earmark/demo-receiver';
 import type { PrismaClient } from '@/generated/prisma/client';
 import { chainToJson } from '@/lib/earmark/cases';
 import { evaluateChain, parseRules, type RulesJson, type Seat } from '@/lib/earmark/chain';
@@ -112,7 +114,18 @@ async function clear(db: Db, orgId: string) {
 export async function seedEarmark(db: Db): Promise<string[]> {
   const printed: string[] = [];
   for (const p of PLANS) printed.push(...(await seedOrg(db, p)));
+  printed.push(await seedReceiver(db));
   return printed;
+}
+
+/** Step 6: Northwind's endpoint for the demo receiver, from the org's current seq, so it sends what happens from now on. */
+async function seedReceiver(db: Db): Promise<string> {
+  const { id: orgId, eventSeq } = await db.org.findUniqueOrThrow({ where: { slug: 'northwind' }, select: { id: true, eventSeq: true } });
+  const url = demoReceiverUrl();
+  await db.webhookEndpoint.deleteMany({ where: { orgId, url } });
+  const eventTypes = ['request.approved', 'commitment.issued', 'invoice.matched', 'invoice.approved_for_payment'];
+  await db.webhookEndpoint.create({ data: { orgId, url, eventTypes, secretSealed: sealSecret(demoReceiverSecret(), 'webhook'), cursorSeq: eventSeq } });
+  return `Northwind webhooks go to the demo receiver at ${url}${url.startsWith('http:') ? ' (needs WEBHOOK_ALLOW_PRIVATE=1)' : ''}`;
 }
 
 async function seedOrg(db: Db, p: Plan): Promise<string[]> {

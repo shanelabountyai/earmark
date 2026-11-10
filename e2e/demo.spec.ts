@@ -126,8 +126,8 @@ test('step 9: match to the ranked suggestion, approve for payment, variance view
   await expect(finance.getByRole('heading', { name: 'Variance' })).toBeVisible();
 });
 
-// Demo steps 1, 2 and 6 with D-22's stand-ins: step 1 signs in through /demo, not Google; step 6 asserts the
-// commitment.issued event row, not the webhook reaching the demo receiver. Phase 4 re-runs both for real.
+// Demo steps 1, 2 and 6. Step 1 here signs in through /demo (D-22); e2e/enterprise.spec.ts runs it through SSO. Step 6
+// is for real since Phase 4: the commitment.issued delivery reaches the demo receiver, which verifies its signature.
 test('step 1: the dashboard shows the four totals and the aged unmatched invoices', async ({ browser }) => {
   const owner = await as(browser, 'owner@northwind.demo.test');
   for (const t of ['Planned', 'Committed', 'Actual', 'Available']) await expect(owner.locator('main')).toContainText(t);
@@ -142,7 +142,7 @@ test('step 2: Demand Gen → Q2 Paid Social shows its history with the replan ma
   await expect(owner.getByRole('list', { name: 'Line history' })).toContainText('Planned edited to');
 });
 
-test('step 6: the last approval issues a PO and writes the commitment.issued event', async ({ browser }) => {
+test('step 6: the last approval issues a PO, and commitment.issued reaches the demo receiver signed', async ({ browser }) => {
   const what = `Launch PO ${Date.now()}`;
   const member = await as(browser, 'member@northwind.demo.test');
   const url = await submit(member, what);
@@ -158,4 +158,8 @@ test('step 6: the last approval issues a PO and writes the commitment.issued eve
   const po = await member.getByRole('link', { name: /^PO-/ }).innerText();
   const event = await dbSystem.orgEvent.findFirst({ where: { type: 'commitment.issued', payload: { path: ['commitment', 'poNumber'], equals: po } } });
   expect(event).not.toBeNull();
+  // The approval's after() sweep sends it; the receiver answers 401 to a bad signature, so 200 means verified.
+  await expect
+    .poll(() => dbSystem.webhookDelivery.findFirst({ where: { eventId: event!.id }, select: { status: true, lastResponseStatus: true, lastResponseExcerpt: true } }), { timeout: 15_000 })
+    .toMatchObject({ status: 'succeeded', lastResponseStatus: 200, lastResponseExcerpt: expect.stringContaining('"verified":true') });
 });

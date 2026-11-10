@@ -8,7 +8,9 @@ Five commits (D-31 in `prd-earmark.md`).
 
 **(2) done:** API (D-33). The `invoices` scope; `GET /api/v1/commitments/[id]` (guest projection, one 404 body for foreign or missing); `POST /api/v1/invoices` through `fileInvoice` in `src/earmark/core.ts`, shared with the guest form. Tests: `tests/earmark/invariants/api.test.ts`; `e2e/enterprise.spec.ts` step 8's API half (the key is planted: demo accounts cannot mint keys). The `notFound()` test mock now carries Next's real digest, so the API's 404 mapping is exercised in vitest. Step 7's link test now deletes Dana's tokens first: `link.ts`'s 60s per-address cooldown swallowed the request on back-to-back sweeps. Gate: unit 519 + 1 skipped = 520, e2e 23/23 twice back to back.
 
-**▶ Next: (3) webhooks.** A demo webhook receiver plus demo step 6 for real (the `commitment.issued` delivery reaches it, not just the event row).
+**(3) done:** webhooks (D-34). Demo receiver `POST /api/demo/webhook` (DEMO_MODE only; its secret is derived from `AUTH_SECRET`, so no DB). `seed:demo` points a Northwind endpoint at it. Earmark's `emit` wrapper in `src/earmark/actions.ts` sweeps in `after()`, so delivery happens at approval, not at the daily cron. `e2e/demo.spec.ts` step 6 polls for the delivery `succeeded` with 200 and `"verified":true`. Test: `tests/earmark/invariants/demo-receiver.test.ts`. A local `npm run dev` demo needs `WEBHOOK_ALLOW_PRIVATE=1` in `.env.local` (http://localhost receiver), or the endpoint pauses after 10 failures; note it in DEMO.md.
+
+**▶ Next: (4) the explainer action** (below).
 
 **For `docs/DEMO.md` (step 8 live):** the shared demo owner cannot create an API key, so the live demo needs a key minted another way (a non-demo owner, or a seed-printed key). Decide when DEMO.md is written.
 

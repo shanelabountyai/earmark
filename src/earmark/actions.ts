@@ -4,6 +4,7 @@
 // a row that does not exist). Earmark's own permission is checked first in the body (D-15). Pages arrive in Phase 3.
 import { revalidatePath } from 'next/cache';
 import { notFound } from 'next/navigation';
+import { after } from 'next/server';
 import { z } from 'zod';
 import { audit } from '@/core/audit';
 import { orgAction, ref } from '@/core/authz/action';
@@ -11,7 +12,9 @@ import { inOrg, type OrgCtx } from '@/core/authz/guards';
 import { now } from '@/core/clock';
 import { type Tx, withOrg } from '@/core/db/rls';
 import { Refused } from '@/core/errors';
-import { emit } from '@/core/events';
+import { emit as logEvent } from '@/core/events';
+import { log } from '@/core/log';
+import { sweepWebhooks } from '@/modules/apikeys/webhooks';
 import { removeMember } from '@/core/tenancy/orgs';
 import { onMembershipEnded } from '@/app/org-hooks';
 import type { Prisma } from '@/generated/prisma/client';
@@ -20,6 +23,17 @@ import { applyDecisions, authorizeRuleEdit, type ChainResult, evaluateChain, par
 import { applyMatch, FINANCE_SEAT } from '@/lib/earmark/match';
 import { formatUsd } from '@/lib/earmark/money';
 import { dollars, fileInvoice, heldSeats, isoDate, lineAvailable, requirePerm, rulesOf, scopeOf, seatsFor } from './core';
+
+/**
+ * Every Earmark event is sent now, not at the next cron (PRD §9 step 6). after() runs once the response is out, so the
+ * sweep reads a committed event; a rolled-back one leaves nothing to send. Two in one request are two sweeps, which
+ * SKIP LOCKED makes safe (INV-41).
+ */
+async function emit(...args: Parameters<typeof logEvent>) {
+  const { orgId } = args[0];
+  after(() => sweepWebhooks({ orgId }).then((r) => log('webhooks.inline', { orgId, ...r })));
+  return logEvent(...args);
+}
 
 const json = (v: unknown) => v as Prisma.InputJsonValue;
 /** After a write, every org page re-renders with it (the action returns a value, so nothing redirects). */
