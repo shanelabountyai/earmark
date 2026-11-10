@@ -1,14 +1,14 @@
 # NEXT — Earmark
 
-## ▶ Now: Phase 4 (enterprise wiring, PRD §8) on branch `phase-4`, off `main` after PR #4 merged 2026-11-10 (`0192aff`). Nothing built yet. Model: Opus.
+## ▶ Now: Phase 4 (enterprise wiring, PRD §8) on branch `phase-4`. Model: Opus.
 
-Seven commits (D-21 in `prd-earmark.md`). **Done: (1) demo seed** (D-20); **(2) dashboard, budget tree, line page** (D-23); **(3) requests, chain view, approvals inbox, rules settings** (D-24); **(4) commitments, guest view, guest invoice submit**; **(5) match, approve-for-payment, variance view, published notes** (D-25): `/o/[org]/invoices` (to match / to approve queues), `/o/[org]/invoices/[id]` (ranked suggestions with reasons, match form, Finance-only *Approve for payment* emitting `invoice.approved_for_payment`), `/o/[org]/variance` (per period, replan marker, latest published note), publish form on the line page. Demo step 9 is e2e in `e2e/demo.spec.ts`; tests in `tests/earmark/invariants/payment.test.ts`.
+Five commits (D-31 in `prd-earmark.md`).
 
-**(6) done in four commits:** planning (`/plan`, planned edits on the line page, D-26), seats (`/settings/seats`, owner only, D-27), reallocation (line page form, `reallocation` chain, planned moves on approval, D-28), guest agency binding and agencies (`/settings/agencies`, D-29). Tests: `tests/earmark/invariants/{planning,seats,reallocation,agencies}.test.ts`.
+**(1) done:** SSO. `seed:demo` turns Require SSO on for both demo orgs. Guests are exempt from it (D-32), which needed a template patch to `src/modules/sso/hooks.ts`, listed in `FOUNDATION_PATCHES.md`. The cross-org line for D-30's `alerts.ts` was never excused, so drift had been red since `14ff5d5`; it is excused now. Tests: `tests/earmark/invariants/sso.test.ts`; `e2e/enterprise.spec.ts` covers step 1 for real (the mock IdP stands in for Google), step 7's link half, and step 12. Full sweep: 22/22.
 
-**(7) done:** alerts cron (`src/earmark/alerts.ts`, `rules/alerts.json`, D-30) and e2e demo steps 1, 2, 6 with D-22's stand-ins. `e2e/demo.spec.ts` now covers steps 1–9 (step 8's URL half); full sweep 19/19.
+**▶ Next: (2) API.** Add the `invoices` scope to `src/app/api-scopes.ts`. Add `GET /api/v1/commitments/[id]` (scope `read`, guest-safe projection, an identical 404 body for a foreign or missing id) and `POST /api/v1/invoices` (scope `invoices`, `idempotent`, the same rules as the guest submit action). Template pattern: `src/app/api/v1/projects/route.ts`. Then step 8's API half in `e2e/enterprise.spec.ts`: Contoso's key on a Northwind PO id returns the same 404 body as a nonexistent id.
 
-**▶ Next: Phase 4** (enterprise wiring, PRD §8): SSO for the two demo orgs, apikeys scopes and events, `export-hooks.ts`, the variance explainer action under `withBudget` (it should hand its draft to `publishVarianceNote`'s draft row), audit viewer checks; e2e steps 9–14 and the real re-runs of 1, 6, 8.
+**Then:** (3) a demo webhook receiver plus step 6 for real; (4) the explainer action (plain `fetch` to the Messages API on `claude-haiku-5-5`, a fixed-usage stub when `ANTHROPIC_API_KEY` is unset; the seed plants AI usage so the fourth draft is refused) plus step 10; (5) e2e steps 11, 13 and 14. Steps 9 and 12 are already done. Gate (§7): the manual Google and Okta sign-ins, recorded in `docs/DEMO.md`, are Shane's.
 
 **Not built in Phase 3, on purpose (D-26):** rename/delete of plan rows; fiscal-year close/lock with carry-forward (nothing sets `lockedAt` yet).
 

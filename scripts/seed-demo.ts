@@ -74,7 +74,8 @@ async function seedSso(db: Parameters<Parameters<typeof asSystem>[0]>[0]): Promi
     }
     used.add(domain);
     const { id: orgId } = await db.org.findUniqueOrThrow({ where: { slug: p.slug }, select: { id: true } });
-    const data = { issuer: p.issuer, clientId: p.id, clientSecretSealed: sealSecret(p.secret, 'sso'), allowedDomains: [domain], enabledAt: now() };
+    // PRD §6: Require SSO on both demo orgs; guests (Dana) keep magic links (D-32).
+    const data = { issuer: p.issuer, clientId: p.id, clientSecretSealed: sealSecret(p.secret, 'sso'), allowedDomains: [domain], enabledAt: now(), required: true, requiredAt: now() };
     await conn.upsert({ where: { orgId }, create: { orgId, ...data }, update: data });
     await dom.upsert({ where: { orgId_domain: { orgId, domain } }, create: { orgId, domain, verifiedAt: now() }, update: { verifiedAt: now() } });
     out.push(`@${domain} signs in to ${p.slug} through ${p.name} (SSO_ENABLED=1)`);
