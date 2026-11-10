@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { inOrg, requireOrg } from '@/core/authz/guards';
 import { withOrg } from '@/core/db/rls';
 import { ActionForm } from '@/core/ui/action-form';
-import { publishVarianceNote, setPlanned } from '@/earmark/actions';
+import { publishVarianceNote, setPlanned, submitReallocation } from '@/earmark/actions';
 import { earmarkCan, ledgerOf } from '@/earmark/core';
 import { formatUsd } from '@/lib/earmark/money';
 import { variance } from '@/lib/earmark/variance';
@@ -20,12 +20,12 @@ export default async function LinePage({ params }: { params: Promise<{ org: stri
   const { id } = await params;
   if (ctx.role === 'guest' || !UUID.test(id)) notFound(); // PRD §1: a guest sees no budget line, same 404 as a missing one
 
-  const { line, ledger } = await withOrg(ctx, async (tx) => {
+  const { line, siblings, ledger } = await withOrg(ctx, async (tx) => {
     const line = await tx.budgetLine.findFirst({
       where: { id, ...inOrg(ctx) },
       include: {
         campaign: { select: { name: true, program: { select: { name: true } } } },
-        period: { select: { index: true, startsOn: true, fiscalYear: { select: { label: true, lockedAt: true } } } },
+        period: { select: { index: true, startsOn: true, fiscalYearId: true, fiscalYear: { select: { label: true, lockedAt: true } } } },
         requests: {
           orderBy: { submittedAt: 'asc' },
           include: {
@@ -37,7 +37,12 @@ export default async function LinePage({ params }: { params: Promise<{ org: stri
       },
     });
     if (!line) notFound();
-    return { line, ledger: await ledgerOf(tx, ctx, { id }) };
+    const siblings = await tx.budgetLine.findMany({
+      where: { ...inOrg(ctx), id: { not: id }, carryForward: false, period: { fiscalYearId: line.period.fiscalYearId } },
+      orderBy: [{ period: { index: 'asc' } }, { name: 'asc' }],
+      select: { id: true, name: true, period: { select: { index: true } }, campaign: { select: { name: true } } },
+    });
+    return { line, siblings, ledger: await ledgerOf(tx, ctx, { id }) };
   }, { atomic: false });
 
   const t = ledger.rollup.lines[0]!;
@@ -85,6 +90,19 @@ export default async function LinePage({ params }: { params: Promise<{ org: stri
           <label>Planned (USD) <input name="planned" inputMode="decimal" required maxLength={32} defaultValue={formatUsd(line.plannedCents)} /></label>{' '}
           <button type="submit">Save planned</button> {pos.length > 0 && <small>A PO exists, so this edit shows as a replan.</small>}
         </ActionForm>
+      )}
+
+      {earmarkCan(ctx.role, 'request.create') && siblings.length > 0 && t.availableCents > 0n && (
+        <details>
+          <summary>Move planned to another line</summary>
+          <ActionForm action={submitReallocation.bind(null, ctx.slug)}>
+            <input type="hidden" name="fromLineId" value={line.id} />
+            <label>To line <select name="toLineId" required>{siblings.map((s) => <option key={s.id} value={s.id}>P{s.period.index} · {s.campaign.name} / {s.name}</option>)}</select></label>{' '}
+            <label>Amount (USD) <input name="amount" inputMode="decimal" required maxLength={32} /></label>{' '}
+            <label>Why <input name="description" required maxLength={2000} /></label>{' '}
+            <button type="submit">Submit reallocation</button>
+          </ActionForm>
+        </details>
       )}
 
       <h2>Requests ({line.requests.length})</h2>

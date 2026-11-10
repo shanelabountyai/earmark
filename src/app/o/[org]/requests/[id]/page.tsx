@@ -26,6 +26,7 @@ export default async function RequestPage({ params }: { params: Promise<{ org: s
         steps: { orderBy: { index: 'asc' } },
         agency: { select: { name: true } },
         commitment: { select: { id: true, poNumber: true } },
+        reallocation: { select: { toLine: { select: { id: true, name: true } } } },
         budgetLine: { select: { id: true, name: true, campaign: { select: { name: true, program: { select: { name: true } } } } } },
       },
     });
@@ -44,6 +45,8 @@ export default async function RequestPage({ params }: { params: Promise<{ org: s
       <p><Link href={`/o/${ctx.slug}/requests`}>Requests</Link> / <Link href={`/o/${ctx.slug}/lines/${l.id}`}>{l.campaign.program.name} / {l.campaign.name} / {l.name}</Link></p>
       <h1>{formatUsd(r.amountCents)}: {r.description} {r.overBudget && <mark>Over budget</mark>}</h1>
       <p>State: <strong>{r.state}</strong> · Requested by {who(r.requestedById)} on {when(r.submittedAt)} UTC · Agency: {r.agency?.name ?? '—'}{r.commitment && <> · <Link href={`/o/${ctx.slug}/commitments/${r.commitment.id}`}>{r.commitment.poNumber}</Link></>}</p>
+
+      {r.reallocation && <p>Reallocation: moves {formatUsd(r.amountCents)} of planned from {l.name} to <Link href={`/o/${ctx.slug}/lines/${r.reallocation.toLine.id}`}>{r.reallocation.toLine.name}</Link> once approved.</p>}
 
       <h2>Approval chain (frozen at submit)</h2>
       <table aria-label="Approval chain">

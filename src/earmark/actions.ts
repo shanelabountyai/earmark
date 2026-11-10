@@ -116,9 +116,13 @@ export const decideStep = orgAction(
   },
 );
 
-/** The last approval: the request is approved and its commitment issued in the same transaction (D-05, E-INV-02). */
+/**
+ * The last approval: the request is approved and its commitment issued in the same transaction (D-05, E-INV-02). A
+ * reallocation issues no PO: planned moves between its two lines (D-28), if the source still has the money.
+ */
 async function approve(tx: Tx, ctx: OrgCtx, requestId: string) {
   const r = await tx.spendRequest.update({ where: { id: requestId }, data: { state: 'approved', decidedAt: now() } });
+  if (r.kind === 'reallocation') return applyReallocation(tx, ctx, r.id);
   const c = await tx.commitment.create({
     data: { ...inOrg(ctx), requestId: r.id, agencyId: r.agencyId!, poNumber: `PO-${r.id.slice(0, 8).toUpperCase()}`, amountCents: r.amountCents, remainingCents: r.amountCents },
   });
@@ -127,6 +131,57 @@ async function approve(tx: Tx, ctx: OrgCtx, requestId: string) {
   await emit(ctx, 'request.approved', { request: { id: r.id, amountCents: r.amountCents.toString() } }, tx);
   await emit(ctx, 'commitment.issued', { commitment: { id: c.id, poNumber: c.poNumber, agencyId: c.agencyId, amountCents: c.amountCents.toString() } }, tx);
 }
+
+async function applyReallocation(tx: Tx, ctx: OrgCtx, requestId: string) {
+  const m = (await tx.reallocation.findFirst({ where: { requestId, ...inOrg(ctx) }, include: { fromLine: true, toLine: true } }))!;
+  await tx.$queryRawUnsafe(`SELECT 1 FROM "BudgetLine" WHERE id IN ($1::uuid, $2::uuid) AND "orgId" = $3::uuid ORDER BY id FOR UPDATE`, m.fromLineId, m.toLineId, ctx.orgId);
+  const available = await lineAvailable(tx, ctx, m.fromLine);
+  if (available < m.amountCents) throw new Refused(`${m.fromLine.name} has only ${formatUsd(available)} available now; the reallocation cannot be applied.`);
+  const stamp = now();
+  await tx.budgetLine.update({ where: { id: m.fromLineId }, data: { plannedCents: { decrement: m.amountCents }, plannedEditedAt: stamp } });
+  await tx.budgetLine.update({ where: { id: m.toLineId }, data: { plannedCents: { increment: m.amountCents }, plannedEditedAt: stamp } });
+  await audit(ctx, 'request.approved', { targetType: 'spendRequest', targetId: requestId }, tx);
+  await audit(ctx, 'reallocation.applied', { targetType: 'reallocation', targetId: m.id, data: { fromLineId: m.fromLineId, toLineId: m.toLineId, amountCents: m.amountCents.toString() } }, tx);
+}
+
+/** PRD §2 `Reallocation`, §10.7: planned moves between two lines of one fiscal year, through the `reallocation` chain. */
+export const submitReallocation = orgAction(
+  null,
+  z.object({ fromLineId: ref('budgetLine'), toLineId: ref('budgetLine'), amount: z.string().max(32), description: z.string().trim().min(1, 'Say why the money moves.').max(2000) }),
+  async (ctx, i) => {
+    requirePerm(ctx, 'request.create');
+    const out = await withOrg(ctx, async (tx) => {
+      const lineOf = async (id: string) => (await tx.budgetLine.findFirst({ where: { id, ...inOrg(ctx) }, include: { period: { select: { fiscalYearId: true } } } })) ?? notFound();
+      const from = await lineOf(i.fromLineId);
+      const to = await lineOf(i.toLineId);
+      const amountCents = dollars(i.amount);
+      if (from.id === to.id) throw new Refused('Pick two different lines.');
+      if (to.carryForward) throw new Refused('A carry-forward line takes no new money.');
+      const availableCents = await lineAvailable(tx, ctx, from);
+      if (amountCents > availableCents) throw new Refused(`${from.name} has only ${formatUsd(availableCents)} available.`);
+      const { rules } = await rulesOf(tx, ctx);
+      const chain = evaluateChain({
+        rules,
+        request: { amountCents, requesterId: ctx.userId, kind: 'reallocation', costCenter: from.costCenter, availableCents, crossesFiscalYear: from.period.fiscalYearId !== to.period.fiscalYearId },
+        seats: await seatsFor(tx, ctx, from.ownerSeat),
+        now: now().toISOString(),
+      });
+      if (!chain.ok) throw new Refused(chain.error.code === 'REALLOCATION_ACROSS_FISCAL_YEARS' ? 'Money cannot move between fiscal years.' : chain.error.message);
+      const r = await tx.spendRequest.create({
+        data: { ...inOrg(ctx), kind: 'reallocation', budgetLineId: from.id, amountCents, description: i.description, requestedById: ctx.userId, chainSnapshot: json(chainToJson(chain)) },
+      });
+      await tx.reallocation.create({ data: { ...inOrg(ctx), fromLineId: from.id, toLineId: to.id, amountCents, requestId: r.id } });
+      await tx.approvalStep.createMany({
+        data: chain.steps.map((s) => ({ ...inOrg(ctx), requestId: r.id, index: s.index, seat: s.seat, thresholdCents: s.fromCents, source: s.source, approverIds: s.approverIds, blocked: !!s.blocked, requiresNote: s.requiresNote })),
+      });
+      await audit(ctx, 'request.submitted', { targetType: 'spendRequest', targetId: r.id, data: { kind: 'reallocation', amountCents: amountCents.toString(), toLineId: to.id, steps: chain.steps.map((s) => s.seat) } }, tx);
+      if (!chain.steps.length) await approve(tx, ctx, r.id);
+      return { id: r.id };
+    });
+    refresh(ctx);
+    return { ...out, notice: 'Reallocation submitted for approval.' };
+  },
+);
 
 export const withdrawRequest = orgAction(null, z.object({ requestId: ref('spendRequest') }), async (ctx, i) => {
   await withOrg(ctx, async (tx) => {
@@ -401,7 +456,7 @@ export const assignSeat = orgAction(null, z.object({ seatId: ref('seat'), userId
 /** A foreign seat or member is notFound; an in-org pair that is not a holding is a refusal. */
 async function holding(tx: Tx, ctx: OrgCtx, seatId: string, userId: string) {
   const seat = (await tx.seat.findFirst({ where: { id: seatId, ...inOrg(ctx) }, select: { id: true, name: true } })) ?? notFound();
-  (await tx.membership.findFirst({ where: { userId, ...inOrg(ctx) }, select: { userId: true } })) ?? notFound();
+  if (!(await tx.membership.findFirst({ where: { userId, ...inOrg(ctx) }, select: { userId: true } }))) notFound();
   const h = await tx.seatHolder.findFirst({ where: { ...inOrg(ctx), seatId: seat.id, userId } });
   if (!h) throw new Refused(`That person does not hold the ${seat.name} seat.`);
   return h;
@@ -422,7 +477,7 @@ export const endSeat = orgAction(null, z.object({ seatId: ref('seat'), userId: r
 export const delegateSeat = orgAction(null, z.object({ seatId: ref('seat'), userId: ref('member'), delegateToId: ref('member') }), async (ctx, i) => {
   requirePerm(ctx, 'seats.manage');
   await withOrg(ctx, async (tx) => {
-    (await tx.membership.findFirst({ where: { userId: i.delegateToId, ...inOrg(ctx) }, select: { userId: true } })) ?? notFound(); // every id resolves before any refusal
+    if (!(await tx.membership.findFirst({ where: { userId: i.delegateToId, ...inOrg(ctx) }, select: { userId: true } }))) notFound(); // every id resolves before any refusal
     const h = await holding(tx, ctx, i.seatId, i.userId);
     const to = await staffMember(tx, ctx, i.delegateToId);
     if (to.userId === h.userId) throw new Refused('A holder cannot delegate to themselves.');
