@@ -1,0 +1,92 @@
+{
+  "engine": "rollup",
+  "name": "closed-po-counts-matched",
+  "note": "D-23: a closed PO counts what was matched to it, pending included, rejected not, overage in full; an open PO counts its amount",
+  "input": {
+    "programs": [
+      {
+        "id": "p1"
+      }
+    ],
+    "campaigns": [
+      {
+        "id": "c1",
+        "programId": "p1"
+      }
+    ],
+    "lines": [
+      {
+        "id": "l1",
+        "campaignId": "c1",
+        "periodId": "m1",
+        "plannedCents": 1000000
+      }
+    ],
+    "commitments": [
+      {
+        "id": "po-a",
+        "lineId": "l1",
+        "amountCents": 200000,
+        "state": "closed"
+      },
+      {
+        "id": "po-b",
+        "lineId": "l1",
+        "amountCents": 100000,
+        "state": "closed"
+      },
+      {
+        "id": "po-c",
+        "lineId": "l1",
+        "amountCents": 300000,
+        "state": "open"
+      }
+    ],
+    "matches": [
+      {
+        "invoiceId": "i1",
+        "commitmentId": "po-a",
+        "amountCents": 120000,
+        "state": "approved"
+      },
+      {
+        "invoiceId": "i2",
+        "commitmentId": "po-a",
+        "amountCents": 30000,
+        "state": "pending"
+      },
+      {
+        "invoiceId": "i3",
+        "commitmentId": "po-a",
+        "amountCents": 40000,
+        "state": "rejected"
+      },
+      {
+        "invoiceId": "i4",
+        "commitmentId": "po-b",
+        "amountCents": 105000,
+        "state": "approved"
+      },
+      {
+        "invoiceId": "i5",
+        "commitmentId": "po-c",
+        "amountCents": 50000,
+        "state": "approved"
+      }
+    ],
+    "invoices": []
+  },
+  "expect": {
+    "ok": true,
+    "rollup": {
+      "lines": [
+        {
+          "lineId": "l1",
+          "committedCents": 555000,
+          "actualCents": 275000,
+          "availableCents": 445000
+        }
+      ]
+    }
+  }
+}

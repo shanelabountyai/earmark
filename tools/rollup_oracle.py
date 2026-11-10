@@ -70,6 +70,8 @@ def rollup(ledger):
             raise LedgerError("BAD_STATE", f"match {m['invoiceId']}/{m['commitmentId']} has state {m.get('state')}")
         if m["state"] == "approved" and c["lineId"] in in_scope:
             actual[c["lineId"]] = actual.get(c["lineId"], 0) + amount
+        if m["state"] != "rejected" and c["state"] == "closed" and c["lineId"] in in_scope:  # D-23
+            committed[c["lineId"]] = committed.get(c["lineId"], 0) + amount
 
     provision = {}
     unassigned = 0

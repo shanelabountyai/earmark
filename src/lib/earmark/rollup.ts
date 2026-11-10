@@ -1,6 +1,7 @@
 // Budget rollups (PRD §2 "derived, never stored", §4 money rules). Pure; oracle in tools/rollup_oracle.py.
 //
-//   committed per line  = sum of open commitments on the line
+//   committed per line  = sum of open commitments on the line, plus what was matched (pending or approved) to its
+//                         closed ones: closing a PO releases only its unspent rest, never money already billed (D-23)
 //   actual per line     = sum of approved invoice matches against the line's commitments (open or closed)
 //   unmatched provision = sum of submitted (not yet matched) invoices that name the line
 //   available           = planned − committed − unmatched provision; shown even when negative, never clamped
@@ -110,6 +111,7 @@ export function rollup(ledger: Ledger): Rollup {
     const amount = requireCents(m.amountCents, `match ${m.invoiceId}/${m.commitmentId} amountCents`, { min: 0n });
     if (m.state !== 'approved' && m.state !== 'pending' && m.state !== 'rejected') throw new LedgerError('BAD_STATE', `match ${m.invoiceId}/${m.commitmentId} has state ${String(m.state)}`);
     if (m.state === 'approved' && inScope.has(c.lineId)) actual.set(c.lineId, (actual.get(c.lineId) ?? 0n) + amount);
+    if (m.state !== 'rejected' && c.state === 'closed' && inScope.has(c.lineId)) committed.set(c.lineId, (committed.get(c.lineId) ?? 0n) + amount);
   }
 
   const provision = new Map<string, Cents>();

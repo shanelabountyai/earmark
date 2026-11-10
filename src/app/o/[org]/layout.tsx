@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { can } from '@/core/authz/permissions';
+import { earmarkCan } from '@/earmark/core';
 import { requireOrg } from '@/core/authz/guards';
 import { db } from '@/core/db';
 
@@ -11,7 +12,7 @@ export default async function OrgLayout({ children, params }: { children: React.
   return (
     <>
       <nav>
-        <strong>{org.name}</strong> · <Link href={base}>Home</Link> · <Link href={`${base}/projects`}>Projects</Link> · <Link href={`${base}/settings/members`}>Members</Link>
+        <strong>{org.name}</strong> · <Link href={base}>Home</Link> · <Link href={`${base}/commitments`}>Purchase orders</Link> · {ctx.role !== 'guest' && <><Link href={`${base}/requests`}>Requests</Link> · <Link href={`${base}/approvals`}>Approvals</Link> · <Link href={`${base}/invoices`}>Invoices</Link> · <Link href={`${base}/variance`}>Variance</Link> · {earmarkCan(ctx.role, 'budget.plan') && <><Link href={`${base}/plan`}>Plan</Link> · </>}{earmarkCan(ctx.role, 'seats.manage') && <><Link href={`${base}/settings/seats`}>Seats</Link> · </>}{earmarkCan(ctx.role, 'agency.manage') && <><Link href={`${base}/settings/agencies`}>Agencies</Link> · </>}<Link href={`${base}/settings/rules`}>Rules</Link> · </>}<Link href={`${base}/projects`}>Projects</Link> · <Link href={`${base}/settings/members`}>Members</Link>
         {can(ctx.role, 'audit.read') && <> · <Link href={`${base}/settings/audit`}>Audit log</Link> · <Link href={`${base}/settings/security`}>Security</Link></>}
         {ctx.role === 'owner' && <> · <Link href={`${base}/settings/sso`}>SSO</Link></>} {/* sso */}
         {can(ctx.role, 'apikeys.manage') && <> · <Link href={`${base}/settings/apikeys`}>API keys</Link></>} {/* apikeys */}

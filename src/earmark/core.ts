@@ -10,19 +10,20 @@ import { now } from '@/core/clock';
 import type { Tx } from '@/core/db/rls';
 import { Refused } from '@/core/errors';
 import type { Commitment, Prisma } from '@/generated/prisma/client';
-import type { Role } from '@/generated/prisma/enums';
+import type { InvoiceState, Role } from '@/generated/prisma/enums';
 import { type ApprovalRules, parseRules, type RulesJson, type Seat } from '@/lib/earmark/chain';
 import { type Cents, MoneyError, parseDollars } from '@/lib/earmark/money';
-import { rollup } from '@/lib/earmark/rollup';
+import { type MatchState, rollup } from '@/lib/earmark/rollup';
+import { isReplan } from '@/lib/earmark/variance';
 
 // ---------- permissions (D-15: Earmark's own, beside the core Permission union, which is template-owned) ----------
 
-export type EarmarkPerm = 'request.create' | 'rules.edit' | 'invoice.submit' | 'invoice.match' | 'agency.manage' | 'variance.draft';
+export type EarmarkPerm = 'request.create' | 'rules.edit' | 'invoice.submit' | 'invoice.match' | 'agency.manage' | 'variance.draft' | 'budget.plan' | 'seats.manage';
 
 // PRD §1. Approving is not here: it follows seats, not roles (a member holding a seat approves).
 const grants: Record<Role, readonly EarmarkPerm[]> = {
-  owner: ['request.create', 'rules.edit', 'invoice.submit', 'invoice.match', 'agency.manage', 'variance.draft'],
-  admin: ['request.create', 'rules.edit', 'invoice.submit', 'invoice.match', 'agency.manage', 'variance.draft'],
+  owner: ['request.create', 'rules.edit', 'invoice.submit', 'invoice.match', 'agency.manage', 'variance.draft', 'budget.plan', 'seats.manage'],
+  admin: ['request.create', 'rules.edit', 'invoice.submit', 'invoice.match', 'agency.manage', 'variance.draft', 'budget.plan'],
   member: ['request.create', 'invoice.match'],
   scorekeeper: [],
   guest: ['invoice.submit'],
@@ -84,15 +85,18 @@ export function toGuestCommitment(c: Commitment & { matches?: { invoice: { dueOn
 
 // ---------- inputs ----------
 
+/** A route's [id]: anything else is the notFound of a missing row, never a database error on a uuid column. */
+export const isUuid = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
 /** A dollar string from a form ("$12,000.00") as positive cents, or a Refused the form can show. */
-export function dollars(text: string, what = 'Amount'): Cents {
+export function dollars(text: string, what = 'Amount', min: Cents = 1n): Cents {
   try {
     const c = parseDollars(text);
-    if (c > 0n) return c;
+    if (c >= min) return c;
   } catch (e) {
     if (!(e instanceof MoneyError)) throw e;
   }
-  throw new Refused(`${what} must be a positive dollar amount, like 12,000.00.`);
+  throw new Refused(`${what} must be a ${min > 0n ? 'positive' : 'non-negative'} dollar amount, like 12,000.00.`);
 }
 
 // ---------- rules (D-03, D-14) ----------
@@ -131,18 +135,49 @@ export async function heldSeats(tx: Tx, ctx: OrgCtx): Promise<string[]> {
 
 // ---------- a line's available (PRD §4), through the rollup engine ----------
 
-/** planned − open commitments − unmatched invoices that name one of this line's POs. */
-export async function lineAvailable(tx: Tx, ctx: OrgCtx, line: { id: string; campaignId: string; periodId: string; plannedCents: bigint }): Promise<Cents> {
-  const commitments = await tx.commitment.findMany({ where: { ...inOrg(ctx), request: { budgetLineId: line.id } }, select: { id: true, poNumber: true, amountCents: true, closedAt: true } });
-  const pos = commitments.map((c) => c.poNumber);
-  const invoices = pos.length ? await tx.invoice.findMany({ where: { ...inOrg(ctx), state: 'submitted', poNumber: { in: pos } }, select: { id: true, amountCents: true } }) : [];
-  const r = rollup({
-    programs: [{ id: 'p' }],
-    campaigns: [{ id: line.campaignId, programId: 'p' }],
-    lines: [{ id: line.id, campaignId: line.campaignId, periodId: line.periodId, plannedCents: line.plannedCents }],
-    commitments: commitments.map((c) => ({ id: c.id, lineId: line.id, amountCents: c.amountCents, state: c.closedAt ? 'closed' : 'open' })),
-    matches: [],
-    invoices: invoices.map((i) => ({ id: i.id, amountCents: i.amountCents, state: 'submitted', lineId: line.id })),
+// An invoice names a PO, not a line: a submitted invoice counts against the line of the PO it names, and one naming
+// no known PO counts once at org level (rollup's unassigned). Actual = matches whose invoice is approved for payment.
+// ponytail: "known" means a PO on the loaded lines, so an invoice naming a PO from another fiscal year counts as
+// unassigned on the dashboard; resolve POs org-wide if fiscal-year close (carry-forward) ever leaves such invoices.
+const matchState = (s: InvoiceState): MatchState => (s === 'approved' ? 'approved' : s === 'voided' ? 'rejected' : 'pending');
+
+/**
+ * The rollup engine over the lines `where` selects, plus what the pages show beside it: the submitted invoices it
+ * counted, and the lines carrying the replan marker. `orgWide` also counts submitted invoices that name no PO of
+ * these lines (the dashboard); without it only invoices naming one of their POs count (a line's available).
+ */
+export async function ledgerOf(tx: Tx, ctx: Pick<OrgCtx, 'orgId'>, where: Prisma.BudgetLineWhereInput, opts: { orgWide?: boolean } = {}) {
+  const lines = await tx.budgetLine.findMany({ where: { ...where, ...inOrg(ctx) }, select: { id: true, campaignId: true, periodId: true, plannedCents: true, plannedEditedAt: true, campaign: { select: { programId: true } } } });
+  const commitments = await tx.commitment.findMany({
+    where: { ...inOrg(ctx), request: { budgetLineId: { in: lines.map((l) => l.id) } } },
+    select: { id: true, poNumber: true, amountCents: true, closedAt: true, issuedAt: true, request: { select: { budgetLineId: true } }, matches: { select: { invoiceId: true, amountCents: true, invoice: { select: { state: true } } } } },
   });
-  return r.lines[0]!.availableCents;
+  const lineOfPo = new Map(commitments.map((c) => [c.poNumber, c.request.budgetLineId]));
+  const invoices = opts.orgWide || lineOfPo.size
+    ? await tx.invoice.findMany({
+        where: { ...inOrg(ctx), state: 'submitted', ...(opts.orgWide ? {} : { poNumber: { in: [...lineOfPo.keys()] } }) },
+        select: { id: true, number: true, poNumber: true, amountCents: true, createdAt: true, agency: { select: { name: true } } },
+      })
+    : [];
+  const firstCommitted = new Map<string, Date>();
+  for (const c of commitments) {
+    const l = c.request.budgetLineId;
+    if (!firstCommitted.has(l) || c.issuedAt < firstCommitted.get(l)!) firstCommitted.set(l, c.issuedAt);
+  }
+  const replan = new Set(lines.filter((l) => l.plannedEditedAt && isReplan({ plannedEditedAt: [l.plannedEditedAt.toISOString()], firstCommittedAt: firstCommitted.get(l.id)?.toISOString() })).map((l) => l.id));
+  const r = rollup({
+    programs: [...new Set(lines.map((l) => l.campaign.programId))].map((id) => ({ id })),
+    campaigns: [...new Map(lines.map((l) => [l.campaignId, { id: l.campaignId, programId: l.campaign.programId }])).values()],
+    lines: lines.map((l) => ({ id: l.id, campaignId: l.campaignId, periodId: l.periodId, plannedCents: l.plannedCents })),
+    commitments: commitments.map((c) => ({ id: c.id, lineId: c.request.budgetLineId, amountCents: c.amountCents, state: c.closedAt ? 'closed' : 'open' })),
+    matches: commitments.flatMap((c) => c.matches.map((m) => ({ invoiceId: m.invoiceId, commitmentId: c.id, amountCents: m.amountCents, state: matchState(m.invoice.state) }))),
+    invoices: invoices.map((i) => ({ id: i.id, amountCents: i.amountCents, state: 'submitted', lineId: (i.poNumber && lineOfPo.get(i.poNumber)) || null, submittedOn: i.createdAt.toISOString() })),
+    now: now().toISOString(),
+  });
+  return { rollup: r, invoices: new Map(invoices.map((i) => [i.id, i])), replan, firstCommitted };
+}
+
+/** planned − open commitments − unmatched invoices that name one of this line's POs. */
+export async function lineAvailable(tx: Tx, ctx: OrgCtx, line: { id: string }): Promise<Cents> {
+  return (await ledgerOf(tx, ctx, { id: line.id })).rollup.lines[0]!.availableCents;
 }
