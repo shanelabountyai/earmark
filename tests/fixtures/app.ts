@@ -60,5 +60,5 @@ export async function seedApp(org: { orgId: string; userId: string }, key: 'a' |
   await db.reallocation.create({ data: { id: id('realloc'), orgId, fromLineId: otherLine.id, toLineId: budgetLine.id, amountCents: 750_000n, requestId: realloc.id } });
   await db.varianceNote.create({ data: { id: id('note'), orgId, budgetLineId: budgetLine.id, periodId: period.id, draft: 'Fixture draft.', createdById: userId } });
 
-  return { budgetLine: budgetLine.id, agency: agency.id, spendRequest: pending.id, commitment: commitment.id, invoice: invoice.id };
+  return { fiscalYear: fy.id, period: period.id, program: program.id, campaign: campaign.id, seat: seat.id, budgetLine: budgetLine.id, agency: agency.id, spendRequest: pending.id, commitment: commitment.id, invoice: invoice.id };
 }

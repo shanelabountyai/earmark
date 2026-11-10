@@ -280,6 +280,88 @@ export const publishVarianceNote = orgAction(
   },
 );
 
+// ---------- planning (PRD §4, D-06, D-26) ----------
+
+const name = z.string().trim().min(1, 'Give it a name.').max(120);
+const unlocked = (fy: { label: string; lockedAt: Date | null }) => {
+  if (fy.lockedAt) throw new Refused(`${fy.label} is locked; its plan cannot change.`);
+};
+
+/** A fiscal year and its twelve fiscal months (D-06), the first starting on `startsOn`. */
+export const createFiscalYear = orgAction(null, z.object({ label: name, startsOn: z.string().max(10) }), async (ctx, i) => {
+  requirePerm(ctx, 'budget.plan');
+  const start = isoDate(i.startsOn, 'Start date');
+  if (start.getUTCDate() !== 1) throw new Refused('A fiscal year starts on the first of a month.');
+  await withOrg(ctx, async (tx) => {
+    if (await tx.fiscalYear.findFirst({ where: { ...inOrg(ctx), label: i.label }, select: { id: true } })) throw new Refused(`${i.label} already exists.`);
+    const fy = await tx.fiscalYear.create({ data: { ...inOrg(ctx), label: i.label, startsOn: start } });
+    const month = (n: number) => new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + n, 1));
+    await tx.period.createMany({ data: Array.from({ length: 12 }, (_, k) => ({ ...inOrg(ctx), fiscalYearId: fy.id, index: k + 1, startsOn: month(k), endsOn: new Date(month(k + 1).getTime() - 86_400_000) })) });
+    await audit(ctx, 'plan.fiscal_year.created', { targetType: 'fiscalYear', targetId: fy.id, data: { label: fy.label } }, tx);
+  });
+  refresh(ctx);
+  return { notice: `${i.label} created with 12 periods.` };
+});
+
+export const createProgram = orgAction(null, z.object({ fiscalYearId: ref('fiscalYear'), name }), async (ctx, i) => {
+  requirePerm(ctx, 'budget.plan');
+  await withOrg(ctx, async (tx) => {
+    const fy = (await tx.fiscalYear.findFirst({ where: { id: i.fiscalYearId, ...inOrg(ctx) } })) ?? notFound();
+    unlocked(fy);
+    const p = await tx.program.create({ data: { ...inOrg(ctx), fiscalYearId: fy.id, name: i.name } });
+    await audit(ctx, 'plan.program.created', { targetType: 'program', targetId: p.id, data: { name: p.name } }, tx);
+  });
+  refresh(ctx);
+  return { notice: `Program ${i.name} created.` };
+});
+
+export const createCampaign = orgAction(null, z.object({ programId: ref('program'), name }), async (ctx, i) => {
+  requirePerm(ctx, 'budget.plan');
+  await withOrg(ctx, async (tx) => {
+    const p = (await tx.program.findFirst({ where: { id: i.programId, ...inOrg(ctx) }, include: { fiscalYear: true } })) ?? notFound();
+    unlocked(p.fiscalYear);
+    const c = await tx.campaign.create({ data: { ...inOrg(ctx), programId: p.id, name: i.name } });
+    await audit(ctx, 'plan.campaign.created', { targetType: 'campaign', targetId: c.id, data: { name: c.name } }, tx);
+  });
+  refresh(ctx);
+  return { notice: `Campaign ${i.name} created.` };
+});
+
+export const createLine = orgAction(
+  null,
+  z.object({ campaignId: ref('campaign'), periodId: ref('period'), name, planned: z.string().max(32), ownerSeat: name, costCenter: z.string().trim().max(64).default(''), glCode: z.string().trim().max(64).default('') }),
+  async (ctx, i) => {
+    requirePerm(ctx, 'budget.plan');
+    await withOrg(ctx, async (tx) => {
+      const c = (await tx.campaign.findFirst({ where: { id: i.campaignId, ...inOrg(ctx) }, include: { program: { include: { fiscalYear: true } } } })) ?? notFound();
+      const period = (await tx.period.findFirst({ where: { id: i.periodId, ...inOrg(ctx) } })) ?? notFound();
+      const plannedCents = dollars(i.planned, 'Planned', 0n);
+      if (period.fiscalYearId !== c.program.fiscalYearId) throw new Refused('That period is in a different fiscal year than the campaign.');
+      unlocked(c.program.fiscalYear);
+      if (!(await tx.seat.findFirst({ where: { ...inOrg(ctx), name: i.ownerSeat }, select: { id: true } }))) throw new Refused(`There is no seat named ${i.ownerSeat}.`);
+      const l = await tx.budgetLine.create({ data: { ...inOrg(ctx), campaignId: c.id, periodId: period.id, name: i.name, plannedCents, ownerSeat: i.ownerSeat, costCenter: i.costCenter, glCode: i.glCode } });
+      await audit(ctx, 'plan.line.created', { targetType: 'budgetLine', targetId: l.id, data: { name: l.name, plannedCents: plannedCents.toString() } }, tx);
+    });
+    refresh(ctx);
+    return { notice: `Line ${i.name} created.` };
+  },
+);
+
+/** PRD §4 "Planned": editable until the year locks; every edit is audited and stamped, which the replan marker reads. */
+export const setPlanned = orgAction(null, z.object({ budgetLineId: ref('budgetLine'), planned: z.string().max(32) }), async (ctx, i) => {
+  requirePerm(ctx, 'budget.plan');
+  await withOrg(ctx, async (tx) => {
+    const l = (await tx.budgetLine.findFirst({ where: { id: i.budgetLineId, ...inOrg(ctx) }, include: { period: { include: { fiscalYear: true } } } })) ?? notFound();
+    const plannedCents = dollars(i.planned, 'Planned', 0n);
+    unlocked(l.period.fiscalYear);
+    if (plannedCents === l.plannedCents) return;
+    await tx.budgetLine.update({ where: { id: l.id }, data: { plannedCents, plannedEditedAt: now() } });
+    await audit(ctx, 'plan.line.planned_edited', { targetType: 'budgetLine', targetId: l.id, data: { beforeCents: l.plannedCents.toString(), afterCents: plannedCents.toString() } }, tx);
+  });
+  refresh(ctx);
+  return { notice: 'Planned saved.' };
+});
+
 // ---------- agencies and guests (PRD §5) ----------
 
 /** Ties a `guest` member to one agency in this org (D-12). Phase 3 binds it at invite time. */

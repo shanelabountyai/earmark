@@ -18,12 +18,12 @@ import { isReplan } from '@/lib/earmark/variance';
 
 // ---------- permissions (D-15: Earmark's own, beside the core Permission union, which is template-owned) ----------
 
-export type EarmarkPerm = 'request.create' | 'rules.edit' | 'invoice.submit' | 'invoice.match' | 'agency.manage' | 'variance.draft';
+export type EarmarkPerm = 'request.create' | 'rules.edit' | 'invoice.submit' | 'invoice.match' | 'agency.manage' | 'variance.draft' | 'budget.plan';
 
 // PRD §1. Approving is not here: it follows seats, not roles (a member holding a seat approves).
 const grants: Record<Role, readonly EarmarkPerm[]> = {
-  owner: ['request.create', 'rules.edit', 'invoice.submit', 'invoice.match', 'agency.manage', 'variance.draft'],
-  admin: ['request.create', 'rules.edit', 'invoice.submit', 'invoice.match', 'agency.manage', 'variance.draft'],
+  owner: ['request.create', 'rules.edit', 'invoice.submit', 'invoice.match', 'agency.manage', 'variance.draft', 'budget.plan'],
+  admin: ['request.create', 'rules.edit', 'invoice.submit', 'invoice.match', 'agency.manage', 'variance.draft', 'budget.plan'],
   member: ['request.create', 'invoice.match'],
   scorekeeper: [],
   guest: ['invoice.submit'],
@@ -89,14 +89,14 @@ export function toGuestCommitment(c: Commitment & { matches?: { invoice: { dueOn
 export const isUuid = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 
 /** A dollar string from a form ("$12,000.00") as positive cents, or a Refused the form can show. */
-export function dollars(text: string, what = 'Amount'): Cents {
+export function dollars(text: string, what = 'Amount', min: Cents = 1n): Cents {
   try {
     const c = parseDollars(text);
-    if (c > 0n) return c;
+    if (c >= min) return c;
   } catch (e) {
     if (!(e instanceof MoneyError)) throw e;
   }
-  throw new Refused(`${what} must be a positive dollar amount, like 12,000.00.`);
+  throw new Refused(`${what} must be a ${min > 0n ? 'positive' : 'non-negative'} dollar amount, like 12,000.00.`);
 }
 
 // ---------- rules (D-03, D-14) ----------

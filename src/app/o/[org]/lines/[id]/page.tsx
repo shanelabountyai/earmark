@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { inOrg, requireOrg } from '@/core/authz/guards';
 import { withOrg } from '@/core/db/rls';
 import { ActionForm } from '@/core/ui/action-form';
-import { publishVarianceNote } from '@/earmark/actions';
+import { publishVarianceNote, setPlanned } from '@/earmark/actions';
 import { earmarkCan, ledgerOf } from '@/earmark/core';
 import { formatUsd } from '@/lib/earmark/money';
 import { variance } from '@/lib/earmark/variance';
@@ -25,7 +25,7 @@ export default async function LinePage({ params }: { params: Promise<{ org: stri
       where: { id, ...inOrg(ctx) },
       include: {
         campaign: { select: { name: true, program: { select: { name: true } } } },
-        period: { select: { index: true, startsOn: true, fiscalYear: { select: { label: true } } } },
+        period: { select: { index: true, startsOn: true, fiscalYear: { select: { label: true, lockedAt: true } } } },
         requests: {
           orderBy: { submittedAt: 'asc' },
           include: {
@@ -78,6 +78,14 @@ export default async function LinePage({ params }: { params: Promise<{ org: stri
         <dt>Available</dt><dd>{formatUsd(t.availableCents)}{t.overCommitted && <> <mark>Over committed</mark></>}</dd>
         <dt>Variance</dt><dd>{formatUsd(v.varianceCents)} ({v.status})</dd>
       </dl>
+
+      {earmarkCan(ctx.role, 'budget.plan') && !line.period.fiscalYear.lockedAt && (
+        <ActionForm action={setPlanned.bind(null, ctx.slug)}>
+          <input type="hidden" name="budgetLineId" value={line.id} />
+          <label>Planned (USD) <input name="planned" inputMode="decimal" required maxLength={32} defaultValue={formatUsd(line.plannedCents)} /></label>{' '}
+          <button type="submit">Save planned</button> {pos.length > 0 && <small>A PO exists, so this edit shows as a replan.</small>}
+        </ActionForm>
+      )}
 
       <h2>Requests ({line.requests.length})</h2>
       {earmarkCan(ctx.role, 'request.create') && !line.carryForward && <p><Link href={`/o/${ctx.slug}/requests?line=${line.id}`}>New request on this line</Link></p>}
