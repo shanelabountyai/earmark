@@ -2,6 +2,7 @@
 // Earmark's server actions (Phase 2). Each is built by orgAction, so the INV-01..04/22 harness drives it with no
 // per-action code; every id is ref('<model>'), resolved with inOrg (a row from another org is the same notFound as
 // a row that does not exist). Earmark's own permission is checked first in the body (D-15). Pages arrive in Phase 3.
+import { revalidatePath } from 'next/cache';
 import { notFound } from 'next/navigation';
 import { z } from 'zod';
 import { audit } from '@/core/audit';
@@ -26,6 +27,8 @@ function isoDate(text: string, what: string): Date {
   return d;
 }
 const json = (v: unknown) => v as Prisma.InputJsonValue;
+/** After a write, every org page re-renders with it (the action returns a value, so nothing redirects). */
+const refresh = (ctx: OrgCtx) => revalidatePath(`/o/${ctx.slug}`, 'layout');
 
 /** Locks one row of the org for the rest of the transaction, so two decisions or matches on it serialize. */
 const lock = (tx: Tx, table: 'SpendRequest' | 'Commitment' | 'Invoice', id: string, orgId: string) =>
@@ -43,7 +46,7 @@ export const submitRequest = orgAction(
   }),
   async (ctx, i) => {
     requirePerm(ctx, 'request.create');
-    return withOrg(ctx, async (tx) => {
+    const out = await withOrg(ctx, async (tx) => {
       const line = (await tx.budgetLine.findFirst({ where: { id: i.budgetLineId, ...inOrg(ctx) } })) ?? notFound();
       const agency = (await tx.agency.findFirst({ where: { id: i.agencyId, ...inOrg(ctx) } })) ?? notFound();
       const amountCents = dollars(i.amount); // after every id resolves: a foreign id is notFound, never a form error
@@ -67,6 +70,8 @@ export const submitRequest = orgAction(
       if (!chain.steps.length) await approve(tx, ctx, r.id);
       return { id: r.id };
     });
+    refresh(ctx);
+    return { ...out, notice: 'Request submitted; it is listed below.' };
   },
 );
 
@@ -81,8 +86,8 @@ const REFUSALS: Record<string, string> = {
 export const decideStep = orgAction(
   null,
   z.object({ requestId: ref('spendRequest'), decision: z.enum(['approve', 'reject']), note: z.string().max(2000).default('') }),
-  async (ctx, i) =>
-    withOrg(ctx, async (tx) => {
+  async (ctx, i) => {
+    const res = await withOrg(ctx, async (tx) => {
       if (ctx.role === 'guest') throw new Refused('You do not have access to that.');
       await lock(tx, 'SpendRequest', i.requestId, ctx.orgId);
       const r = (await tx.spendRequest.findFirst({ where: { id: i.requestId, ...inOrg(ctx) }, include: { steps: { orderBy: { index: 'asc' } } } })) ?? notFound();
@@ -104,7 +109,10 @@ export const decideStep = orgAction(
         await audit(ctx, 'request.rejected', { targetType: 'spendRequest', targetId: r.id }, tx);
       } else if (out.state === 'approved') await approve(tx, ctx, r.id);
       return { state: out.state };
-    }),
+    });
+    refresh(ctx);
+    return res;
+  },
 );
 
 /** The last approval: the request is approved and its commitment issued in the same transaction (D-05, E-INV-02). */
@@ -119,16 +127,17 @@ async function approve(tx: Tx, ctx: OrgCtx, requestId: string) {
   await emit(ctx, 'commitment.issued', { commitment: { id: c.id, poNumber: c.poNumber, agencyId: c.agencyId, amountCents: c.amountCents.toString() } }, tx);
 }
 
-export const withdrawRequest = orgAction(null, z.object({ requestId: ref('spendRequest') }), async (ctx, i) =>
-  withOrg(ctx, async (tx) => {
+export const withdrawRequest = orgAction(null, z.object({ requestId: ref('spendRequest') }), async (ctx, i) => {
+  await withOrg(ctx, async (tx) => {
     await lock(tx, 'SpendRequest', i.requestId, ctx.orgId);
     const r = (await tx.spendRequest.findFirst({ where: { id: i.requestId, ...inOrg(ctx) } })) ?? notFound();
     if (r.requestedById !== ctx.userId) throw new Refused('Only the requester can withdraw a request.');
     if (r.state !== 'submitted') throw new Refused(REFUSALS.CHAIN_ENDED!);
     await tx.spendRequest.update({ where: { id: r.id }, data: { state: 'withdrawn', decidedAt: now() } });
     await audit(ctx, 'request.withdrawn', { targetType: 'spendRequest', targetId: r.id }, tx);
-  }),
-);
+  });
+  refresh(ctx);
+});
 
 // ---------- rules (PRD §3 rule 6, E-INV-06) ----------
 
@@ -140,7 +149,7 @@ export const editRules = orgAction(null, z.object({ rules: z.string().max(20_000
   } catch (e) {
     throw new Refused(`Those rules do not parse: ${(e as Error).message}`);
   }
-  return withOrg(ctx, async (tx) => {
+  const out = await withOrg(ctx, async (tx) => {
     await rulesOf(tx, ctx); // seeds the row on first edit
     await tx.$queryRawUnsafe(`SELECT 1 FROM "OrgSettings" WHERE "orgId" = $1::uuid FOR UPDATE`, ctx.orgId);
     const { rules: before } = await rulesOf(tx, ctx);
@@ -151,6 +160,8 @@ export const editRules = orgAction(null, z.object({ rules: z.string().max(20_000
     await audit(ctx, 'rules.edited', { targetType: 'orgSettings', targetId: ctx.orgId, data: json(ruleEditToJson(edit)) }, tx);
     return { changes: edit.changes.length };
   });
+  refresh(ctx);
+  return { ...out, notice: out.changes ? `Saved ${out.changes} change${out.changes === 1 ? '' : 's'}.` : 'No changes.' };
 });
 
 // ---------- invoices (PRD §4) ----------

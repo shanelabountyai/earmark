@@ -1,9 +1,7 @@
 import { expect, test } from '@playwright/test';
-import { seedDemo } from '../scripts/seed-demo';
 
 // M11 gate (addendum §4, §5): the audit log, org security, account sessions and export pages render for each demo org.
 // The export itself is refused here (a demo account is shared); INV-34 builds and verifies one against its manifest.
-test.beforeAll(async () => { await seedDemo(); });
 
 for (const [slug, name] of [['northwind', 'Northwind'], ['contoso', 'Contoso']] as const) {
   test(`settings pages render for the ${name} demo owner`, async ({ page }) => {

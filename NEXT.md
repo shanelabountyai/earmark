@@ -2,11 +2,11 @@
 
 ## ▶ Now: Phase 3 on `phase-3` (off `main` after PR #3 merged 2026-11-09). Model: Opus.
 
-Seven commits (D-21 in `prd-earmark.md`). **Done: (1) demo seed** (`scripts/seed-earmark.ts`, D-20); **(2) dashboard, budget tree, line page** (`/o/[org]`, `/o/[org]/lines/[id]`, all numbers through `ledgerOf` in `src/earmark/core.ts`). (2) also fixed the rollup engine: a closed PO now counts what was matched to it (D-23).
+Seven commits (D-21 in `prd-earmark.md`). **Done: (1) demo seed** (`scripts/seed-earmark.ts`, D-20); **(2) dashboard, budget tree, line page** (D-23 rollup fix); **(3) requests, chain view, approvals inbox, rules settings** (`/o/[org]/requests`, `/requests/[id]`, `/approvals`, `/settings/rules`; D-24). Demo steps 3–5 are already e2e in `e2e/demo.spec.ts`; e2e seeds once in `e2e/global-setup.ts`.
 
-**▶ Next item: (3) request form, chain view, approvals inbox, rules settings.** Demo steps 3–5. Actions exist (`submitRequest`, `decideStep`, `editRules` in `src/earmark/actions.ts`); this item is their pages. Link the line page's requests to the new chain view.
+**▶ Next item: (4) commitments, guest view, guest invoice submit.** Demo step 7 (and step 6's PO). Actions exist (`submitInvoice` in `src/earmark/actions.ts`; `findCommitment`/`toGuestCommitment` in `core.ts`). The guest home in `/o/[org]/page.tsx` is a placeholder to replace. Earmark actions call `refresh(ctx)` and return a `notice` (D-24).
 
-Then: (4) commitments, guest view, guest invoice submit → (5) match with suggestions, approve-for-payment, variance view, published notes → (6) planning CRUD, seats, reallocation, guest agency at invite → (7) alerts cron, e2e demo steps 1–8 with D-22's stand-ins: step 1 via `/demo`, step 6 asserts the event row, step 8 URL half only. Phase 4's gate re-runs 1, 6, 8 for real.
+Then: (5) match with suggestions → (5) match with suggestions, approve-for-payment, variance view, published notes → (6) planning CRUD, seats, reallocation, guest agency at invite → (7) alerts cron, e2e demo steps 1, 2, 6–8 (3–5 done) with D-22's stand-ins: step 1 via `/demo`, step 6 asserts the event row, step 8 URL half only. Phase 4's gate re-runs 1, 6, 8 for real.
 
 **Seed facts for the e2e:** sign in at `/demo`. Requester `member@northwind.demo.test` also holds Demand Gen Owner (self-approval refusal); `demandgen@` approves Demand Gen lines; `admin@` holds Marketing Ops; `finance@` Finance; Dana is `dana@meridian.demo.test`, guest in both orgs.
 

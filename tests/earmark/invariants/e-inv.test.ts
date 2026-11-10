@@ -187,7 +187,7 @@ describe('E-INV-06: rule edits are audited with before and after; in-flight requ
     const before = await db.spendRequest.findUniqueOrThrow({ where: { id: first.id }, include: { steps: { orderBy: { index: 'asc' } } } });
     expect(before.steps.map((s) => s.seat)).toEqual(['Budget Owner', 'Marketing Ops']);
 
-    expect(await as(w.admin.id, () => editRules(w.slug, { rules: withThreshold('Marketing Ops', 1_500_000) }))).toEqual({ changes: 1 });
+    expect(await as(w.admin.id, () => editRules(w.slug, { rules: withThreshold('Marketing Ops', 1_500_000) }))).toMatchObject({ changes: 1 });
 
     const after = await db.spendRequest.findUniqueOrThrow({ where: { id: first.id }, include: { steps: { orderBy: { index: 'asc' } } } });
     expect(after.chainSnapshot).toEqual(before.chainSnapshot);
@@ -209,7 +209,7 @@ describe('E-INV-06: rule edits are audited with before and after; in-flight requ
     expect(await as(w.admin.id, () => editRules(w.slug, { rules: withThreshold('CFO', 30_000_000) }))).toMatchObject({ error: expect.stringMatching(/needs owner/) });
     expect((await db.orgSettings.findUniqueOrThrow({ where: { orgId: w.orgId } })).rules).toEqual(RULES);
     expect(await db.auditEvent.count({ where: { action: 'rules.edited' } })).toBe(0);
-    expect(await as(w.owner.id, () => editRules(w.slug, { rules: withThreshold('CFO', 30_000_000) }))).toEqual({ changes: 1 });
+    expect(await as(w.owner.id, () => editRules(w.slug, { rules: withThreshold('CFO', 30_000_000) }))).toMatchObject({ changes: 1 });
   });
 });
 

@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { inOrg, requireOrg } from '@/core/authz/guards';
 import { withOrg } from '@/core/db/rls';
-import { ledgerOf } from '@/earmark/core';
+import { earmarkCan, ledgerOf } from '@/earmark/core';
 import { formatUsd } from '@/lib/earmark/money';
 import { variance } from '@/lib/earmark/variance';
 
@@ -75,13 +75,14 @@ export default async function LinePage({ params }: { params: Promise<{ org: stri
       </dl>
 
       <h2>Requests ({line.requests.length})</h2>
+      {earmarkCan(ctx.role, 'request.create') && !line.carryForward && <p><Link href={`/o/${ctx.slug}/requests?line=${line.id}`}>New request on this line</Link></p>}
       <table>
         <thead><tr><th>Submitted</th><th>Description</th><th>Agency</th><th>Amount</th><th>State</th></tr></thead>
         <tbody>
           {line.requests.map((r) => (
             <tr key={r.id}>
               <td>{day(r.submittedAt)}</td>
-              <td>{r.description}{r.overBudget && <> <mark>Over budget</mark></>}</td>
+              <td><Link href={`/o/${ctx.slug}/requests/${r.id}`}>{r.description}</Link>{r.overBudget && <> <mark>Over budget</mark></>}</td>
               <td>{r.agency?.name ?? '—'}</td>
               <td>{formatUsd(r.amountCents)}</td>
               <td>{r.state}</td>
