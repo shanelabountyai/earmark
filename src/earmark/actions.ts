@@ -362,6 +362,88 @@ export const setPlanned = orgAction(null, z.object({ budgetLineId: ref('budgetLi
   return { notice: 'Planned saved.' };
 });
 
+// ---------- seats (PRD §1–2, D-27) ----------
+
+/** The org's staff member `userId` (never a guest: a guest approves nothing), or notFound. */
+async function staffMember(tx: Tx, ctx: OrgCtx, userId: string) {
+  const m = (await tx.membership.findFirst({ where: { userId, ...inOrg(ctx) }, select: { userId: true, role: true } })) ?? notFound();
+  if (m.role === 'guest') throw new Refused('A guest cannot hold or take a seat.');
+  return m;
+}
+
+export const createSeat = orgAction(null, z.object({ name }), async (ctx, i) => {
+  requirePerm(ctx, 'seats.manage');
+  await withOrg(ctx, async (tx) => {
+    if (await tx.seat.findFirst({ where: { ...inOrg(ctx), name: i.name }, select: { id: true } })) throw new Refused(`There is already a ${i.name} seat.`);
+    const s = await tx.seat.create({ data: { ...inOrg(ctx), name: i.name } });
+    await audit(ctx, 'seat.created', { targetType: 'seat', targetId: s.id, data: { name: s.name } }, tx);
+  });
+  refresh(ctx);
+  return { notice: `Seat ${i.name} created.` };
+});
+
+/** Seats a member from now, until `activeTo` if given; a past holder is re-seated on the same row. */
+export const assignSeat = orgAction(null, z.object({ seatId: ref('seat'), userId: ref('member'), activeTo: z.string().max(10).default('') }), async (ctx, i) => {
+  requirePerm(ctx, 'seats.manage');
+  await withOrg(ctx, async (tx) => {
+    const seat = (await tx.seat.findFirst({ where: { id: i.seatId, ...inOrg(ctx) } })) ?? notFound();
+    const m = await staffMember(tx, ctx, i.userId);
+    const activeTo = i.activeTo ? isoDate(i.activeTo, 'End date') : null;
+    if (activeTo && activeTo <= now()) throw new Refused('The end date must be in the future.');
+    const data = { activeFrom: now(), activeTo, delegateToId: null };
+    await tx.seatHolder.upsert({ where: { seatId_userId: { seatId: seat.id, userId: m.userId } }, create: { ...inOrg(ctx), seatId: seat.id, userId: m.userId, ...data }, update: data });
+    await audit(ctx, 'seat.assigned', { targetType: 'seat', targetId: seat.id, data: { userId: m.userId, activeTo: activeTo?.toISOString() ?? null } }, tx);
+  });
+  refresh(ctx);
+  return { notice: 'Seat assigned.' };
+});
+
+/** A foreign seat or member is notFound; an in-org pair that is not a holding is a refusal. */
+async function holding(tx: Tx, ctx: OrgCtx, seatId: string, userId: string) {
+  const seat = (await tx.seat.findFirst({ where: { id: seatId, ...inOrg(ctx) }, select: { id: true, name: true } })) ?? notFound();
+  (await tx.membership.findFirst({ where: { userId, ...inOrg(ctx) }, select: { userId: true } })) ?? notFound();
+  const h = await tx.seatHolder.findFirst({ where: { ...inOrg(ctx), seatId: seat.id, userId } });
+  if (!h) throw new Refused(`That person does not hold the ${seat.name} seat.`);
+  return h;
+}
+
+export const endSeat = orgAction(null, z.object({ seatId: ref('seat'), userId: ref('member') }), async (ctx, i) => {
+  requirePerm(ctx, 'seats.manage');
+  await withOrg(ctx, async (tx) => {
+    const h = await holding(tx, ctx, i.seatId, i.userId);
+    await tx.seatHolder.update({ where: { id: h.id }, data: { activeTo: now(), delegateToId: null } });
+    await audit(ctx, 'seat.ended', { targetType: 'seat', targetId: h.seatId, data: { userId: h.userId } }, tx);
+  });
+  refresh(ctx);
+  return { notice: 'Seat ended.' };
+});
+
+/** PRD §3 rule 3: the holder's steps go to the delegate until the delegation is cleared (or the holding ends). */
+export const delegateSeat = orgAction(null, z.object({ seatId: ref('seat'), userId: ref('member'), delegateToId: ref('member') }), async (ctx, i) => {
+  requirePerm(ctx, 'seats.manage');
+  await withOrg(ctx, async (tx) => {
+    (await tx.membership.findFirst({ where: { userId: i.delegateToId, ...inOrg(ctx) }, select: { userId: true } })) ?? notFound(); // every id resolves before any refusal
+    const h = await holding(tx, ctx, i.seatId, i.userId);
+    const to = await staffMember(tx, ctx, i.delegateToId);
+    if (to.userId === h.userId) throw new Refused('A holder cannot delegate to themselves.');
+    await tx.seatHolder.update({ where: { id: h.id }, data: { delegateToId: to.userId } });
+    await audit(ctx, 'seat.delegated', { targetType: 'seat', targetId: h.seatId, data: { from: h.userId, to: to.userId } }, tx);
+  });
+  refresh(ctx);
+  return { notice: 'Delegation set.' };
+});
+
+export const clearDelegation = orgAction(null, z.object({ seatId: ref('seat'), userId: ref('member') }), async (ctx, i) => {
+  requirePerm(ctx, 'seats.manage');
+  await withOrg(ctx, async (tx) => {
+    const h = await holding(tx, ctx, i.seatId, i.userId);
+    await tx.seatHolder.update({ where: { id: h.id }, data: { delegateToId: null } });
+    await audit(ctx, 'seat.delegation_cleared', { targetType: 'seat', targetId: h.seatId, data: { from: h.userId, to: h.delegateToId } }, tx);
+  });
+  refresh(ctx);
+  return { notice: 'Delegation cleared.' };
+});
+
 // ---------- agencies and guests (PRD §5) ----------
 
 /** Ties a `guest` member to one agency in this org (D-12). Phase 3 binds it at invite time. */

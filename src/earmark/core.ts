@@ -18,11 +18,11 @@ import { isReplan } from '@/lib/earmark/variance';
 
 // ---------- permissions (D-15: Earmark's own, beside the core Permission union, which is template-owned) ----------
 
-export type EarmarkPerm = 'request.create' | 'rules.edit' | 'invoice.submit' | 'invoice.match' | 'agency.manage' | 'variance.draft' | 'budget.plan';
+export type EarmarkPerm = 'request.create' | 'rules.edit' | 'invoice.submit' | 'invoice.match' | 'agency.manage' | 'variance.draft' | 'budget.plan' | 'seats.manage';
 
 // PRD §1. Approving is not here: it follows seats, not roles (a member holding a seat approves).
 const grants: Record<Role, readonly EarmarkPerm[]> = {
-  owner: ['request.create', 'rules.edit', 'invoice.submit', 'invoice.match', 'agency.manage', 'variance.draft', 'budget.plan'],
+  owner: ['request.create', 'rules.edit', 'invoice.submit', 'invoice.match', 'agency.manage', 'variance.draft', 'budget.plan', 'seats.manage'],
   admin: ['request.create', 'rules.edit', 'invoice.submit', 'invoice.match', 'agency.manage', 'variance.draft', 'budget.plan'],
   member: ['request.create', 'invoice.match'],
   scorekeeper: [],
