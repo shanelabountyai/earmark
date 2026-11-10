@@ -67,3 +67,25 @@ test('steps 3–5: frozen chain, self-approval refused, rule edit applies only t
   await member.goto(first);
   expect(await seats(member)).toEqual(['Budget Owner', 'Marketing Ops']);
 });
+
+// Demo step 7, and step 8's URL half (D-22): Dana invoices a Meridian PO in Northwind; the same PO id under Contoso's
+// slug is a 404. The API half with Contoso's key is Phase 4.
+test('steps 7–8: a guest invoices her PO; the same id under another client is a 404', async ({ browser }) => {
+  const number = `MER-E2E-${Date.now()}`;
+  const dana = await as(browser, 'dana@meridian.demo.test');
+  await expect(dana.getByRole('heading', { name: 'Purchase orders' })).toBeVisible(); // a guest's home is her POs
+  await expect(dana.getByRole('navigation')).not.toContainText('Requests');
+  await dana.getByRole('table', { name: 'Purchase orders' }).getByRole('row').filter({ hasText: /open ·/ }).first().getByRole('link').click();
+  await dana.waitForURL(/\/o\/northwind\/commitments\/[0-9a-f-]{36}$/);
+
+  await dana.getByLabel('Invoice number').fill(number);
+  await dana.getByLabel('Amount (USD)').fill('1,250.00');
+  await dana.getByLabel('Invoice date').fill('2026-11-01');
+  await dana.getByLabel('Due date').fill('2026-12-01');
+  await dana.getByRole('button', { name: 'Submit invoice' }).click();
+  await expect(dana.locator('main').getByRole('status')).toHaveText(`Invoice ${number} submitted; it is listed below.`);
+  await expect(dana.getByRole('table', { name: 'Invoices on this PO' })).toContainText(number);
+
+  const res = await dana.goto(dana.url().replace('/o/northwind/', '/o/contoso/'));
+  expect(res?.status()).toBe(404);
+});

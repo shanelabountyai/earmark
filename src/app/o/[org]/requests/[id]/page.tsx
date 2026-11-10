@@ -5,19 +5,19 @@ import { inOrg, requireOrg } from '@/core/authz/guards';
 import { withOrg } from '@/core/db/rls';
 import { ActionForm } from '@/core/ui/action-form';
 import { decideStep, withdrawRequest } from '@/earmark/actions';
+import { isUuid } from '@/earmark/core';
 import { formatUsd } from '@/lib/earmark/money';
 
 export const metadata = { title: 'Request' };
 
 const when = (d: Date) => d.toISOString().slice(0, 16).replace('T', ' ');
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Demo steps 3–4: the chain frozen at submit, each step's decision, the decide form and the request's audit rows.
 // The form shows to any staff member while the request is open: decideStep is what refuses (self-approval, wrong seat).
 export default async function RequestPage({ params }: { params: Promise<{ org: string; id: string }> }) {
   const ctx = await requireOrg((await params).org);
   const { id } = await params;
-  if (ctx.role === 'guest' || !UUID.test(id)) notFound();
+  if (ctx.role === 'guest' || !isUuid(id)) notFound();
 
   const { r, events } = await withOrg(ctx, async (tx) => {
     const r = await tx.spendRequest.findFirst({
@@ -25,7 +25,7 @@ export default async function RequestPage({ params }: { params: Promise<{ org: s
       include: {
         steps: { orderBy: { index: 'asc' } },
         agency: { select: { name: true } },
-        commitment: { select: { poNumber: true } },
+        commitment: { select: { id: true, poNumber: true } },
         budgetLine: { select: { id: true, name: true, campaign: { select: { name: true, program: { select: { name: true } } } } } },
       },
     });
@@ -43,7 +43,7 @@ export default async function RequestPage({ params }: { params: Promise<{ org: s
     <main>
       <p><Link href={`/o/${ctx.slug}/requests`}>Requests</Link> / <Link href={`/o/${ctx.slug}/lines/${l.id}`}>{l.campaign.program.name} / {l.campaign.name} / {l.name}</Link></p>
       <h1>{formatUsd(r.amountCents)}: {r.description} {r.overBudget && <mark>Over budget</mark>}</h1>
-      <p>State: <strong>{r.state}</strong> · Requested by {who(r.requestedById)} on {when(r.submittedAt)} UTC · Agency: {r.agency?.name ?? '—'}{r.commitment && <> · PO {r.commitment.poNumber}</>}</p>
+      <p>State: <strong>{r.state}</strong> · Requested by {who(r.requestedById)} on {when(r.submittedAt)} UTC · Agency: {r.agency?.name ?? '—'}{r.commitment && <> · <Link href={`/o/${ctx.slug}/commitments/${r.commitment.id}`}>{r.commitment.poNumber}</Link></>}</p>
 
       <h2>Approval chain (frozen at submit)</h2>
       <table aria-label="Approval chain">

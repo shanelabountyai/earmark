@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { inOrg, requireOrg } from '@/core/authz/guards';
 import { withOrg } from '@/core/db/rls';
 import { ledgerOf } from '@/earmark/core';
@@ -12,7 +13,7 @@ export const metadata = { title: 'Budget' };
 export default async function OrgHome({ params }: { params: Promise<{ org: string }> }) {
   const ctx = await requireOrg((await params).org);
   const base = `/o/${ctx.slug}`;
-  if (ctx.role === 'guest') return <main><h1>Purchase orders</h1><p>Your agency&apos;s purchase orders appear here.</p></main>; // PRD §1: no budgets
+  if (ctx.role === 'guest') redirect(`${base}/commitments`); // PRD §1: a guest sees no budget, only their POs
 
   const data = await withOrg(ctx, async (tx) => {
     const fy = await tx.fiscalYear.findFirst({ where: inOrg(ctx), orderBy: { startsOn: 'desc' } });

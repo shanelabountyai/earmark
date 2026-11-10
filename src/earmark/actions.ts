@@ -179,7 +179,7 @@ export const submitInvoice = orgAction(
   }),
   async (ctx, i) => {
     requirePerm(ctx, 'invoice.submit');
-    return withOrg(ctx, async (tx) => {
+    const out = await withOrg(ctx, async (tx) => {
       const scope = await scopeOf(tx, ctx);
       // A guest's other agency is the same notFound as one that does not exist (E-INV-03). Not a spread of
       // { id: scope.agencyId }: that would overwrite the id asked for and file the invoice under the guest's own agency.
@@ -194,8 +194,10 @@ export const submitInvoice = orgAction(
         data: { ...inOrg(ctx), agencyId: agency.id, number: i.number, poNumber: i.poNumber || null, amountCents, invoicedOn, dueOn, submittedById: ctx.userId, fileRef: i.fileRef || null },
       });
       await audit(ctx, 'invoice.submitted', { targetType: 'invoice', targetId: inv.id, data: { amountCents: amountCents.toString() } }, tx);
-      return { id: inv.id };
+      return { id: inv.id, number: inv.number };
     });
+    refresh(ctx);
+    return { id: out.id, notice: `Invoice ${out.number} submitted; it is listed below.` };
   },
 );
 

@@ -2,11 +2,11 @@
 
 ## ▶ Now: Phase 3 on `phase-3` (off `main` after PR #3 merged 2026-11-09). Model: Opus.
 
-Seven commits (D-21 in `prd-earmark.md`). **Done: (1) demo seed** (`scripts/seed-earmark.ts`, D-20); **(2) dashboard, budget tree, line page** (D-23 rollup fix); **(3) requests, chain view, approvals inbox, rules settings** (`/o/[org]/requests`, `/requests/[id]`, `/approvals`, `/settings/rules`; D-24). Demo steps 3–5 are already e2e in `e2e/demo.spec.ts`; e2e seeds once in `e2e/global-setup.ts`.
+Seven commits (D-21 in `prd-earmark.md`). **Done: (1) demo seed** (`scripts/seed-earmark.ts`, D-20); **(2) dashboard, budget tree, line page** (D-23 rollup fix); **(3) requests, chain view, approvals inbox, rules settings** (D-24); **(4) commitments, guest view, guest invoice submit**: `/o/[org]/commitments` (staff: every PO; guest: her agency's POs via `toGuestCommitment` plus her invoices; a guest's home redirects here) and `/o/[org]/commitments/[id]` (projection for guests, request/line links for staff, the invoice submit form, invoices naming the PO). Demo steps 3–5 and 7 plus step 8's URL half are e2e in `e2e/demo.spec.ts`; e2e seeds once in `e2e/global-setup.ts`.
 
-**▶ Next item: (4) commitments, guest view, guest invoice submit.** Demo step 7 (and step 6's PO). Actions exist (`submitInvoice` in `src/earmark/actions.ts`; `findCommitment`/`toGuestCommitment` in `core.ts`). The guest home in `/o/[org]/page.tsx` is a placeholder to replace. Earmark actions call `refresh(ctx)` and return a `notice` (D-24).
+**▶ Next item: (5) match with suggestions, approve-for-payment, variance view, published notes.** `matchInvoice` exists (`src/earmark/actions.ts`); the proposer is `src/lib/earmark/match.ts`. Approve-for-payment emits `invoice.approved_for_payment` and is new. The PO page's invoice table lists invoices *naming* the PO (a `ponytail:` note): once matches have a view, show matched-but-not-named invoices there too.
 
-Then: (5) match with suggestions → (5) match with suggestions, approve-for-payment, variance view, published notes → (6) planning CRUD, seats, reallocation, guest agency at invite → (7) alerts cron, e2e demo steps 1, 2, 6–8 (3–5 done) with D-22's stand-ins: step 1 via `/demo`, step 6 asserts the event row, step 8 URL half only. Phase 4's gate re-runs 1, 6, 8 for real.
+Then: (6) planning CRUD, seats, reallocation, guest agency at invite → (7) alerts cron, e2e demo steps 1, 2, 6 with D-22's stand-ins: step 1 via `/demo`, step 6 asserts the event row. Phase 4's gate re-runs 1, 6, 8 for real.
 
 **Seed facts for the e2e:** sign in at `/demo`. Requester `member@northwind.demo.test` also holds Demand Gen Owner (self-approval refusal); `demandgen@` approves Demand Gen lines; `admin@` holds Marketing Ops; `finance@` Finance; Dana is `dana@meridian.demo.test`, guest in both orgs.
 

@@ -85,6 +85,9 @@ export function toGuestCommitment(c: Commitment & { matches?: { invoice: { dueOn
 
 // ---------- inputs ----------
 
+/** A route's [id]: anything else is the notFound of a missing row, never a database error on a uuid column. */
+export const isUuid = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
 /** A dollar string from a form ("$12,000.00") as positive cents, or a Refused the form can show. */
 export function dollars(text: string, what = 'Amount'): Cents {
   try {
