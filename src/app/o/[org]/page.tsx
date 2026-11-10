@@ -54,7 +54,7 @@ export default async function OrgHome({ params }: { params: Promise<{ org: strin
               const inv = ledger.invoices.get(u.invoiceId)!;
               return (
                 <tr key={u.invoiceId}>
-                  <td>{inv.number}</td>
+                  <td><Link href={`${base}/invoices/${u.invoiceId}`}>{inv.number}</Link></td>
                   <td>{inv.agency.name}</td>
                   <td>{inv.poNumber ?? '—'}</td>
                   <td>{u.lineId ? <Link href={`${base}/lines/${u.lineId}`}>{lineName.get(u.lineId)}</Link> : 'No line'}</td>

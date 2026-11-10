@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { inOrg, requireOrg } from '@/core/authz/guards';
 import { withOrg } from '@/core/db/rls';
+import { ActionForm } from '@/core/ui/action-form';
+import { publishVarianceNote } from '@/earmark/actions';
 import { earmarkCan, ledgerOf } from '@/earmark/core';
 import { formatUsd } from '@/lib/earmark/money';
 import { variance } from '@/lib/earmark/variance';
@@ -28,9 +30,10 @@ export default async function LinePage({ params }: { params: Promise<{ org: stri
           orderBy: { submittedAt: 'asc' },
           include: {
             agency: { select: { name: true } },
-            commitment: { include: { agency: { select: { name: true } }, matches: { orderBy: { matchedAt: 'asc' }, include: { invoice: { select: { number: true, state: true, approvedForPaymentAt: true } } } } } },
+            commitment: { include: { agency: { select: { name: true } }, matches: { orderBy: { matchedAt: 'asc' }, include: { invoice: { select: { id: true, number: true, state: true, approvedForPaymentAt: true } } } } } },
           },
         },
+        notes: { orderBy: { createdAt: 'desc' }, take: 20 },
       },
     });
     if (!line) notFound();
@@ -40,6 +43,8 @@ export default async function LinePage({ params }: { params: Promise<{ org: stri
   const t = ledger.rollup.lines[0]!;
   const replan = ledger.replan.has(line.id);
   const v = variance({ periodId: line.periodId, lines: [{ lineId: line.id, plannedCents: t.plannedCents, actualCents: t.actualCents }] }).rows[0]!;
+  const published = line.notes.find((n) => n.published);
+  const draft = line.notes.find((n) => !n.published && (!published || n.createdAt > published.createdAt));
   const pos = line.requests.flatMap((r) => (r.commitment ? [r.commitment] : []));
 
   type Event = { at: Date; text: string; replan?: boolean };
@@ -114,7 +119,7 @@ export default async function LinePage({ params }: { params: Promise<{ org: stri
         <tbody>
           {pos.flatMap((c) => c.matches.map((m) => (
             <tr key={m.id}>
-              <td>{m.invoice.number}</td>
+              <td><Link href={`/o/${ctx.slug}/invoices/${m.invoice.id}`}>{m.invoice.number}</Link></td>
               <td>{c.poNumber}</td>
               <td>{formatUsd(m.amountCents)}</td>
               <td>{m.variance}{m.overage && <> <mark>Overage</mark></>}</td>
@@ -124,6 +129,18 @@ export default async function LinePage({ params }: { params: Promise<{ org: stri
           )))}
         </tbody>
       </table>
+
+      <h2>Variance note</h2>
+      {published ? <blockquote aria-label="Published note">{published.published}</blockquote> : <p>No note published.</p>}
+      {earmarkCan(ctx.role, 'variance.draft') && (
+        <ActionForm action={publishVarianceNote.bind(null, ctx.slug)}>
+          <input type="hidden" name="budgetLineId" value={line.id} />
+          <label>Note {draft && <small>(the latest draft; edit before publishing)</small>}<br />
+            <textarea name="text" rows={4} cols={80} required maxLength={4000} defaultValue={draft?.draft ?? published?.published ?? ''} />
+          </label><br />
+          <button type="submit">Publish note</button>
+        </ActionForm>
+      )}
 
       <h2>History</h2>
       <ol reversed aria-label="Line history">

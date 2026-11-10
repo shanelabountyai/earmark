@@ -27,9 +27,9 @@ export default async function CommitmentPage({ params }: { params: Promise<{ org
         where: { id, ...inOrg(ctx) },
         select: { closeReason: true, agency: { select: { name: true } }, request: { select: { id: true, description: true, budgetLine: { select: { id: true, name: true } } } } },
       }),
-      // ponytail: invoices that name this PO; one matched here without naming it shows once item 5 lists matches.
+      // Invoices naming this PO, and any matched to it without naming it.
       invoices: await tx.invoice.findMany({
-        where: { ...inOrg(ctx), ...(await scopeOf(tx, ctx)), poNumber: c.poNumber },
+        where: { ...inOrg(ctx), ...(await scopeOf(tx, ctx)), OR: [{ poNumber: c.poNumber }, { matches: { some: { commitmentId: c.id } } }] },
         orderBy: { createdAt: 'desc' },
         select: { id: true, number: true, amountCents: true, invoicedOn: true, dueOn: true, state: true },
       }),
@@ -73,7 +73,7 @@ export default async function CommitmentPage({ params }: { params: Promise<{ org
         <thead><tr><th>Invoice</th><th>Amount</th><th>Invoiced</th><th>Due</th><th>Status</th></tr></thead>
         <tbody>
           {invoices.map((i) => (
-            <tr key={i.id}><td>{i.number}</td><td>{formatUsd(i.amountCents)}</td><td>{day(i.invoicedOn)}</td><td>{day(i.dueOn)}</td><td>{i.state}</td></tr>
+            <tr key={i.id}><td>{staff ? <Link href={`/o/${ctx.slug}/invoices/${i.id}`}>{i.number}</Link> : i.number}</td><td>{formatUsd(i.amountCents)}</td><td>{day(i.invoicedOn)}</td><td>{day(i.dueOn)}</td><td>{i.state}</td></tr>
           ))}
         </tbody>
       </table>

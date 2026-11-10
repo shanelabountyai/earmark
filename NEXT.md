@@ -2,11 +2,13 @@
 
 ## ▶ Now: Phase 3 on `phase-3` (off `main` after PR #3 merged 2026-11-09). Model: Opus.
 
-Seven commits (D-21 in `prd-earmark.md`). **Done: (1) demo seed** (`scripts/seed-earmark.ts`, D-20); **(2) dashboard, budget tree, line page** (D-23 rollup fix); **(3) requests, chain view, approvals inbox, rules settings** (D-24); **(4) commitments, guest view, guest invoice submit**: `/o/[org]/commitments` (staff: every PO; guest: her agency's POs via `toGuestCommitment` plus her invoices; a guest's home redirects here) and `/o/[org]/commitments/[id]` (projection for guests, request/line links for staff, the invoice submit form, invoices naming the PO). Demo steps 3–5 and 7 plus step 8's URL half are e2e in `e2e/demo.spec.ts`; e2e seeds once in `e2e/global-setup.ts`.
+Seven commits (D-21 in `prd-earmark.md`). **Done: (1) demo seed** (D-20); **(2) dashboard, budget tree, line page** (D-23); **(3) requests, chain view, approvals inbox, rules settings** (D-24); **(4) commitments, guest view, guest invoice submit**; **(5) match, approve-for-payment, variance view, published notes** (D-25): `/o/[org]/invoices` (to match / to approve queues), `/o/[org]/invoices/[id]` (ranked suggestions with reasons, match form, Finance-only *Approve for payment* emitting `invoice.approved_for_payment`), `/o/[org]/variance` (per period, replan marker, latest published note), publish form on the line page. Demo step 9 is e2e in `e2e/demo.spec.ts`; tests in `tests/earmark/invariants/payment.test.ts`.
 
-**▶ Next item: (5) match with suggestions, approve-for-payment, variance view, published notes.** `matchInvoice` exists (`src/earmark/actions.ts`); the proposer is `src/lib/earmark/match.ts`. Approve-for-payment emits `invoice.approved_for_payment` and is new. The PO page's invoice table lists invoices *naming* the PO (a `ponytail:` note): once matches have a view, show matched-but-not-named invoices there too.
+**▶ Next item: (6) planning CRUD, seats, reallocation, guest agency at invite.** Planning CRUD: fiscal year, programs, campaigns, lines, planned edits setting `plannedEditedAt` (the replan marker reads it). Seats: holders, active windows, delegation (`SeatHolder.delegateToId`). Reallocation: `Reallocation` table and the `reallocation` chain exist in the rules. Guest agency at invite: `assignGuestAgency` after accept (template owns invite accept).
 
-Then: (6) planning CRUD, seats, reallocation, guest agency at invite → (7) alerts cron, e2e demo steps 1, 2, 6 with D-22's stand-ins: step 1 via `/demo`, step 6 asserts the event row. Phase 4's gate re-runs 1, 6, 8 for real.
+Then: (7) alerts cron, e2e demo steps 1, 2, 6 with D-22's stand-ins: step 1 via `/demo`, step 6 asserts the event row. Phase 4's gate re-runs 1, 6, 8 for real.
+
+**UI pattern learned in (5):** a form whose success removes it from the page (fully matched → suggestions vanish; approved → approve button vanishes) loses its `notice`. Assert the page's new state in e2e, not the notice.
 
 **Seed facts for the e2e:** sign in at `/demo`. Requester `member@northwind.demo.test` also holds Demand Gen Owner (self-approval refusal); `demandgen@` approves Demand Gen lines; `admin@` holds Marketing Ops; `finance@` Finance; Dana is `dana@meridian.demo.test`, guest in both orgs.
 

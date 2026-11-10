@@ -89,3 +89,38 @@ test('steps 7–8: a guest invoices her PO; the same id under another client is 
   const res = await dana.goto(dana.url().replace('/o/northwind/', '/o/contoso/'));
   expect(res?.status()).toBe(404);
 });
+
+// Demo step 9 (D-25): Dana invoices a PO; the admin matches it to the top suggestion, which names that PO; Finance
+// approves it for payment, and the line's variance view shows it as actual.
+test('step 9: match to the ranked suggestion, approve for payment, variance view', async ({ browser }) => {
+  const number = `MER-M-${Date.now()}`;
+  const dana = await as(browser, 'dana@meridian.demo.test');
+  await dana.getByRole('table', { name: 'Purchase orders' }).getByRole('row').filter({ hasText: /open ·/ }).first().getByRole('link').click();
+  await dana.waitForURL(/\/commitments\/[0-9a-f-]{36}$/);
+  const po = await dana.getByRole('heading', { level: 1 }).innerText();
+  await dana.getByLabel('Invoice number').fill(number);
+  await dana.getByLabel('Amount (USD)').fill('10.00');
+  await dana.getByLabel('Invoice date').fill('2026-11-01');
+  await dana.getByLabel('Due date').fill('2026-12-01');
+  await dana.getByRole('button', { name: 'Submit invoice' }).click();
+  await expect(dana.locator('main').getByRole('status')).toContainText(number);
+
+  const admin = await as(browser, 'admin@northwind.demo.test');
+  await admin.getByRole('navigation').getByRole('link', { name: 'Invoices' }).click();
+  await admin.getByRole('table', { name: 'To match' }).getByRole('link', { name: number }).click();
+  const top = admin.getByRole('table', { name: 'Suggested POs' }).locator('tbody tr').first();
+  await expect(top).toContainText(po);
+  await expect(top).toContainText('PO number and agency');
+  await top.getByRole('button', { name: `Match to ${po}` }).click();
+  // Fully matched, the suggestions (and the form's notice) give way to the match row and the approve button.
+  await expect(admin.getByRole('table', { name: 'Matches' })).toContainText(`${po}$10.00under`);
+  await admin.getByRole('button', { name: 'Approve for payment' }).click();
+  await expect(admin.locator('main').getByRole('alert')).toHaveText('Only a Finance seat holder can approve an invoice for payment.');
+
+  const finance = await as(browser, 'finance@northwind.demo.test');
+  await finance.goto(admin.url());
+  await finance.getByRole('button', { name: 'Approve for payment' }).click();
+  await expect(finance.locator('dl[aria-label="Invoice"]')).toContainText('Statusapproved');
+  await finance.getByRole('navigation').getByRole('link', { name: 'Variance' }).click();
+  await expect(finance.getByRole('heading', { name: 'Variance' })).toBeVisible();
+});

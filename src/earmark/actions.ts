@@ -17,7 +17,8 @@ import { onMembershipEnded } from '@/app/org-hooks';
 import type { Prisma } from '@/generated/prisma/client';
 import { chainToJson, ruleEditToJson } from '@/lib/earmark/cases';
 import { applyDecisions, authorizeRuleEdit, type ChainResult, evaluateChain, parseRules, type RulesJson } from '@/lib/earmark/chain';
-import { applyMatch } from '@/lib/earmark/match';
+import { applyMatch, FINANCE_SEAT } from '@/lib/earmark/match';
+import { formatUsd } from '@/lib/earmark/money';
 import { dollars, heldSeats, lineAvailable, requirePerm, rulesOf, scopeOf, seatsFor } from './core';
 
 /** A YYYY-MM-DD form field, checked in the body after the ids resolve (see submitRequest). */
@@ -206,7 +207,7 @@ export const matchInvoice = orgAction(
   z.object({ invoiceId: ref('invoice'), commitmentId: ref('commitment'), amount: z.string().max(32), note: z.string().max(2000).default('') }),
   async (ctx, i) => {
     requirePerm(ctx, 'invoice.match');
-    return withOrg(ctx, async (tx) => {
+    const out = await withOrg(ctx, async (tx) => {
       // Invoice first, then PO, always in that order: the invoice lock stops one invoice being matched against two POs
       // at once for more than it billed; the PO lock stops two invoices taking one PO's remaining at once.
       await lock(tx, 'Invoice', i.invoiceId, ctx.orgId);
@@ -225,8 +226,57 @@ export const matchInvoice = orgAction(
       if (matched + amountCents === inv.amountCents) await tx.invoice.update({ where: { id: inv.id }, data: { state: 'matched' } });
       await audit(ctx, 'invoice.matched', { targetType: 'invoiceMatch', targetId: m.id, data: { invoiceId: inv.id, commitmentId: c.id, amountCents: amountCents.toString(), overage: r.overage } }, tx);
       await emit(ctx, 'invoice.matched', { match: { id: m.id, invoiceId: inv.id, commitmentId: c.id, poNumber: c.poNumber, amountCents: amountCents.toString() } }, tx);
-      return { remainingCents: r.remainingAfter.toString() };
+      return { remainingCents: r.remainingAfter.toString(), poNumber: c.poNumber };
     });
+    refresh(ctx);
+    return { ...out, notice: `Matched ${formatUsd(dollars(i.amount))} to ${out.poNumber}.` };
+  },
+);
+
+/**
+ * D-25: a fully matched invoice becomes actual (PRD §4) when a Finance seat holder approves it for payment; the AP
+ * hand-off is the `invoice.approved_for_payment` event, keyed by invoice so a retry cannot send it twice.
+ */
+export const approveInvoiceForPayment = orgAction(null, z.object({ invoiceId: ref('invoice') }), async (ctx, i) => {
+  const out = await withOrg(ctx, async (tx) => {
+    if (ctx.role === 'guest') throw new Refused('You do not have access to that.');
+    await lock(tx, 'Invoice', i.invoiceId, ctx.orgId);
+    const inv = (await tx.invoice.findFirst({ where: { id: i.invoiceId, ...inOrg(ctx) }, include: { matches: { select: { amountCents: true, commitment: { select: { poNumber: true } } } } } })) ?? notFound();
+    if (!(await heldSeats(tx, ctx)).includes(FINANCE_SEAT)) throw new Refused('Only a Finance seat holder can approve an invoice for payment.');
+    if (inv.state !== 'matched') throw new Refused(inv.state === 'approved' ? 'This invoice is already approved for payment.' : `A ${inv.state} invoice cannot be approved for payment; match all of it first.`);
+    await tx.invoice.update({ where: { id: inv.id }, data: { state: 'approved', approvedForPaymentAt: now() } });
+    await audit(ctx, 'invoice.approved_for_payment', { targetType: 'invoice', targetId: inv.id, data: { amountCents: inv.amountCents.toString() } }, tx);
+    await emit(ctx, 'invoice.approved_for_payment', {
+      invoice: { id: inv.id, number: inv.number, agencyId: inv.agencyId, amountCents: inv.amountCents.toString(), dueOn: inv.dueOn.toISOString().slice(0, 10), matches: inv.matches.map((m) => ({ poNumber: m.commitment.poNumber, amountCents: m.amountCents.toString() })) },
+    }, tx, { key: `invoice.approved_for_payment:${inv.id}` });
+    return inv.number;
+  });
+  refresh(ctx);
+  return { notice: `Invoice ${out} approved for payment.` };
+});
+
+// ---------- variance notes (PRD §4, D-07, D-25) ----------
+
+/**
+ * A person publishes the note on a line (D-07): the text replaces the line's latest unpublished draft, kept beside it so
+ * the edit shows; with no draft (the explainer arrives in Phase 4) the text is both. A later publish adds a new row.
+ */
+export const publishVarianceNote = orgAction(
+  null,
+  z.object({ budgetLineId: ref('budgetLine'), text: z.string().trim().min(1, 'Write the note.').max(4000) }),
+  async (ctx, i) => {
+    requirePerm(ctx, 'variance.draft');
+    await withOrg(ctx, async (tx) => {
+      const line = (await tx.budgetLine.findFirst({ where: { id: i.budgetLineId, ...inOrg(ctx) } })) ?? notFound();
+      const published = { published: i.text, publishedAt: now(), publishedById: ctx.userId };
+      const draft = await tx.varianceNote.findFirst({ where: { ...inOrg(ctx), budgetLineId: line.id, periodId: line.periodId, published: null }, orderBy: { createdAt: 'desc' } });
+      const note = draft
+        ? await tx.varianceNote.update({ where: { id: draft.id }, data: published })
+        : await tx.varianceNote.create({ data: { ...inOrg(ctx), budgetLineId: line.id, periodId: line.periodId, draft: i.text, createdById: ctx.userId, ...published } });
+      await audit(ctx, 'variance.published', { targetType: 'varianceNote', targetId: note.id, data: { budgetLineId: line.id, edited: note.draft !== i.text } }, tx);
+    });
+    refresh(ctx);
+    return { notice: 'Note published.' };
   },
 );
 
