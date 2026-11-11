@@ -2,8 +2,10 @@
 // Earmark's server actions (Phase 2). Each is built by orgAction, so the INV-01..04/22 harness drives it with no
 // per-action code; every id is ref('<model>'), resolved with inOrg (a row from another org is the same notFound as
 // a row that does not exist). Earmark's own permission is checked first in the body (D-15). Pages arrive in Phase 3.
+import { assertNotDemo } from '@/core/auth/session';
 import { revalidatePath } from 'next/cache';
 import { notFound } from 'next/navigation';
+import { after } from 'next/server';
 import { z } from 'zod';
 import { audit } from '@/core/audit';
 import { orgAction, ref } from '@/core/authz/action';
@@ -11,7 +13,9 @@ import { inOrg, type OrgCtx } from '@/core/authz/guards';
 import { now } from '@/core/clock';
 import { type Tx, withOrg } from '@/core/db/rls';
 import { Refused } from '@/core/errors';
-import { emit } from '@/core/events';
+import { emit as logEvent } from '@/core/events';
+import { log } from '@/core/log';
+import { sweepWebhooks } from '@/modules/apikeys/webhooks';
 import { removeMember } from '@/core/tenancy/orgs';
 import { onMembershipEnded } from '@/app/org-hooks';
 import type { Prisma } from '@/generated/prisma/client';
@@ -19,14 +23,20 @@ import { chainToJson, ruleEditToJson } from '@/lib/earmark/cases';
 import { applyDecisions, authorizeRuleEdit, type ChainResult, evaluateChain, parseRules, type RulesJson } from '@/lib/earmark/chain';
 import { applyMatch, FINANCE_SEAT } from '@/lib/earmark/match';
 import { formatUsd } from '@/lib/earmark/money';
-import { dollars, heldSeats, lineAvailable, requirePerm, rulesOf, scopeOf, seatsFor } from './core';
+import { draftVarianceNote, drafterFromEnv } from './explainer';
+import { dollars, fileInvoice, heldSeats, isoDate, lineAvailable, requirePerm, rulesOf, scopeOf, seatsFor } from './core';
 
-/** A YYYY-MM-DD form field, checked in the body after the ids resolve (see submitRequest). */
-function isoDate(text: string, what: string): Date {
-  const d = new Date(`${text}T00:00:00Z`);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(text) || Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== text) throw new Refused(`${what} must be a date (YYYY-MM-DD).`);
-  return d;
+/**
+ * Every Earmark event is sent now, not at the next cron (PRD §9 step 6). after() runs once the response is out, so the
+ * sweep reads a committed event; a rolled-back one leaves nothing to send. Two in one request are two sweeps, which
+ * SKIP LOCKED makes safe (INV-41).
+ */
+async function emit(...args: Parameters<typeof logEvent>) {
+  const { orgId } = args[0];
+  after(() => sweepWebhooks({ orgId }).then((r) => log('webhooks.inline', { orgId, ...r })));
+  return logEvent(...args);
 }
+
 const json = (v: unknown) => v as Prisma.InputJsonValue;
 /** After a write, every org page re-renders with it (the action returns a value, so nothing redirects). */
 const refresh = (ctx: OrgCtx) => revalidatePath(`/o/${ctx.slug}`, 'layout');
@@ -235,23 +245,7 @@ export const submitInvoice = orgAction(
   }),
   async (ctx, i) => {
     requirePerm(ctx, 'invoice.submit');
-    const out = await withOrg(ctx, async (tx) => {
-      const scope = await scopeOf(tx, ctx);
-      // A guest's other agency is the same notFound as one that does not exist (E-INV-03). Not a spread of
-      // { id: scope.agencyId }: that would overwrite the id asked for and file the invoice under the guest's own agency.
-      const agency = (await tx.agency.findFirst({ where: { id: i.agencyId, ...inOrg(ctx) } })) ?? notFound();
-      if (scope.agencyId && agency.id !== scope.agencyId) notFound();
-      const amountCents = dollars(i.amount);
-      const invoicedOn = isoDate(i.invoicedOn, 'Invoice date');
-      const dueOn = isoDate(i.dueOn, 'Due date');
-      if (agency.offboardedAt) throw new Refused(`${agency.name} has been offboarded.`);
-      if (await tx.invoice.findFirst({ where: { ...inOrg(ctx), agencyId: agency.id, number: i.number }, select: { id: true } })) throw new Refused(`Invoice ${i.number} is already in.`);
-      const inv = await tx.invoice.create({
-        data: { ...inOrg(ctx), agencyId: agency.id, number: i.number, poNumber: i.poNumber || null, amountCents, invoicedOn, dueOn, submittedById: ctx.userId, fileRef: i.fileRef || null },
-      });
-      await audit(ctx, 'invoice.submitted', { targetType: 'invoice', targetId: inv.id, data: { amountCents: amountCents.toString() } }, tx);
-      return { id: inv.id, number: inv.number };
-    });
+    const out = await withOrg(ctx, async (tx) => fileInvoice(tx, ctx, await scopeOf(tx, ctx), { ...i, amountCents: () => dollars(i.amount) }, ctx.userId));
     refresh(ctx);
     return { id: out.id, notice: `Invoice ${out.number} submitted; it is listed below.` };
   },
@@ -314,7 +308,7 @@ export const approveInvoiceForPayment = orgAction(null, z.object({ invoiceId: re
 
 /**
  * A person publishes the note on a line (D-07): the text replaces the line's latest unpublished draft, kept beside it so
- * the edit shows; with no draft (the explainer arrives in Phase 4) the text is both. A later publish adds a new row.
+ * the edit shows; with no draft (the explainer was not run) the text is both. A later publish adds a new row.
  */
 export const publishVarianceNote = orgAction(
   null,
@@ -334,6 +328,13 @@ export const publishVarianceNote = orgAction(
     return { notice: 'Note published.' };
   },
 );
+
+/** The explainer drafts the line's note under the org's AI cap (D-07); a refusal is shown and writes nothing (E-INV-08). */
+export const explainVariance = orgAction(null, z.object({ budgetLineId: ref('budgetLine') }), async (ctx, i) => {
+  await draftVarianceNote(ctx, i.budgetLineId, drafterFromEnv());
+  refresh(ctx);
+  return { notice: 'Draft ready. Edit it below, then publish.' };
+});
 
 // ---------- planning (PRD §4, D-06, D-26) ----------
 
@@ -534,18 +535,25 @@ export const createAgency = orgAction(null, z.object({ name, domains: z.string()
  * PRD §5: offboarding closes the agency's open POs and ends every guest membership tied to it in this org only
  * (E-INV-07). The agency is marked first, in its own transaction, so its guests see nothing from that moment
  * (scopeOf fails closed) even if a membership removal below fails; each removal then runs core's removeMember
- * (share links, invites, the membership hook, its own audit row).
+ * (share links, invites, the membership hook, its own audit row). Rerunning it after a failed removal finishes the job.
  */
 export const offboardAgency = orgAction(null, z.object({ agencyId: ref('agency') }), async (ctx, i) => {
   requirePerm(ctx, 'agency.manage');
-  const guests = await withOrg(ctx, async (tx) => {
+  assertNotDemo(ctx.session); // removeMember refuses the shared demo account; refuse before the agency is marked
+  const { name, retry, guests } = await withOrg(ctx, async (tx) => {
     const agency = (await tx.agency.findFirst({ where: { id: i.agencyId, ...inOrg(ctx) } })) ?? notFound();
-    if (agency.offboardedAt) throw new Refused(`${agency.name} is already offboarded.`);
-    await tx.agency.update({ where: { id: agency.id }, data: { offboardedAt: now() } });
-    const closed = await tx.commitment.updateMany({ where: { ...inOrg(ctx), agencyId: agency.id, closedAt: null }, data: { closedAt: now(), closeReason: 'offboarded' } });
-    await audit(ctx, 'agency.offboarded', { targetType: 'agency', targetId: agency.id, data: { commitmentsClosed: closed.count } }, tx);
-    return tx.guestMembership.findMany({ where: { ...inOrg(ctx), agencyId: agency.id }, select: { userId: true } });
+    if (!agency.offboardedAt) {
+      await tx.agency.update({ where: { id: agency.id }, data: { offboardedAt: now() } });
+      const closed = await tx.commitment.updateMany({ where: { ...inOrg(ctx), agencyId: agency.id, closedAt: null }, data: { closedAt: now(), closeReason: 'offboarded' } });
+      await audit(ctx, 'agency.offboarded', { targetType: 'agency', targetId: agency.id, data: { commitmentsClosed: closed.count } }, tx);
+    }
+    // GuestMembership outlives the membership, so only guests still in the org: a retry after a failed removal
+    // below finishes the job instead of being refused as already offboarded.
+    const tied = await tx.guestMembership.findMany({ where: { ...inOrg(ctx), agencyId: agency.id }, select: { userId: true } });
+    const guests = await tx.membership.findMany({ where: { ...inOrg(ctx), userId: { in: tied.map((t) => t.userId) } }, select: { userId: true } });
+    return { name: agency.name, retry: !!agency.offboardedAt, guests };
   });
+  if (retry && !guests.length) throw new Refused(`${name} is already offboarded.`);
   for (const g of guests) await removeMember(ctx, g.userId, onMembershipEnded);
   refresh(ctx);
   return { guestsRemoved: guests.length, notice: `Offboarded; ${guests.length} guest${guests.length === 1 ? '' : 's'} removed.` };

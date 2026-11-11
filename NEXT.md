@@ -1,14 +1,29 @@
 # NEXT — Earmark
 
-## ▶ Now: Phase 3 complete; PR #4 (`phase-3` → `main`) open, CI green 3/3, waiting on Shane's merge (off `main` after PR #3 merged 2026-11-09). Model: Opus.
+## ▶ Now: Phase 4 (enterprise wiring, PRD §8) on branch `phase-4`. Model: Opus.
 
-Seven commits (D-21 in `prd-earmark.md`). **Done: (1) demo seed** (D-20); **(2) dashboard, budget tree, line page** (D-23); **(3) requests, chain view, approvals inbox, rules settings** (D-24); **(4) commitments, guest view, guest invoice submit**; **(5) match, approve-for-payment, variance view, published notes** (D-25): `/o/[org]/invoices` (to match / to approve queues), `/o/[org]/invoices/[id]` (ranked suggestions with reasons, match form, Finance-only *Approve for payment* emitting `invoice.approved_for_payment`), `/o/[org]/variance` (per period, replan marker, latest published note), publish form on the line page. Demo step 9 is e2e in `e2e/demo.spec.ts`; tests in `tests/earmark/invariants/payment.test.ts`.
+Five commits (D-31 in `prd-earmark.md`).
 
-**(6) done in four commits:** planning (`/plan`, planned edits on the line page, D-26), seats (`/settings/seats`, owner only, D-27), reallocation (line page form, `reallocation` chain, planned moves on approval, D-28), guest agency binding and agencies (`/settings/agencies`, D-29). Tests: `tests/earmark/invariants/{planning,seats,reallocation,agencies}.test.ts`.
+**(1) done:** SSO. `seed:demo` turns Require SSO on for both demo orgs. Guests are exempt from it (D-32), which needed a template patch to `src/modules/sso/hooks.ts`, listed in `FOUNDATION_PATCHES.md`. The cross-org line for D-30's `alerts.ts` was never excused, so drift had been red since `14ff5d5`; it is excused now. Tests: `tests/earmark/invariants/sso.test.ts`; `e2e/enterprise.spec.ts` covers step 1 for real (the mock IdP stands in for Google), step 7's link half, and step 12. Full sweep: 22/22.
 
-**(7) done:** alerts cron (`src/earmark/alerts.ts`, `rules/alerts.json`, D-30) and e2e demo steps 1, 2, 6 with D-22's stand-ins. `e2e/demo.spec.ts` now covers steps 1–9 (step 8's URL half); full sweep 19/19.
+**(2) done:** API (D-33). The `invoices` scope; `GET /api/v1/commitments/[id]` (guest projection, one 404 body for foreign or missing); `POST /api/v1/invoices` through `fileInvoice` in `src/earmark/core.ts`, shared with the guest form. Tests: `tests/earmark/invariants/api.test.ts`; `e2e/enterprise.spec.ts` step 8's API half (the key is planted: demo accounts cannot mint keys). The `notFound()` test mock now carries Next's real digest, so the API's 404 mapping is exercised in vitest. Step 7's link test now deletes Dana's tokens first: `link.ts`'s 60s per-address cooldown swallowed the request on back-to-back sweeps. Gate: unit 519 + 1 skipped = 520, e2e 23/23 twice back to back.
 
-**▶ Next: Shane merges PR #4** (https://github.com/shanelabountyai/earmark/pull/4; the auto-mode classifier refuses an unreviewed merge). Then branch `phase-4` off `main`. Then Phase 4 (enterprise wiring, PRD §8): SSO for the two demo orgs, apikeys scopes and events, `export-hooks.ts`, the variance explainer action under `withBudget` (it should hand its draft to `publishVarianceNote`'s draft row), audit viewer checks; e2e steps 9–14 and the real re-runs of 1, 6, 8.
+**(3) done:** webhooks (D-34). Demo receiver `POST /api/demo/webhook` (DEMO_MODE only; its secret is derived from `AUTH_SECRET`, so no DB). `seed:demo` points a Northwind endpoint at it. Earmark's `emit` wrapper in `src/earmark/actions.ts` sweeps in `after()`, so delivery happens at approval, not at the daily cron. `e2e/demo.spec.ts` step 6 polls for the delivery `succeeded` with 200 and `"verified":true`. Test: `tests/earmark/invariants/demo-receiver.test.ts`. A local `npm run dev` demo needs `WEBHOOK_ALLOW_PRIVATE=1` in `.env.local` (http://localhost receiver), or the endpoint pauses after 10 failures; note it in DEMO.md.
+
+**(4) done:** the explainer (D-35). `Draft with AI` on the line page; Haiku over `fetch` with a key, a fixed-usage stub without. The seed plants this month's spend so the fourth draft is refused, and resets it each seed. `e2e/demo.spec.ts` step 10 drafts, publishes, drafts twice more, and sees the fourth refused with 3 usage rows. `ANTHROPIC_API_KEY` joins `env.ts` (patch excused in `FOUNDATION_PATCHES.md`, propose upstream). Tests: `tests/earmark/explainer-drafter.test.ts`. Gate: unit 522 + 1 skipped, e2e 24/24 twice back to back, drift clean.
+
+**(5) done:** demo steps 11, 13, 14 (D-36). Step 14 exports Northwind and checks the manifest's row counts and per-file sha256 with the system `unzip`; step 11 filters the audit log to today's actor and checks the CSV; step 13 (last in `e2e/demo.spec.ts`, since it removes Dana from Contoso) offboards Meridian and sees Contoso 404 and Northwind intact. The `/demo` accounts cannot export or remove members, so 13 and 14 act as `ops@<org>.demo.test` with a planted session (`e2e/real-owner.ts`). Fixed: `offboardAgency` left guests in place, unretryable, when a removal was refused (new E-INV-07 test); `seed:demo` now resets org names after a vitest run. Gate: lint, typecheck, drift clean; unit 523 + 1 skipped; e2e 27/27 twice back to back.
+
+**PR #5 open** (`phase-4` → `main`, https://github.com/shanelabountyai/earmark/pull/5). Its §7 gate is automated-green; the only box left is Shane's: one manual Google and one Okta sign-in, recorded in `docs/DEMO.md`.
+
+**▶ Next: when #5 is merged, branch `phase-5` from `main` and start Phase 5 (close-out, §7): `WRITEUP.md`, `docs/DEMO.md` (fold in the three notes below), CMO brief, `CLONES.md` row, build-log card. Model: Sonnet for docs.**
+
+**For `docs/DEMO.md` (steps 13 and 14 live):** the shared demo owner is refused both, so present them signed in as a real (non-demo) owner of Contoso and Northwind (D-36).
+
+**For `docs/DEMO.md` (step 10 live):** run the explainer with `ANTHROPIC_API_KEY` unset, or the fourth draft is not refused (a real Haiku draft costs ~$0.0002; D-35).
+
+**For `docs/DEMO.md` (step 8 live):** the shared demo owner cannot create an API key, so the live demo needs a key minted another way (a non-demo owner, or a seed-printed key). Decide when DEMO.md is written.
+
 
 **Not built in Phase 3, on purpose (D-26):** rename/delete of plan rows; fiscal-year close/lock with carry-forward (nothing sets `lockedAt` yet).
 

@@ -1,5 +1,6 @@
 import { type Browser, expect, type Page, test } from '@playwright/test';
 import { dbSystem } from '../src/core/db/system';
+import { asRealOwner } from './real-owner';
 
 // INV-27, flag-on half (the flag-off half is tests/invariants/inv-27-demo.test.ts). playwright.config.ts starts the
 // server with DEMO_MODE=1; e2e/global-setup.ts seeds the same database once per sweep.
@@ -70,7 +71,7 @@ test('steps 3–5: frozen chain, self-approval refused, rule edit applies only t
 });
 
 // Demo step 7, and step 8's URL half (D-22): Dana invoices a Meridian PO in Northwind; the same PO id under Contoso's
-// slug is a 404. The API half with Contoso's key is Phase 4.
+// slug is a 404. The API half with Contoso's key is in enterprise.spec.ts.
 test('steps 7–8: a guest invoices her PO; the same id under another client is a 404', async ({ browser }) => {
   const number = `MER-E2E-${Date.now()}`;
   const dana = await as(browser, 'dana@meridian.demo.test');
@@ -126,8 +127,8 @@ test('step 9: match to the ranked suggestion, approve for payment, variance view
   await expect(finance.getByRole('heading', { name: 'Variance' })).toBeVisible();
 });
 
-// Demo steps 1, 2 and 6 with D-22's stand-ins: step 1 signs in through /demo, not Google; step 6 asserts the
-// commitment.issued event row, not the webhook reaching the demo receiver. Phase 4 re-runs both for real.
+// Demo steps 1, 2 and 6. Step 1 here signs in through /demo (D-22); e2e/enterprise.spec.ts runs it through SSO. Step 6
+// is for real since Phase 4: the commitment.issued delivery reaches the demo receiver, which verifies its signature.
 test('step 1: the dashboard shows the four totals and the aged unmatched invoices', async ({ browser }) => {
   const owner = await as(browser, 'owner@northwind.demo.test');
   for (const t of ['Planned', 'Committed', 'Actual', 'Available']) await expect(owner.locator('main')).toContainText(t);
@@ -142,7 +143,7 @@ test('step 2: Demand Gen → Q2 Paid Social shows its history with the replan ma
   await expect(owner.getByRole('list', { name: 'Line history' })).toContainText('Planned edited to');
 });
 
-test('step 6: the last approval issues a PO and writes the commitment.issued event', async ({ browser }) => {
+test('step 6: the last approval issues a PO, and commitment.issued reaches the demo receiver signed', async ({ browser }) => {
   const what = `Launch PO ${Date.now()}`;
   const member = await as(browser, 'member@northwind.demo.test');
   const url = await submit(member, what);
@@ -158,4 +159,47 @@ test('step 6: the last approval issues a PO and writes the commitment.issued eve
   const po = await member.getByRole('link', { name: /^PO-/ }).innerText();
   const event = await dbSystem.orgEvent.findFirst({ where: { type: 'commitment.issued', payload: { path: ['commitment', 'poNumber'], equals: po } } });
   expect(event).not.toBeNull();
+  // The approval's after() sweep sends it; the receiver answers 401 to a bad signature, so 200 means verified.
+  await expect
+    .poll(() => dbSystem.webhookDelivery.findFirst({ where: { eventId: event!.id }, select: { status: true, lastResponseStatus: true, lastResponseExcerpt: true } }), { timeout: 15_000 })
+    .toMatchObject({ status: 'succeeded', lastResponseStatus: 200, lastResponseExcerpt: expect.stringContaining('"verified":true') });
+});
+
+test('step 10: the explainer drafts, a person publishes, and the fourth draft is refused by the spend guard', async ({ browser }) => {
+  const owner = await as(browser, 'owner@northwind.demo.test');
+  await owner.getByRole('link', { name: 'Q2 Paid Social' }).first().click();
+  const draft = owner.getByRole('button', { name: 'Draft with AI' });
+  const note = owner.getByLabel(/^Note/);
+  // The seed planted this month's spend so three stub drafts fit under the $1.00 cap (scripts/seed-demo.ts).
+  await draft.click();
+  await expect(note).toHaveValue(/^Draft \(no model configured\): Planned /);
+  await note.fill(`Paid social ran ahead of plan ${Date.now()}.`);
+  await owner.getByRole('button', { name: 'Publish note' }).click();
+  await expect(owner.getByRole('blockquote', { name: 'Published note' })).toContainText('Paid social ran ahead of plan');
+  for (let k = 2; k <= 3; k++) {
+    await draft.click();
+    await expect(owner.locator('main').getByRole('status').first()).toContainText('Draft ready');
+  }
+  await draft.click();
+  await expect(owner.locator('main').getByRole('alert')).toContainText('monthly AI spending limit');
+  // Three billed drafts this sweep, the refused fourth wrote none (E-INV-08); the seed reset the ledger.
+  expect(await dbSystem.aiUsage.count({ where: { org: { slug: 'northwind' }, feature: 'variance-explainer' } })).toBe(3);
+});
+
+// Demo step 13 (E-INV-07), last in this file: it removes Dana from Contoso, which steps 7–8 above need. The seed
+// recreates the agency and her membership each sweep. Her Contoso access is gone on refresh; Northwind is intact.
+test('step 13: offboarding Meridian in Contoso ends Dana’s Contoso access and leaves Northwind', async ({ browser }) => {
+  const dana = await as(browser, 'dana@meridian.demo.test');
+  expect((await dana.goto('/o/contoso'))?.status()).toBe(200);
+
+  const { page: owner } = await asRealOwner(browser, 'contoso'); // the demo owner is refused member removal
+  await owner.goto('/o/contoso/settings/agencies');
+  const row = owner.getByRole('table', { name: 'Agencies' }).getByRole('row').filter({ hasText: 'Meridian Creative' });
+  await row.getByRole('button', { name: 'Offboard' }).click();
+  await expect(row).toContainText('offboarded'); // the form leaves the page with its notice (NEXT.md UI pattern)
+
+  expect((await dana.reload())?.status()).toBe(404);
+  await dana.goto('/o/northwind');
+  await expect(dana.getByRole('heading', { name: 'Purchase orders' })).toBeVisible();
+  await expect(dana.getByRole('table', { name: 'Purchase orders' })).toContainText('open ·');
 });
