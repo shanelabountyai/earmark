@@ -22,6 +22,7 @@ import { chainToJson, ruleEditToJson } from '@/lib/earmark/cases';
 import { applyDecisions, authorizeRuleEdit, type ChainResult, evaluateChain, parseRules, type RulesJson } from '@/lib/earmark/chain';
 import { applyMatch, FINANCE_SEAT } from '@/lib/earmark/match';
 import { formatUsd } from '@/lib/earmark/money';
+import { draftVarianceNote, drafterFromEnv } from './explainer';
 import { dollars, fileInvoice, heldSeats, isoDate, lineAvailable, requirePerm, rulesOf, scopeOf, seatsFor } from './core';
 
 /**
@@ -306,7 +307,7 @@ export const approveInvoiceForPayment = orgAction(null, z.object({ invoiceId: re
 
 /**
  * A person publishes the note on a line (D-07): the text replaces the line's latest unpublished draft, kept beside it so
- * the edit shows; with no draft (the explainer arrives in Phase 4) the text is both. A later publish adds a new row.
+ * the edit shows; with no draft (the explainer was not run) the text is both. A later publish adds a new row.
  */
 export const publishVarianceNote = orgAction(
   null,
@@ -326,6 +327,13 @@ export const publishVarianceNote = orgAction(
     return { notice: 'Note published.' };
   },
 );
+
+/** The explainer drafts the line's note under the org's AI cap (D-07); a refusal is shown and writes nothing (E-INV-08). */
+export const explainVariance = orgAction(null, z.object({ budgetLineId: ref('budgetLine') }), async (ctx, i) => {
+  await draftVarianceNote(ctx, i.budgetLineId, drafterFromEnv());
+  refresh(ctx);
+  return { notice: 'Draft ready. Edit it below, then publish.' };
+});
 
 // ---------- planning (PRD §4, D-06, D-26) ----------
 

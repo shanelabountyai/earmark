@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { inOrg, requireOrg } from '@/core/authz/guards';
 import { withOrg } from '@/core/db/rls';
 import { ActionForm } from '@/core/ui/action-form';
-import { publishVarianceNote, setPlanned, submitReallocation } from '@/earmark/actions';
+import { explainVariance, publishVarianceNote, setPlanned, submitReallocation } from '@/earmark/actions';
 import { earmarkCan, ledgerOf } from '@/earmark/core';
 import { formatUsd } from '@/lib/earmark/money';
 import { variance } from '@/lib/earmark/variance';
@@ -159,10 +159,17 @@ export default async function LinePage({ params }: { params: Promise<{ org: stri
       <h2>Variance note</h2>
       {published ? <blockquote aria-label="Published note">{published.published}</blockquote> : <p>No note published.</p>}
       {earmarkCan(ctx.role, 'variance.draft') && (
+        <ActionForm action={explainVariance.bind(null, ctx.slug)}>
+          <input type="hidden" name="budgetLineId" value={line.id} />
+          <button type="submit">Draft with AI</button> <small>Drafts a paragraph from this line’s requests and invoices; counts against the AI spending limit.</small>
+        </ActionForm>
+      )}
+      {earmarkCan(ctx.role, 'variance.draft') && (
         <ActionForm action={publishVarianceNote.bind(null, ctx.slug)}>
           <input type="hidden" name="budgetLineId" value={line.id} />
           <label>Note {draft && <small>(the latest draft; edit before publishing)</small>}<br />
-            <textarea name="text" rows={4} cols={80} required maxLength={4000} defaultValue={draft?.draft ?? published?.published ?? ''} />
+            {/* keyed by the draft, so a new draft replaces the text instead of the form keeping the old value */}
+            <textarea key={draft?.id ?? 'none'} name="text" rows={4} cols={80} required maxLength={4000} defaultValue={draft?.draft ?? published?.published ?? ''} />
           </label><br />
           <button type="submit">Publish note</button>
         </ActionForm>

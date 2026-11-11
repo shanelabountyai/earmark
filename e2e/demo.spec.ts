@@ -163,3 +163,24 @@ test('step 6: the last approval issues a PO, and commitment.issued reaches the d
     .poll(() => dbSystem.webhookDelivery.findFirst({ where: { eventId: event!.id }, select: { status: true, lastResponseStatus: true, lastResponseExcerpt: true } }), { timeout: 15_000 })
     .toMatchObject({ status: 'succeeded', lastResponseStatus: 200, lastResponseExcerpt: expect.stringContaining('"verified":true') });
 });
+
+test('step 10: the explainer drafts, a person publishes, and the fourth draft is refused by the spend guard', async ({ browser }) => {
+  const owner = await as(browser, 'owner@northwind.demo.test');
+  await owner.getByRole('link', { name: 'Q2 Paid Social' }).first().click();
+  const draft = owner.getByRole('button', { name: 'Draft with AI' });
+  const note = owner.getByLabel(/^Note/);
+  // The seed planted this month's spend so three stub drafts fit under the $1.00 cap (scripts/seed-demo.ts).
+  await draft.click();
+  await expect(note).toHaveValue(/^Draft \(no model configured\): Planned /);
+  await note.fill(`Paid social ran ahead of plan ${Date.now()}.`);
+  await owner.getByRole('button', { name: 'Publish note' }).click();
+  await expect(owner.getByRole('blockquote', { name: 'Published note' })).toContainText('Paid social ran ahead of plan');
+  for (let k = 2; k <= 3; k++) {
+    await draft.click();
+    await expect(owner.locator('main').getByRole('status').first()).toContainText('Draft ready');
+  }
+  await draft.click();
+  await expect(owner.locator('main').getByRole('alert')).toContainText('monthly AI spending limit');
+  // Three billed drafts this sweep, the refused fourth wrote none (E-INV-08); the seed reset the ledger.
+  expect(await dbSystem.aiUsage.count({ where: { org: { slug: 'northwind' }, feature: 'variance-explainer' } })).toBe(3);
+});

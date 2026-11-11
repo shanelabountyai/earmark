@@ -10,11 +10,15 @@ Five commits (D-31 in `prd-earmark.md`).
 
 **(3) done:** webhooks (D-34). Demo receiver `POST /api/demo/webhook` (DEMO_MODE only; its secret is derived from `AUTH_SECRET`, so no DB). `seed:demo` points a Northwind endpoint at it. Earmark's `emit` wrapper in `src/earmark/actions.ts` sweeps in `after()`, so delivery happens at approval, not at the daily cron. `e2e/demo.spec.ts` step 6 polls for the delivery `succeeded` with 200 and `"verified":true`. Test: `tests/earmark/invariants/demo-receiver.test.ts`. A local `npm run dev` demo needs `WEBHOOK_ALLOW_PRIVATE=1` in `.env.local` (http://localhost receiver), or the endpoint pauses after 10 failures; note it in DEMO.md.
 
-**▶ Next: (4) the explainer action** (below).
+**(4) done:** the explainer (D-35). `Draft with AI` on the line page; Haiku over `fetch` with a key, a fixed-usage stub without. The seed plants this month's spend so the fourth draft is refused, and resets it each seed. `e2e/demo.spec.ts` step 10 drafts, publishes, drafts twice more, and sees the fourth refused with 3 usage rows. `ANTHROPIC_API_KEY` joins `env.ts` (patch excused in `FOUNDATION_PATCHES.md`, propose upstream). Tests: `tests/earmark/explainer-drafter.test.ts`. Gate: unit 522 + 1 skipped, e2e 24/24 twice back to back, drift clean.
+
+**▶ Next: (5) e2e steps 11, 13 and 14** plus whatever they turn up.
+
+**For `docs/DEMO.md` (step 10 live):** run the explainer with `ANTHROPIC_API_KEY` unset, or the fourth draft is not refused (a real Haiku draft costs ~$0.0002; D-35).
 
 **For `docs/DEMO.md` (step 8 live):** the shared demo owner cannot create an API key, so the live demo needs a key minted another way (a non-demo owner, or a seed-printed key). Decide when DEMO.md is written.
 
-**Then:** (4) the explainer action (plain `fetch` to the Messages API on `claude-haiku-5-5`, a fixed-usage stub when `ANTHROPIC_API_KEY` is unset; the seed plants AI usage so the fourth draft is refused) plus step 10; (5) e2e steps 11, 13 and 14. Steps 9 and 12 are already done. Gate (§7): the manual Google and Okta sign-ins, recorded in `docs/DEMO.md`, are Shane's.
+**Then:** Phase 4 closes after (5). Steps 9 and 12 are already done. Gate (§7): the manual Google and Okta sign-ins, recorded in `docs/DEMO.md`, are Shane's.
 
 **Not built in Phase 3, on purpose (D-26):** rename/delete of plan rows; fiscal-year close/lock with carry-forward (nothing sets `lockedAt` yet).
 

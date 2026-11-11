@@ -4,6 +4,8 @@ import { sealSecret } from '@/core/auth/secret-box';
 import { db } from '@/core/db'; // importing it is what refuses a cloud database (INV-18, INV-27)
 import { asSystem } from '@/core/db/rls';
 import { env } from '@/core/env';
+import { costMicros } from '@/core/ai/prices';
+import { STUB_USAGE } from '@/lib/earmark/explainer-usage';
 import type { Role } from '@/generated/prisma/enums';
 import { seedEarmark } from './seed-earmark';
 
@@ -44,7 +46,14 @@ async function seedWith(db: Parameters<Parameters<typeof asSystem>[0]>[0]) {
       printed.push(`${email}  ${role} of ${o.name}${mfa ? '  (TOTP)' : ''}`);
     }
     // §10.5: demo orgs cap AI spend at $1.00, so the refusal path is reachable in a demo.
-    await db.aiBudget.upsert({ where: { orgId: org.id }, create: { orgId: org.id, monthlyCapMicros: 1_000_000n }, update: { monthlyCapMicros: 1_000_000n } });
+    await db.aiBudget.upsert({ where: { orgId: org.id }, create: { orgId: org.id, monthlyCapMicros: 1_000_000n }, update: { monthlyCapMicros: 1_000_000n, pausedAt: null } });
+    // PRD §9 step 10: this month's spend is planted so three stub drafts fit and the fourth is refused. With a draft
+    // costing `a` and its worst-case check `w` (a/2 < w <= 1.5a for any prompt under ~9,000 characters): 3.5a planted below the cap passes three
+    // checks and fails the fourth. Reset on every seed, so each e2e sweep starts from the same spend.
+    const a = costMicros(STUB_USAGE.provider, STUB_USAGE.model, STUB_USAGE.inputTokens, STUB_USAGE.outputTokens);
+    await db.aiHold.deleteMany({ where: { orgId: org.id } });
+    await db.aiUsage.deleteMany({ where: { orgId: org.id } });
+    await db.aiUsage.create({ data: { orgId: org.id, provider: STUB_USAGE.provider, model: STUB_USAGE.model, inputTokens: 0, outputTokens: 0, costMicros: 1_000_000n - 3n * a - a / 2n, feature: 'seed', createdAt: now() } });
   }
   printed.push(...(await seedEarmark(db)));
   printed.push(...(await seedSso(db)));
