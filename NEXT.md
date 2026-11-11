@@ -1,6 +1,6 @@
 # NEXT — Earmark
 
-## ▶ Now: Phase 4 (enterprise wiring, PRD §8) on branch `phase-4`. Model: Opus.
+## Phase 4 (enterprise wiring, PRD §8): done, PR #5
 
 Five commits (D-31 in `prd-earmark.md`).
 
@@ -14,15 +14,15 @@ Five commits (D-31 in `prd-earmark.md`).
 
 **(5) done:** demo steps 11, 13, 14 (D-36). Step 14 exports Northwind and checks the manifest's row counts and per-file sha256 with the system `unzip`; step 11 filters the audit log to today's actor and checks the CSV; step 13 (last in `e2e/demo.spec.ts`, since it removes Dana from Contoso) offboards Meridian and sees Contoso 404 and Northwind intact. The `/demo` accounts cannot export or remove members, so 13 and 14 act as `ops@<org>.demo.test` with a planted session (`e2e/real-owner.ts`). Fixed: `offboardAgency` left guests in place, unretryable, when a removal was refused (new E-INV-07 test); `seed:demo` now resets org names after a vitest run. Gate: lint, typecheck, drift clean; unit 523 + 1 skipped; e2e 27/27 twice back to back.
 
-**PR #5 open** (`phase-4` → `main`, https://github.com/shanelabountyai/earmark/pull/5). Its §7 gate is automated-green; the only box left is Shane's: one manual Google and one Okta sign-in, recorded in `docs/DEMO.md`.
+**PR #5 open** (`phase-4` → `main`, https://github.com/shanelabountyai/earmark/pull/5). Its §7 gate is automated-green; the only box left is Shane's: one manual Google and one Okta sign-in, recorded in the *Hand checks* table at the end of `docs/DEMO.md`.
 
-**▶ Next: when #5 is merged, branch `phase-5` from `main` and start Phase 5 (close-out, §7): `WRITEUP.md`, `docs/DEMO.md` (fold in the three notes below), CMO brief, `CLONES.md` row, build-log card. Model: Sonnet for docs.**
+## ▶ Now: Phase 5 (close-out) on branch `phase-5`, cut from `phase-4` (D-37). Model: Sonnet. Retarget to `main` once #5 merges.
 
-**For `docs/DEMO.md` (steps 13 and 14 live):** the shared demo owner is refused both, so present them signed in as a real (non-demo) owner of Contoso and Northwind (D-36).
+**(1) done:** `docs/DEMO.md`. Live demo's real owner = the presenter's SSO user promoted by one `psql` line (D-37), who mints step 8's key in the UI. Run once, 2026-11-10: `seed:demo`, build and start, health, `/demo` 200, the promote SQL (in a rolled-back transaction), the step 6 delivery query, and step 8's two curls against the live server with a planted Contoso key (identical 404 bodies). Not runnable by Claude: the Google and Okta sign-ins (Shane), so steps 1, 11, 13 and 14 live are covered only by the e2e.
 
-**For `docs/DEMO.md` (step 10 live):** run the explainer with `ANTHROPIC_API_KEY` unset, or the fourth draft is not refused (a real Haiku draft costs ~$0.0002; D-35).
+**Shane, before a live demo:** paste the seven `SSO_TEST_*` values into `.env.local` (lines 14–20, empty now; same values as `saas foundation/.env.local`), add `http://localhost:7600/login/sso/callback` as a redirect URI in both test apps, then `npm run seed:demo`.
 
-**For `docs/DEMO.md` (step 8 live):** the shared demo owner cannot create an API key, so the live demo needs a key minted another way (a non-demo owner, or a seed-printed key). Decide when DEMO.md is written.
+**▶ Next: (2) `WRITEUP.md`** (Commons format: angle, what stood in the way, cost, not done, found while building; mine D-19, D-23, D-32, D-36 and `bf1d5ab` for defects). Then (3) CMO brief via `exec-brief`, (4) `CLONES.md` row in saas-foundation, (5) build-log card, LinkedIn drafts, cost review.
 
 
 **Not built in Phase 3, on purpose (D-26):** rename/delete of plan rows; fiscal-year close/lock with carry-forward (nothing sets `lockedAt` yet).
