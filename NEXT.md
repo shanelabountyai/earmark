@@ -22,7 +22,9 @@ Five commits (D-31 in `prd-earmark.md`).
 
 **Shane, before a live demo:** paste the seven `SSO_TEST_*` values into `.env.local` (lines 14–20, empty now; same values as `saas foundation/.env.local`), add `http://localhost:7600/login/sso/callback` as a redirect URI in both test apps, then `npm run seed:demo`.
 
-**▶ Next: (2) `WRITEUP.md`** (Commons format: angle, what stood in the way, cost, not done, found while building; mine D-19, D-23, D-32, D-36 and `bf1d5ab` for defects). Then (3) CMO brief via `exec-brief`, (4) `CLONES.md` row in saas-foundation, (5) build-log card, LinkedIn drafts, cost review.
+**(2) done:** `WRITEUP.md` (Commons format). Its *Found while building* list is the LinkedIn mine.
+
+**▶ Next: (3) CMO brief via `exec-brief`** (read `WRITEUP.md` first; record the artifact URL here). Then (4) `CLONES.md` row in saas-foundation, (5) build-log card, LinkedIn drafts, cost review.
 
 
 **Not built in Phase 3, on purpose (D-26):** rename/delete of plan rows; fiscal-year close/lock with carry-forward (nothing sets `lockedAt` yet).
