@@ -14,7 +14,9 @@ Five commits (D-31 in `prd-earmark.md`).
 
 **(5) done:** demo steps 11, 13, 14 (D-36). Step 14 exports Northwind and checks the manifest's row counts and per-file sha256 with the system `unzip`; step 11 filters the audit log to today's actor and checks the CSV; step 13 (last in `e2e/demo.spec.ts`, since it removes Dana from Contoso) offboards Meridian and sees Contoso 404 and Northwind intact. The `/demo` accounts cannot export or remove members, so 13 and 14 act as `ops@<org>.demo.test` with a planted session (`e2e/real-owner.ts`). Fixed: `offboardAgency` left guests in place, unretryable, when a removal was refused (new E-INV-07 test); `seed:demo` now resets org names after a vitest run. Gate: lint, typecheck, drift clean; unit 523 + 1 skipped; e2e 27/27 twice back to back.
 
-**▶ Next: close Phase 4.** Open the PR `phase-4` → `main` with §7's gate listed; the manual Google and Okta sign-ins are Shane's. Then Phase 5 (close-out).
+**PR #5 open** (`phase-4` → `main`, https://github.com/shanelabountyai/earmark/pull/5). Its §7 gate is automated-green; the only box left is Shane's: one manual Google and one Okta sign-in, recorded in `docs/DEMO.md`.
+
+**▶ Next: when #5 is merged, branch `phase-5` from `main` and start Phase 5 (close-out, §7): `WRITEUP.md`, `docs/DEMO.md` (fold in the three notes below), CMO brief, `CLONES.md` row, build-log card. Model: Sonnet for docs.**
 
 **For `docs/DEMO.md` (steps 13 and 14 live):** the shared demo owner is refused both, so present them signed in as a real (non-demo) owner of Contoso and Northwind (D-36).
 
