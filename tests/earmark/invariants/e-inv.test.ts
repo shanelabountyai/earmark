@@ -236,6 +236,19 @@ describe('E-INV-07: offboarding an agency revokes its guests in that client only
     expect(await db.commitment.findUniqueOrThrow({ where: { id: cPo.id } })).toMatchObject({ closedAt: null });
     expect(await db.auditEvent.count({ where: { orgId: n.orgId, action: 'member.removed', targetId: dana.id } })).toBe(1);
   });
+
+  it('a rerun after a failed guest removal finishes the job; once done it is refused', async () => {
+    const n = await world('northwind');
+    const dana = await db.user.create({ data: { email: 'dana@meridian.test' } });
+    await addGuest(n.orgId, n.agency.id, dana.id);
+    await db.agency.update({ where: { id: n.agency.id }, data: { offboardedAt: new Date() } }); // marked, removal never ran
+
+    const off = () => as(n.owner.id, () => offboardAgency(n.slug, { agencyId: n.agency.id }));
+    expect(await off()).toMatchObject({ guestsRemoved: 1 });
+    expect(await db.membership.count({ where: { orgId: n.orgId, userId: dana.id } })).toBe(0);
+    expect(await db.auditEvent.count({ where: { orgId: n.orgId, action: 'agency.offboarded' } })).toBe(0); // not marked twice
+    expect(await off()).toMatchObject({ error: expect.stringContaining('already offboarded') });
+  });
 });
 
 describe('E-INV-08: the variance explainer is refused once the org’s AI cap is hit and writes no draft', () => {

@@ -28,7 +28,7 @@ export const seedDemo = () => asSystem((sys) => seedWith(sys));
 async function seedWith(db: Parameters<Parameters<typeof asSystem>[0]>[0]) {
   const printed: string[] = [];
   for (const o of ORGS) {
-    const org = await db.org.upsert({ where: { slug: o.slug }, create: { slug: o.slug, name: o.name }, update: {} });
+    const org = await db.org.upsert({ where: { slug: o.slug }, create: { slug: o.slug, name: o.name }, update: { name: o.name } }); // a vitest run on the same DB leaves its own 'northwind' org
     for (const role of ROLES) {
       const email = `${role}@${o.domain}`;
       const mfa = role !== 'member'; // owners and admins are TOTP-enrolled, as the guard requires

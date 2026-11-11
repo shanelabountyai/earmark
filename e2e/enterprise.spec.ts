@@ -1,7 +1,13 @@
+import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { mkdtempSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
 import { sealSecret } from '../src/core/auth/secret-box';
 import { hashToken, newToken } from '../src/core/tokens';
 import { dbSystem as db } from '../src/core/db/system';
+import { asRealOwner } from './real-owner';
 import { startOidcMock, type OidcMock } from '../tests/helpers/oidc-mock';
 
 // Phase 4 demo steps (PRD §9, D-31). Step 1 for real (D-22): Northwind's IdP here is the local OIDC mock standing in for
@@ -76,4 +82,53 @@ test("step 8 (API half): Contoso's key on a Northwind PO id gets the same 404 bo
   } finally {
     await db.apiKey.delete({ where: { id: k.id } });
   }
+});
+
+// Step 14: the owner exports Northwind; the zip's manifest lists every table with its row count and sha256, and the
+// export page shows the manifest's own sha256. Unpacked with the system `unzip`, a reader that is not ours (INV-34).
+test('step 14: export Northwind; the manifest carries row counts and a sha256 per file', async ({ browser }) => {
+  await db.orgExport.deleteMany({ where: { orgId } }); // one active export per org; a rerun's would refuse this one
+  const { page } = await asRealOwner(browser, 'northwind'); // the demo owner is refused exports (assertFresh)
+  await page.goto('/o/northwind/settings/danger');
+  await page.getByRole('button', { name: 'Export data' }).click();
+  await page.waitForURL(/\/settings\/danger\/export\/[0-9a-f-]{36}$/);
+  const link = page.getByRole('link', { name: 'Download the zip' });
+  await expect.poll(async () => { await page.reload(); return link.isVisible(); }, { timeout: 30_000 }).toBe(true);
+  const shown = (await page.locator('main code').innerText()).trim();
+
+  const [download] = await Promise.all([page.waitForEvent('download'), link.click()]);
+  const file = join(mkdtempSync(join(tmpdir(), 'e2e-export-')), 'export.zip');
+  await download.saveAs(file);
+  const raw = execFileSync('unzip', ['-p', file, 'manifest.json'], { encoding: 'utf8' });
+  expect(createHash('sha256').update(raw).digest('hex')).toBe(shown);
+  const manifest = JSON.parse(raw) as { org: { slug: string }; tables: { name: string; file: string; rows: number; sha256: string }[] };
+  expect(manifest.org.slug).toBe('northwind');
+  for (const t of manifest.tables) {
+    expect(t.sha256).toBe(createHash('sha256').update(execFileSync('unzip', ['-p', file, t.file])).digest('hex'));
+  }
+  const rows = Object.fromEntries(manifest.tables.map((t) => [t.name, t.rows]));
+  for (const name of ['Commitment', 'Invoice', 'SpendRequest', 'BudgetLine', 'AuditEvent']) expect(rows[name]).toBeGreaterThan(0);
+});
+
+// Step 11: the audit viewer filtered to today's actor (the owner whose export step 14 just requested), then its CSV.
+test("step 11: the audit viewer filters to today's actor and downloads the same rows as CSV", async ({ browser }) => {
+  const today = new Date().toISOString().slice(0, 10); // the filter's days are UTC (core/audit.ts auditFilter)
+  const { page, email: actor } = await asRealOwner(browser, 'northwind');
+  await page.goto('/o/northwind/settings/audit');
+  await page.getByLabel('Actor email').fill(actor);
+  await page.getByLabel('From', { exact: true }).fill(today);
+  await page.getByLabel('To', { exact: true }).fill(today);
+  await page.getByRole('button', { name: 'Filter' }).click();
+  await page.waitForURL(/actor=/);
+  const actors = await page.locator('main table tbody tr td:nth-child(2)').allInnerTexts();
+  expect(actors.length).toBeGreaterThan(0);
+  expect(new Set(actors)).toEqual(new Set([actor]));
+  await expect(page.locator('main table')).toContainText('export.requested');
+
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('link', { name: 'Download CSV' }).click()]);
+  const csv = readFileSync((await download.path())!, 'utf8').trim().split('\r\n'); // toCsv ends lines with CRLF
+  expect(csv[0]).toBe('id,at,actor,action,targetType,targetId,data');
+  expect(csv.length - 1).toBeGreaterThanOrEqual(actors.length);
+  for (const line of csv.slice(1)) expect(line.split(',')[2]).toBe(actor);
+  expect(csv.some((l) => l.includes('export.requested'))).toBe(true);
 });

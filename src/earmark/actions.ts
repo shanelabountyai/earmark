@@ -2,6 +2,7 @@
 // Earmark's server actions (Phase 2). Each is built by orgAction, so the INV-01..04/22 harness drives it with no
 // per-action code; every id is ref('<model>'), resolved with inOrg (a row from another org is the same notFound as
 // a row that does not exist). Earmark's own permission is checked first in the body (D-15). Pages arrive in Phase 3.
+import { assertNotDemo } from '@/core/auth/session';
 import { revalidatePath } from 'next/cache';
 import { notFound } from 'next/navigation';
 import { after } from 'next/server';
@@ -534,18 +535,25 @@ export const createAgency = orgAction(null, z.object({ name, domains: z.string()
  * PRD §5: offboarding closes the agency's open POs and ends every guest membership tied to it in this org only
  * (E-INV-07). The agency is marked first, in its own transaction, so its guests see nothing from that moment
  * (scopeOf fails closed) even if a membership removal below fails; each removal then runs core's removeMember
- * (share links, invites, the membership hook, its own audit row).
+ * (share links, invites, the membership hook, its own audit row). Rerunning it after a failed removal finishes the job.
  */
 export const offboardAgency = orgAction(null, z.object({ agencyId: ref('agency') }), async (ctx, i) => {
   requirePerm(ctx, 'agency.manage');
-  const guests = await withOrg(ctx, async (tx) => {
+  assertNotDemo(ctx.session); // removeMember refuses the shared demo account; refuse before the agency is marked
+  const { name, retry, guests } = await withOrg(ctx, async (tx) => {
     const agency = (await tx.agency.findFirst({ where: { id: i.agencyId, ...inOrg(ctx) } })) ?? notFound();
-    if (agency.offboardedAt) throw new Refused(`${agency.name} is already offboarded.`);
-    await tx.agency.update({ where: { id: agency.id }, data: { offboardedAt: now() } });
-    const closed = await tx.commitment.updateMany({ where: { ...inOrg(ctx), agencyId: agency.id, closedAt: null }, data: { closedAt: now(), closeReason: 'offboarded' } });
-    await audit(ctx, 'agency.offboarded', { targetType: 'agency', targetId: agency.id, data: { commitmentsClosed: closed.count } }, tx);
-    return tx.guestMembership.findMany({ where: { ...inOrg(ctx), agencyId: agency.id }, select: { userId: true } });
+    if (!agency.offboardedAt) {
+      await tx.agency.update({ where: { id: agency.id }, data: { offboardedAt: now() } });
+      const closed = await tx.commitment.updateMany({ where: { ...inOrg(ctx), agencyId: agency.id, closedAt: null }, data: { closedAt: now(), closeReason: 'offboarded' } });
+      await audit(ctx, 'agency.offboarded', { targetType: 'agency', targetId: agency.id, data: { commitmentsClosed: closed.count } }, tx);
+    }
+    // GuestMembership outlives the membership, so only guests still in the org: a retry after a failed removal
+    // below finishes the job instead of being refused as already offboarded.
+    const tied = await tx.guestMembership.findMany({ where: { ...inOrg(ctx), agencyId: agency.id }, select: { userId: true } });
+    const guests = await tx.membership.findMany({ where: { ...inOrg(ctx), userId: { in: tied.map((t) => t.userId) } }, select: { userId: true } });
+    return { name: agency.name, retry: !!agency.offboardedAt, guests };
   });
+  if (retry && !guests.length) throw new Refused(`${name} is already offboarded.`);
   for (const g of guests) await removeMember(ctx, g.userId, onMembershipEnded);
   refresh(ctx);
   return { guestsRemoved: guests.length, notice: `Offboarded; ${guests.length} guest${guests.length === 1 ? '' : 's'} removed.` };

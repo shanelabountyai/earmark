@@ -12,13 +12,16 @@ Five commits (D-31 in `prd-earmark.md`).
 
 **(4) done:** the explainer (D-35). `Draft with AI` on the line page; Haiku over `fetch` with a key, a fixed-usage stub without. The seed plants this month's spend so the fourth draft is refused, and resets it each seed. `e2e/demo.spec.ts` step 10 drafts, publishes, drafts twice more, and sees the fourth refused with 3 usage rows. `ANTHROPIC_API_KEY` joins `env.ts` (patch excused in `FOUNDATION_PATCHES.md`, propose upstream). Tests: `tests/earmark/explainer-drafter.test.ts`. Gate: unit 522 + 1 skipped, e2e 24/24 twice back to back, drift clean.
 
-**▶ Next: (5) e2e steps 11, 13 and 14** plus whatever they turn up.
+**(5) done:** demo steps 11, 13, 14 (D-36). Step 14 exports Northwind and checks the manifest's row counts and per-file sha256 with the system `unzip`; step 11 filters the audit log to today's actor and checks the CSV; step 13 (last in `e2e/demo.spec.ts`, since it removes Dana from Contoso) offboards Meridian and sees Contoso 404 and Northwind intact. The `/demo` accounts cannot export or remove members, so 13 and 14 act as `ops@<org>.demo.test` with a planted session (`e2e/real-owner.ts`). Fixed: `offboardAgency` left guests in place, unretryable, when a removal was refused (new E-INV-07 test); `seed:demo` now resets org names after a vitest run. Gate: lint, typecheck, drift clean; unit 523 + 1 skipped; e2e 27/27 twice back to back.
+
+**▶ Next: close Phase 4.** Open the PR `phase-4` → `main` with §7's gate listed; the manual Google and Okta sign-ins are Shane's. Then Phase 5 (close-out).
+
+**For `docs/DEMO.md` (steps 13 and 14 live):** the shared demo owner is refused both, so present them signed in as a real (non-demo) owner of Contoso and Northwind (D-36).
 
 **For `docs/DEMO.md` (step 10 live):** run the explainer with `ANTHROPIC_API_KEY` unset, or the fourth draft is not refused (a real Haiku draft costs ~$0.0002; D-35).
 
 **For `docs/DEMO.md` (step 8 live):** the shared demo owner cannot create an API key, so the live demo needs a key minted another way (a non-demo owner, or a seed-printed key). Decide when DEMO.md is written.
 
-**Then:** Phase 4 closes after (5). Steps 9 and 12 are already done. Gate (§7): the manual Google and Okta sign-ins, recorded in `docs/DEMO.md`, are Shane's.
 
 **Not built in Phase 3, on purpose (D-26):** rename/delete of plan rows; fiscal-year close/lock with carry-forward (nothing sets `lockedAt` yet).
 

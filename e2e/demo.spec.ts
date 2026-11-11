@@ -1,5 +1,6 @@
 import { type Browser, expect, type Page, test } from '@playwright/test';
 import { dbSystem } from '../src/core/db/system';
+import { asRealOwner } from './real-owner';
 
 // INV-27, flag-on half (the flag-off half is tests/invariants/inv-27-demo.test.ts). playwright.config.ts starts the
 // server with DEMO_MODE=1; e2e/global-setup.ts seeds the same database once per sweep.
@@ -183,4 +184,22 @@ test('step 10: the explainer drafts, a person publishes, and the fourth draft is
   await expect(owner.locator('main').getByRole('alert')).toContainText('monthly AI spending limit');
   // Three billed drafts this sweep, the refused fourth wrote none (E-INV-08); the seed reset the ledger.
   expect(await dbSystem.aiUsage.count({ where: { org: { slug: 'northwind' }, feature: 'variance-explainer' } })).toBe(3);
+});
+
+// Demo step 13 (E-INV-07), last in this file: it removes Dana from Contoso, which steps 7–8 above need. The seed
+// recreates the agency and her membership each sweep. Her Contoso access is gone on refresh; Northwind is intact.
+test('step 13: offboarding Meridian in Contoso ends Dana’s Contoso access and leaves Northwind', async ({ browser }) => {
+  const dana = await as(browser, 'dana@meridian.demo.test');
+  expect((await dana.goto('/o/contoso'))?.status()).toBe(200);
+
+  const { page: owner } = await asRealOwner(browser, 'contoso'); // the demo owner is refused member removal
+  await owner.goto('/o/contoso/settings/agencies');
+  const row = owner.getByRole('table', { name: 'Agencies' }).getByRole('row').filter({ hasText: 'Meridian Creative' });
+  await row.getByRole('button', { name: 'Offboard' }).click();
+  await expect(row).toContainText('offboarded'); // the form leaves the page with its notice (NEXT.md UI pattern)
+
+  expect((await dana.reload())?.status()).toBe(404);
+  await dana.goto('/o/northwind');
+  await expect(dana.getByRole('heading', { name: 'Purchase orders' })).toBeVisible();
+  await expect(dana.getByRole('table', { name: 'Purchase orders' })).toContainText('open ·');
 });
