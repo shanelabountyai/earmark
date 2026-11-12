@@ -28,7 +28,9 @@ Five commits (D-31 in `prd-earmark.md`).
 
 **(4) done:** `CLONES.md` earmark row enriched in saas-foundation (pushed).
 
-**▶ Next: (5) build-log card, LinkedIn drafts (mine WRITEUP *Found while building*), cost review.
+**(5) cost review done:** D-38 in `prd-earmark.md` (nothing deployed, nothing scheduled, $0 baseline; restore note recorded).
+
+**▶ Next: (5) LinkedIn drafts.** Harvest run 2026-11-12 against the 167 posts in the Ledger; candidates are with Shane. Strongest: D-23 (closing a PO un-spent its money, $225,000 available after $18,000 billed) and D-32 (Require SSO locked the agency guest out). Draft only the ones Shane picks, add to the Ledger after he approves, with `source` = CMO https://claude.ai/artifact/Xwpdyi152Ct3HWeyD99yGs + WRITEUP *Found while building*. Then Phase 5 is closed once the Ledger URL is recorded here.
 
 
 **Not built in Phase 3, on purpose (D-26):** rename/delete of plan rows; fiscal-year close/lock with carry-forward (nothing sets `lockedAt` yet).
