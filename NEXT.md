@@ -26,7 +26,9 @@ Five commits (D-31 in `prd-earmark.md`).
 
 **(3) done:** exec brief, *Earmark in Brief*: https://claude.ai/artifact/Xwpdyi152Ct3HWeyD99yGs (private until Shane shares it). No screenshots: the repo has no capture spec; add two (guest PO page, the identical 404) if wanted. Numbers re-run 2026-11-12: unit 523 + 1 skipped (one webhook test fails only while `WEBHOOK_ALLOW_PRIVATE=1` is in `.env.local`; passes unset), 27 e2e listed, not re-run.
 
-**▶ Next: (4) `CLONES.md` row in saas-foundation**, then (5) build-log card, LinkedIn drafts (mine WRITEUP *Found while building*), cost review.
+**(4) done:** `CLONES.md` earmark row enriched in saas-foundation (pushed).
+
+**▶ Next: (5) build-log card, LinkedIn drafts (mine WRITEUP *Found while building*), cost review.
 
 
 **Not built in Phase 3, on purpose (D-26):** rename/delete of plan rows; fiscal-year close/lock with carry-forward (nothing sets `lockedAt` yet).
