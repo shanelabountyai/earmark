@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { BudgetExceeded } from '@/core/ai/budget';
 import { requireOrg } from '@/core/authz/guards';
 import { withOrg } from '@/core/db/rls';
+import { changeRole } from '@/core/tenancy/orgs';
 import { dbSystem as db } from '@/core/db/system';
 import { decideStep, editRules, matchInvoice, offboardAgency, submitInvoice, submitRequest } from '@/earmark/actions';
 import { findCommitment, toGuestCommitment } from '@/earmark/core';
@@ -248,6 +249,19 @@ describe('E-INV-07: offboarding an agency revokes its guests in that client only
     expect(await db.membership.count({ where: { orgId: n.orgId, userId: dana.id } })).toBe(0);
     expect(await db.auditEvent.count({ where: { orgId: n.orgId, action: 'agency.offboarded' } })).toBe(0); // not marked twice
     expect(await off()).toMatchObject({ error: expect.stringContaining('already offboarded') });
+  });
+
+  it('a former guest promoted to member keeps their membership when the agency is offboarded (D-39)', async () => {
+    const n = await world('northwind');
+    const dana = await db.user.create({ data: { email: 'dana@meridian.test' } });
+    const sam = await db.user.create({ data: { email: 'sam@meridian.test' } });
+    await addGuest(n.orgId, n.agency.id, dana.id);
+    await addGuest(n.orgId, n.agency.id, sam.id);
+    await changeRole(await actAs(n.owner.id, n.slug), sam.id, 'member'); // Sam joined the client's staff; the GuestMembership row stays
+
+    expect(await as(n.owner.id, () => offboardAgency(n.slug, { agencyId: n.agency.id }))).toMatchObject({ guestsRemoved: 1 });
+    expect(await db.membership.findMany({ where: { orgId: n.orgId, userId: { in: [dana.id, sam.id] } }, select: { userId: true, role: true } })).toEqual([{ userId: sam.id, role: 'member' }]);
+    expect(await db.auditEvent.count({ where: { orgId: n.orgId, action: 'member.removed', targetId: sam.id } })).toBe(0);
   });
 });
 

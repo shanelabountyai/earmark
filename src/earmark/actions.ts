@@ -547,10 +547,10 @@ export const offboardAgency = orgAction(null, z.object({ agencyId: ref('agency')
       const closed = await tx.commitment.updateMany({ where: { ...inOrg(ctx), agencyId: agency.id, closedAt: null }, data: { closedAt: now(), closeReason: 'offboarded' } });
       await audit(ctx, 'agency.offboarded', { targetType: 'agency', targetId: agency.id, data: { commitmentsClosed: closed.count } }, tx);
     }
-    // GuestMembership outlives the membership, so only guests still in the org: a retry after a failed removal
-    // below finishes the job instead of being refused as already offboarded.
+    // Only members who are still guests: a GuestMembership row outlives a promotion to member or admin (D-39), and a
+    // retry after a failed removal below finishes the job instead of being refused as already offboarded.
     const tied = await tx.guestMembership.findMany({ where: { ...inOrg(ctx), agencyId: agency.id }, select: { userId: true } });
-    const guests = await tx.membership.findMany({ where: { ...inOrg(ctx), userId: { in: tied.map((t) => t.userId) } }, select: { userId: true } });
+    const guests = await tx.membership.findMany({ where: { ...inOrg(ctx), role: 'guest', userId: { in: tied.map((t) => t.userId) } }, select: { userId: true } });
     return { name: agency.name, retry: !!agency.offboardedAt, guests };
   });
   if (retry && !guests.length) throw new Refused(`${name} is already offboarded.`);
