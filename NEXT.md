@@ -1,6 +1,6 @@
 # NEXT — Earmark
 
-## ▶ Now: Phase 4 (enterprise wiring, PRD §8) on branch `phase-4`. Model: Opus.
+## ▶ Now: Phase 4 (enterprise wiring, PRD §7) on branch `phase-4`. Model: Opus.
 
 Five commits (D-31 in `prd-earmark.md`).
 
