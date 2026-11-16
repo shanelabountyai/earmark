@@ -26,14 +26,21 @@ import { formatUsd } from '@/lib/earmark/money';
 import { draftVarianceNote, drafterFromEnv } from './explainer';
 import { dollars, fileInvoice, heldSeats, isoDate, lineAvailable, requirePerm, rulesOf, scopeOf, seatsFor } from './core';
 
+/** D-40: the inline sweep sends at most this many deliveries; anything left waits for the daily cron. */
+const INLINE_MAX_SENDS = 5;
+
 /**
  * Every Earmark event is sent now, not at the next cron (PRD §9 step 6). after() runs once the response is out, so the
  * sweep reads a committed event; a rolled-back one leaves nothing to send. Two in one request are two sweeps, which
- * SKIP LOCKED makes safe (INV-41).
+ * SKIP LOCKED makes safe (INV-41). A failed sweep is logged, never an unhandled rejection: the cron retries (D-40).
  */
 async function emit(...args: Parameters<typeof logEvent>) {
   const { orgId } = args[0];
-  after(() => sweepWebhooks({ orgId }).then((r) => log('webhooks.inline', { orgId, ...r })));
+  after(() =>
+    sweepWebhooks({ orgId, maxSends: INLINE_MAX_SENDS })
+      .then((r) => log('webhooks.inline', { orgId, ...r }))
+      .catch((e: unknown) => log('webhooks.inline_failed', { orgId, error: e instanceof Error ? e.name : 'unknown' })),
+  );
   return logEvent(...args);
 }
 
