@@ -2,7 +2,7 @@
 import { z } from 'zod';
 import { inOrg } from '@/core/authz/guards';
 import { fileInvoice } from '@/earmark/core';
-import { idempotent, parse } from '@/modules/apikeys/api';
+import { ApiProblem, idempotent, parse } from '@/modules/apikeys/api';
 
 // PRD §1 `integration`: a finance system posts an invoice under the same rules as the guest form (fileInvoice). The
 // key has no user, so the invoice is filed as submitted by the member who created the key, and the audit row's actor
@@ -12,17 +12,23 @@ const body = z
     agencyId: z.uuid(),
     number: z.string().trim().min(1).max(64),
     poNumber: z.string().trim().max(64).default(''),
-    amountCents: z.string().regex(/^[1-9]\d{0,15}$/, 'a positive whole number of cents, as a string'),
+    amountCents: z.string().max(32), // its shape is checked in fileInvoice, after the agency resolves (D-33, D-41)
     invoicedOn: z.string().max(10),
     dueOn: z.string().max(10),
     fileRef: z.union([z.literal(''), z.url().max(2000)]).default(''),
   })
   .strict();
 
+/** Called by fileInvoice once the agency is ours, so a foreign agency id is the 404 whatever the amount (D-41). */
+const cents = (v: string) => {
+  if (!/^[1-9]\d{0,15}$/.test(v)) throw new ApiProblem('VALIDATION', 'amountCents: a positive whole number of cents, as a string');
+  return BigInt(v);
+};
+
 export const POST = idempotent('invoices', async (ctx, raw, tx) => {
   const i = parse(body, raw);
   const key = await tx.apiKey.findFirstOrThrow({ where: { id: ctx.keyId, ...inOrg(ctx) }, select: { createdById: true } });
-  const inv = await fileInvoice(tx, ctx, {}, { ...i, amountCents: () => BigInt(i.amountCents) }, key.createdById);
+  const inv = await fileInvoice(tx, ctx, {}, { ...i, amountCents: () => cents(i.amountCents) }, key.createdById);
   return {
     status: 201,
     body: {
