@@ -29,6 +29,7 @@ export type SessionCtx = {
   mfaOrgId: string | null; // mfaAt came from this org's SSO provider, and counts only there (addendum §10.2)
   totpEnrolled: boolean;
   isDemo: boolean;
+  method: SignInMethod; // how this session was made: an SSO-required org admits only 'sso' (v1.6.5, audit A-05/A-06)
 };
 
 /** Thrown when an action needs a sign-in within the last 5 minutes (INV-26). */
@@ -82,7 +83,7 @@ export async function sessionFor(token: string | undefined, e: { DEMO_MODE?: str
   if (s.user.totpEnrolledAt && !s.mfaAt && now().getTime() - s.authAt.getTime() > PENDING_MFA_MS) return null;
   // At most one write per session per 5 minutes, for the sessions list (addendum §4).
   if (!s.lastSeenAt || now().getTime() - s.lastSeenAt.getTime() > SEEN_EVERY_MS) await db.session.updateMany({ where: { hash: s.hash }, data: { lastSeenAt: now() } });
-  return { hash: s.hash, userId: s.userId, email: s.user.email, authAt: s.authAt, mfaAt: s.mfaAt, mfaOrgId: s.mfaOrgId, totpEnrolled: !!s.user.totpEnrolledAt, isDemo: s.user.isDemo };
+  return { hash: s.hash, userId: s.userId, email: s.user.email, authAt: s.authAt, mfaAt: s.mfaAt, mfaOrgId: s.mfaOrgId, totpEnrolled: !!s.user.totpEnrolledAt, isDemo: s.user.isDemo, method: s.method as SignInMethod };
 }
 
 /** One query per request. */

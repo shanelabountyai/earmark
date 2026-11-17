@@ -2,7 +2,41 @@
 
 Entries prefixed `security:` are mandatory for anything touching an invariant. Clones must take a `security:` release within 7 days.
 
-## 1.6.4 (unreleased; tag after merge)
+## 1.6.6 (unreleased; tag after merge)
+
+Fix to 1.6.5's Require SSO guard (owner decision 2026-11-17): a session made through `/demo` passes `refusesSession`. Demo
+accounts are shared synthetic users that exist only while `DEMO_MODE` is on (INV-27) and are never on any provider, so a
+demo org that shows Require SSO switched on (earmark's Northwind) stopped admitting its own demo visitors. A link session
+for the same account is still refused. Not `security:`: it narrows nothing a real user could reach. No migration.
+
+## 1.6.5 (2026-11-17)
+
+security: the owner decisions on audit A-06 and A-10 (2026-11-17), the guard half of A-05, and the demo-gate env fix moved
+from v1.6.4. **Clones must take this within 7 days.** No migration. One new env pair (`DEMO_ACCESS_PASSWORD`, `VERCEL`),
+optional.
+
+- **A-06 Require SSO is per org and by domain.** A magic link is refused only to a member whose email is on one of the
+  requiring org's verified domains (the people its provider can sign in). An off-domain member keeps links, so another
+  tenant's setting no longer locks them out of their own org. **INV-36's tests now use on-domain addresses**: the rule
+  changed by owner decision, it was not weakened; the off-domain case has its own tests.
+- **A-06 no lock-out.** `setRequired(true)` is refused unless the acting owner's current session was made through SSO and
+  they have signed in through THIS connection (an `SsoSubject` for its issuer). The org always has one owner who can get in.
+- **A-05 guard half.** `requireOrg` asks a new core seam, `ssoRefusesSession` (`src/core/auth/sso-hook.ts`): an
+  SSO-required org admits only a session made through SSO, apart from the enabling owner's 24-hour exemption. Refused
+  members are sent to `/login/sso/start?org=<slug>`. `SessionCtx` gains `method`. ponytail: any provider's SSO session
+  counts, since sessions do not record which provider made them.
+- **A-10 exports.** Downloading an export needs a fresh sign-in (INV-26), as requesting one does; a stale session gets
+  `ReauthRequired` (the route answers 403 with the message) and no audit line. The audit-log CSV is capped at the newest
+  10,000 events and writes `audit.exported` with the row count and filter.
+- **Demo gate in core** (`src/core/demo-gate.ts`: `gate`, `gateResponse`, `CORE_OWN_CREDENTIAL`), ported from the clones,
+  reading `DEMO_ACCESS_PASSWORD` and `VERCEL` through `@/core/env` (both now in `env.ts` and `.env.example`, INV-14). Fixes
+  K11 in ledgerleave, gavel, tradepost and callboard once each replaces its own copy with an import from core.
+
+Upgrade: merge, `npm ci`. A clone with its own demo gate imports `gate` from `@/core/demo-gate` and deletes its copy (its
+own exempt paths stay in its `proxy.ts`). An org that already requires SSO keeps it; members on link sessions are sent to
+SSO on their next request.
+
+## 1.6.4 (2026-11-17)
 
 security: fixes from the 2026-11-17 audit (`docs/audits/AUDIT-2026-11-17.md`, findings A-01, A-02, A-03, A-05 session half,
 A-07, A-09, A-13). **Clones must take this within 7 days.** No migration, no env change. Each fix moved its proving test

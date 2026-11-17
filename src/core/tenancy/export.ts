@@ -159,6 +159,9 @@ export async function downloadExport(ctx: OrgCtx, id: string) {
   return withOrg(ctx, async (tx) => {
     const e = await tx.orgExport.findFirst({ where: { id, orgId: ctx.orgId }, select: { status: true, archive: true, sha256: true, expiresAt: true, createdAt: true } });
     if (!e?.archive || e.status !== 'ready' || e.expiresAt <= now()) return null;
+    // v1.6.5 (audit A-10, owner decision 2026-11-17): the archive is the whole org, so taking it needs the same fresh
+    // sign-in as asking for it (INV-26). A day-old or stolen owner session gets ReauthRequired, not the file.
+    assertFresh(ctx.session);
     await audit(ctx, 'export.downloaded', { targetType: 'OrgExport', targetId: id, data: { sha256: e.sha256 } }, tx);
     return { archive: e.archive, createdAt: e.createdAt };
   });

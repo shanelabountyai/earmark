@@ -5,7 +5,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { sealSecret } from '@/core/auth/secret-box';
 import { redeemLink, requestLink } from '@/core/auth/link';
 import { resolveSso } from '@/core/auth/sso-hook';
-import { SESSION_COOKIE } from '@/core/auth/session';
+import { createSession, SESSION_COOKIE } from '@/core/auth/session';
 import { requireOrg } from '@/core/authz/guards';
 import { advanceClock, now } from '@/core/clock';
 import { dbSystem as db } from '@/core/db/system'; // fixtures run as the owner role (RLS enforce leg)
@@ -199,8 +199,10 @@ describe('INV-36: Require SSO refuses magic links; the enabling owner is exempt 
 
   const linkCount = (email: string) => db.loginToken.count({ where: { email } });
 
+  // v1.6.5 (A-06, owner decision 2026-11-17): the link is refused to members on the org's verified domain. These tests
+  // used off-domain addresses because the rule was per user; the off-domain case now has its own tests below.
   it('a member gets no link, and an older link stops working', async () => {
-    const member = await addMember(org.id, 'member', 'member@elsewhere.example');
+    const member = await addMember(org.id, 'member', `member@${DOMAIN}`);
     const old = newToken();
     await db.loginToken.create({ data: { hash: hashToken(old), purpose: 'login', email: member.email, userId: member.id, createdAt: now(), expiresAt: new Date(now().getTime() + 900_000) } });
     await db.ssoConnection.update({ where: { orgId: org.id }, data: { required: true, requiredAt: now(), requiredById: null } });
@@ -211,7 +213,7 @@ describe('INV-36: Require SSO refuses magic links; the enabling owner is exempt 
   });
 
   it('the owner who turned it on keeps links for 24 h, then not', async () => {
-    const owner = await addMember(org.id, 'owner', 'owner@elsewhere.example');
+    const owner = await addMember(org.id, 'owner', `owner@${DOMAIN}`);
     await db.ssoConnection.update({ where: { orgId: org.id }, data: { required: true, requiredAt: now(), requiredById: owner.id } });
     await requestLink(owner.email, randomUUID());
     expect(await linkCount(owner.email)).toBe(1);
@@ -226,7 +228,7 @@ describe('INV-36: Require SSO refuses magic links; the enabling owner is exempt 
   });
 
   it('turning the connection off lifts it (no lock-out by a broken provider)', async () => {
-    const member = await addMember(org.id, 'member', 'member@elsewhere.example');
+    const member = await addMember(org.id, 'member', `member@${DOMAIN}`);
     await db.ssoConnection.update({ where: { orgId: org.id }, data: { required: true, requiredAt: now(), enabledAt: null } });
     await requestLink(member.email, randomUUID());
     expect(await linkCount(member.email)).toBe(1);
@@ -362,7 +364,7 @@ describe('SSO v1.6.4: the issuer is a public address, and Require SSO ends link 
     const linkToken = await signInAs(linkMember.id, { mfa: true });
     await signInAs(ssoMember.id, { mfa: true });
     await db.session.updateMany({ where: { userId: ssoMember.id }, data: { method: 'sso' } });
-    const ownerCtx = await actAs(owner.id, org.slug);
+    const ownerCtx = await viaSso(owner.id);
     const ownerSessions = await db.session.count({ where: { userId: owner.id } });
 
     jar.clear();
@@ -381,7 +383,7 @@ describe('SSO v1.6.4: the issuer is a public address, and Require SSO ends link 
 
   it('A-07 a sign-up link issued before the account existed does not sign in a member of an SSO-required org', async () => {
     await db.ssoConnection.update({ where: { orgId: org.id }, data: { required: true, requiredAt: now(), requiredById: null } });
-    const email = 'newhire@elsewhere.example';
+    const email = `newhire@${DOMAIN}`; // on the org's domain: an off-domain one now gets its link (A-06) and is stopped at the guard
     await requestLink(email, randomUUID()); // unknown address: a 15-minute sign-up token with userId = null
     const row = await db.loginToken.findFirstOrThrow({ where: { email } });
     expect(row.purpose).toBe('signup');
@@ -390,5 +392,77 @@ describe('SSO v1.6.4: the issuer is a public address, and Require SSO ends link 
     await db.loginToken.create({ data: { ...row, hash: hashToken(token) } });
     expect(await redeemLink(token)).toBeNull();
     expect(await db.session.count()).toBe(0);
+  });
+});
+
+// v1.6.5 (audit A-05 guard half, A-06, A-10; owner decisions 2026-11-17; A-06's tests moved from tests/defects).
+/** Signs `userId` in as if through this org's provider: an 'sso' session and a subject row for the mock's issuer. */
+async function viaSso(userId: string) {
+  await db.ssoSubject.create({ data: { issuer: mock.issuer, subject: `sub-${userId}`, userId } });
+  const token = await createSession(userId, { mfa: true, method: 'sso' });
+  jar.clear();
+  jar.set(SESSION_COOKIE, token);
+  return requireOrg(org.slug);
+}
+
+describe('Require SSO v1.6.5: per org, by domain, enforced at the guard', () => {
+  it('A-06 an off-domain member still gets links, so they can reach their OWN org', async () => {
+    const contractor = await addMember(org.id, 'member', 'pat@freelance.example');
+    const own = await makeOrg('pats-studio');
+    await db.membership.create({ data: { orgId: own.id, userId: contractor.id, role: 'owner' } });
+    await db.ssoConnection.update({ where: { orgId: org.id }, data: { required: true, requiredAt: now(), requiredById: null } });
+    await requestLink(contractor.email, randomUUID());
+    expect(await db.loginToken.count({ where: { email: contractor.email } })).toBe(1);
+  });
+
+  it('A-05/A-06 the SSO-required org admits only an SSO session; the same link session still opens the member\'s own org', async () => {
+    const contractor = await addMember(org.id, 'member', 'pat@freelance.example');
+    const own = await makeOrg('pats-studio');
+    await db.membership.create({ data: { orgId: own.id, userId: contractor.id, role: 'member' } });
+    await db.ssoConnection.update({ where: { orgId: org.id }, data: { required: true, requiredAt: now(), requiredById: null } });
+    await signInAs(contractor.id, { mfa: true });
+    await expect(requireOrg(org.slug)).rejects.toMatchObject({ kind: 'redirect', to: `/login/sso/start?org=${org.slug}` });
+    await expect(requireOrg(own.slug)).resolves.toMatchObject({ orgId: own.id });
+    await db.session.updateMany({ where: { userId: contractor.id }, data: { method: 'sso' } });
+    await expect(requireOrg(org.slug)).resolves.toMatchObject({ orgId: org.id });
+  });
+
+  it('A-06 Require SSO cannot be turned on by an owner who has not signed in through this connection', async () => {
+    const owner = await addMember(org.id, 'owner', 'owner@acme.test'); // off-domain: the provider could never sign them in
+    await expect(setRequired(await actAs(owner.id, org.slug), true)).rejects.toThrow(/Sign in through this SSO connection first/);
+    expect((await db.ssoConnection.findUniqueOrThrow({ where: { orgId: org.id } })).required).toBe(false);
+    // signed in through it: allowed, and the org can never be left with no owner able to get in
+    await setRequired(await viaSso(owner.id), true);
+    expect((await db.ssoConnection.findUniqueOrThrow({ where: { orgId: org.id } })).required).toBe(true);
+  });
+
+  it('A-06 an sso session from a different issuer does not count for this connection', async () => {
+    const owner = await addMember(org.id, 'owner', `boss@${DOMAIN}`);
+    await db.ssoSubject.create({ data: { issuer: 'https://other-idp.example', subject: 'x', userId: owner.id } });
+    const token = await createSession(owner.id, { mfa: true, method: 'sso' });
+    jar.clear();
+    jar.set(SESSION_COOKIE, token);
+    await expect(setRequired(await requireOrg(org.slug), true)).rejects.toThrow(/Sign in through this SSO connection first/);
+  });
+
+  it('v1.6.6 a /demo session is not refused by Require SSO (shared demo accounts are never on a provider)', async () => {
+    const demo = await addMember(org.id, 'member', 'member@acme.demo.test');
+    await db.ssoConnection.update({ where: { orgId: org.id }, data: { required: true, requiredAt: now(), requiredById: null } });
+    const token = await createSession(demo.id, { mfa: true, method: 'demo' });
+    jar.clear();
+    jar.set(SESSION_COOKIE, token);
+    await expect(requireOrg(org.slug)).resolves.toMatchObject({ orgId: org.id });
+    await signInAs(demo.id, { mfa: true }); // the same account on a link session is still sent to SSO
+    await expect(requireOrg(org.slug)).rejects.toMatchObject({ kind: 'redirect' });
+  });
+
+  it('the owner who turned it on keeps a link session for 24 h, then is sent to SSO', async () => {
+    const owner = await addMember(org.id, 'owner', `owner@${DOMAIN}`);
+    await db.ssoConnection.update({ where: { orgId: org.id }, data: { required: true, requiredAt: now(), requiredById: owner.id } });
+    await signInAs(owner.id, { mfa: true });
+    await expect(requireOrg(org.slug)).resolves.toMatchObject({ orgId: org.id });
+    advanceClock(24 * 3600_000 + 60_000);
+    await signInAs(owner.id, { mfa: true });
+    await expect(requireOrg(org.slug)).rejects.toMatchObject({ kind: 'redirect' });
   });
 });

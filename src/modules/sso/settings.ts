@@ -84,6 +84,11 @@ export async function setRequired(ctx: OrgCtx, on: boolean) {
   assertOwner(ctx);
   const c = await connectionOf(ctx);
   if (!c?.enabledAt) throw new Refused('Turn the connection on first.');
+  // v1.6.5 (audit A-06, owner decision 2026-11-17): the owner who turns it on must be signed in through THIS connection
+  // now, which proves the provider works for at least one owner, so the org cannot be locked out once the 24 h lapse.
+  if (on && !(ctx.session.method === 'sso' && (await withOrg(ctx, (tx) => tx.ssoSubject.count({ where: { issuer: c.issuer, userId: ctx.userId } }), { atomic: false })))) {
+    throw new Refused('Sign in through this SSO connection first (Test sign-in), then turn Require SSO on.');
+  }
   await withOrg(ctx, async (tx) => {
     await tx.ssoConnection.update({ where: inOrg(ctx), data: on ? { required: true, requiredAt: now(), requiredById: ctx.userId } : { required: false, requiredAt: null, requiredById: null } });
     let signedOut = 0;

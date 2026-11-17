@@ -23,6 +23,8 @@ async function requireSso(orgId: string) {
   await db.ssoConnection.create({
     data: { orgId, issuer: 'https://idp.example', clientId: 'x', clientSecretSealed: 'x', allowedDomains: ['staff.example'], enabledAt: now(), required: true, requiredAt: now() },
   });
+  // saas-foundation v1.6.5 (A-06): a link is refused only to members on the org's verified domain, so staff need one
+  await db.ssoDomain.create({ data: { orgId, domain: 'staff.example', verifiedAt: now() } });
 }
 
 it('a guest in an SSO-required org gets a magic link; a member does not', async () => {
@@ -41,7 +43,7 @@ it('a guest here who is staff in another SSO-required org gets no link', async (
   const a = await makeOrg('sso-guest-a');
   const b = await makeOrg('sso-guest-b');
   await requireSso(b.id);
-  const user = await addMember(a.id, 'guest', 'lee@agency.example');
+  const user = await addMember(a.id, 'guest', 'lee@staff.example'); // on b's verified domain: staff there (v1.6.5, A-06)
   await db.membership.create({ data: { orgId: b.id, userId: user.id, role: 'member' } });
 
   await requestLink(user.email, randomUUID());

@@ -17,6 +17,10 @@ export const envSchema = z.object({
   ALLOW_CLOUD_DB: z.enum(['1']).optional(), // INV-18 escape hatch
   VERCEL_ENV: z.string().optional(), // set by Vercel; marks a deployed environment
   DEMO_MODE: z.enum(['1']).optional(), // /demo signs in isDemo users; unset = /demo is a 404 (INV-27, D-8)
+  // The demo gate (src/core/demo-gate.ts, v1.6.5): one shared HTTP Basic password over a deployed demo. VERCEL is set by
+  // Vercel on every deployment; with it set and no password the gate fails closed.
+  DEMO_ACCESS_PASSWORD: z.string().min(1).optional(),
+  VERCEL: z.string().optional(),
   // Email (spec §7d). Real sends only in production or with a sandbox address.
   RESEND_API_KEY: z.string().min(1).optional(),
   EMAIL_FROM: z.string().min(1).optional(), // "App <no-reply@example.com>"

@@ -4,6 +4,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { auditCsv } from '@/core/audit';
 import { ReauthRequired } from '@/core/auth/session';
 import { sealSecret } from '@/core/auth/secret-box';
 import { advanceClock } from '@/core/clock';
@@ -167,5 +168,33 @@ describe('export requests and delivery (addendum §5)', () => {
     const b = await makeOrg('globex');
     const ctxB = await actAs((await addMember(b.id, 'owner', 'owner@globex.test')).id, b.slug);
     expect(await downloadExport(ctxB, id)).toBeNull();
+  });
+});
+
+// v1.6.5 (audit A-10, owner decision 2026-11-17).
+describe('INV-34 v1.6.5: taking the data out needs a fresh sign-in, and the audit CSV is bounded and audited', () => {
+  it('a download on a session older than 5 minutes is ReauthRequired, writes no audit line, and works once fresh', async () => {
+    const org = await makeOrg('acme');
+    const owner = await addMember(org.id, 'owner', 'owner@acme.test');
+    const ctx = await actAs(owner.id, org.slug);
+    const id = await requestExport(ctx);
+    await buildExport(ctx, id, exportTables);
+    advanceClock(5 * 60_000 + 1000); // the archive is still valid for 24 h; the session is no longer fresh
+    await expect(downloadExport(ctx, id)).rejects.toBeInstanceOf(ReauthRequired);
+    expect(await db.auditEvent.count({ where: { action: 'export.downloaded' } })).toBe(0);
+    const fresh = await actAs(owner.id, org.slug); // signing in again (a new session at the advanced clock)
+    expect((await downloadExport(fresh, id))?.archive.length).toBeGreaterThan(0);
+    expect(await db.auditEvent.count({ where: { action: 'export.downloaded' } })).toBe(1);
+  });
+
+  it('the audit CSV holds at most 10,000 events, newest first, and the download is itself audited', async () => {
+    const org = await makeOrg('acme');
+    const ctx = await actAs((await addMember(org.id, 'owner', 'owner@acme.test')).id, org.slug);
+    await db.auditEvent.createMany({ data: Array.from({ length: 10_005 }, (_, i) => ({ orgId: org.id, actorUserId: null, action: `test.e${i}` })) });
+    const lines = (await auditCsv(ctx, {})).trim().split('\n');
+    expect(lines).toHaveLength(1 + 10_000);
+    expect(lines[1]).toContain('test.e10004'); // newest first
+    const a = await db.auditEvent.findFirstOrThrow({ where: { action: 'audit.exported' } });
+    expect(a.data).toMatchObject({ rows: 10_000, capped: true });
   });
 });
