@@ -95,7 +95,7 @@ model Org {
   aiUsage        AiUsage[]
   aiBudget       AiBudget?
   aiHolds        AiHold[]
-  events         OrgEvent[]
+  orgEvents      OrgEvent[]
   eventSeq       Int             @default(0) // the last OrgEvent.seq handed out; only the commit trigger writes it
   // module back-relations: each line ends in its module marker (spec §4)
   ssoConnection  SsoConnection? // sso

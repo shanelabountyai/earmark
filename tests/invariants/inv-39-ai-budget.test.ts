@@ -140,3 +140,39 @@ describe('owner controls and pricing', () => {
     expect(() => costMicros('anthropic', 'no-such-model', 1, 1)).toThrow(/No price/);
   });
 });
+
+// v1.6.4 (audit 2026-11-17, A-03 and A-09; moved from tests/defects when fixed).
+describe('INV-39 v1.6.4: a call that ran is always counted, and the estimate must be positive', () => {
+  const UNPRICED = { usage: { provider: 'anthropic', model: 'claude-sonnet-5-5-20261101', inputTokens: 0, outputTokens: 1000 } };
+
+  it('A-03 a call whose model has no price row is recorded at its estimate, not dropped', async () => {
+    const ctx = await org();
+    const fn = vi.fn(async () => UNPRICED);
+    await withBudget(ctx, 'answer', MAX, fn);
+    expect(fn).toHaveBeenCalledTimes(1);
+    const rows = await db.aiUsage.findMany();
+    expect(rows.map((r) => [r.model, r.costMicros])).toEqual([[UNPRICED.usage.model, MAX]]);
+    expect(await db.aiHold.count(), 'the hold was swapped for the row').toBe(0);
+  });
+
+  it('A-03 a 1¢ cap cannot be passed by repeating an unpriced model', async () => {
+    const ctx = await org();
+    const fn = vi.fn(async () => UNPRICED);
+    for (let i = 0; i < 5; i++) {
+      await withBudget(ctx, 'answer', MAX, fn).catch(() => {});
+      advanceClock((i + 1) * (HOLD_MS + 1000)); // an orphaned hold would lapse; a recorded call never does
+    }
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(await db.aiUsage.count()).toBe(1);
+  });
+
+  it.each([0n, -1_000_000n])('A-09 an estimate of %s is refused before anything is held or run', async (est) => {
+    const ctx = await org();
+    const fn = vi.fn(async () => CENT);
+    await expect(withBudget(ctx, 'answer', est, fn)).rejects.toThrow(/must be positive/);
+    expect(fn).not.toHaveBeenCalled();
+    expect(await db.aiHold.count()).toBe(0);
+    // and the cap is not widened for the next caller: a 2¢ estimate against a 1¢ cap is still refused
+    await expect(withBudget(ctx, 'answer', 20_000n, fn)).rejects.toBeInstanceOf(BudgetExceeded);
+  });
+});

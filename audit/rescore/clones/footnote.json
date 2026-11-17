@@ -1,0 +1,72 @@
+{
+ "K1": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed.",
+  "evidence": "diff vs template shows no clone-owned change in this area"
+ },
+ "K2": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed.",
+  "evidence": "diff vs template shows no clone-owned change in this area"
+ },
+ "K3": {
+  "s": "✔",
+  "text": "New routes and pages are guarded server-side: POST /api/answers uses requireUser or a hashed bearer key, GET /api/answers/:id uses requireUser then readableAnswer, org pages use requireOrg plus a partner-role check.",
+  "evidence": "src/app/api/answers/route.ts:23-34; src/app/api/answers/[id]/route.ts:12-16; src/app/o/[org]/answers/page.tsx:11-13"
+ },
+ "K4": {
+  "s": "✔",
+  "text": "Answer reads by id check the caller's StaffRole in the answer's org and tier coverage, returning 404 for not-yours; API keys are bound to one org and cross-org asks 404.",
+  "evidence": "src/lib/answer/caller.ts:23-31,44-47; src/app/o/[org]/answers/[id]/page.tsx:14"
+ },
+ "K5": {
+  "s": "✗",
+  "text": "POST /api/answers accepts unauthenticated bearer-key attempts (401 path) and fires paid LLM/embedding calls with no shared rate limiter; only a per-answer spend cap exists.",
+  "evidence": "src/app/api/answers/route.ts:23-24; src/lib/answer/caller.ts:41-46; src/lib/spend/budget.ts:7"
+ },
+ "K6": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed.",
+  "evidence": "diff vs template shows no clone-owned change in this area"
+ },
+ "K7": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed.",
+  "evidence": "diff vs template shows no clone-owned change in this area"
+ },
+ "K8": {
+  "s": "✔",
+  "text": "Service keys are stored as sha256 and looked up by hash, sent in the Authorization header, shown once at creation; no NEXT_PUBLIC secrets added.",
+  "evidence": "src/lib/answer/caller.ts:41-46; scripts/apikey-create.ts:14-17"
+ },
+ "K9": {
+  "s": "N/A",
+  "text": "Clone removed the apikeys/webhooks module (D-55) and adds no inbound or outbound webhooks.",
+  "evidence": "src/app/cron-jobs.ts; src/app/org-hooks.ts:24"
+ },
+ "K10": {
+  "s": "✔",
+  "text": "No logging of tokens or request bodies in clone code; the Anthropic error path truncates the provider reply to 300 chars and a missing key throws loudly.",
+  "evidence": "src/lib/llm/anthropic.ts:8-10,21"
+ },
+ "K11": {
+  "s": "✗",
+  "text": "ANTHROPIC_API_KEY and VOYAGE_API_KEY are read straight from process.env outside src/core/env.ts and are not listed in .env.example.",
+  "evidence": "src/lib/llm/anthropic.ts:8; src/lib/retrieval/voyage.ts:18; .env.example (no entries)"
+ },
+ "K12": {
+  "s": "✔",
+  "text": "Inherited test-DB guard and e2e build unchanged; clone only renames the DB and port in CI (pgvector image).",
+  "evidence": ".github/workflows/ci.yml:23-29"
+ },
+ "K13": {
+  "s": "✗",
+  "text": "Clone-owned privileged data (FootnoteApiKey create/revoke, StaffRole role grants) is written by script/direct db calls with no audit-log entry, after the template's audited apikeys module was removed.",
+  "evidence": "scripts/apikey-create.ts:14-17; src/app/org-hooks.ts:24; src/app/export-hooks.ts:11-16"
+ },
+ "K14": {
+  "s": "✔",
+  "text": "Port 5800 set in config, vercel.json has the template ignoreCommand, cron route is the inherited guarded /api/cron and cron-jobs.ts only dropped the webhooks job.",
+  "evidence": "package.json:10; vercel.json:4; src/app/cron-jobs.ts"
+ }
+}

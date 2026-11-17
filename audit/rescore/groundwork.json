@@ -1,72 +1,16 @@
 {
- "K1": {
-  "s": "✔",
-  "text": "Sessions are DB rows with SHA-256 hashed session/link tokens, links spent by POST, dispatcher role read live per request, user delete cascades sessions, and portal access is revoked on contact change (SEC-01 done).",
-  "evidence": "src/session.ts:33-45,54-64,72-78; src/portal/session.ts:56-66; app/dispatch/properties/actions.ts:61; app/login/[token]/page.tsx; app/dispatch/users/actions.ts:83"
- },
- "K2": {
-  "s": "✗",
-  "text": "No second factor for dispatchers (privileged role); magic link alone signs in, and no backlog SEC item exists.",
-  "evidence": "src/session.ts:61-70"
- },
- "K3": {
-  "s": "✔",
-  "text": "Swept every page, layout, route handler and 'use server' export: all dispatch pages/actions call requireDispatcher, crew pages requireCrew, crew actions currentRole, portal pages/actions currentPropertyId, both photo routes check a session, webhook authenticates by signature; only login/link-request/sign-in actions are public by design.",
-  "evidence": "app/dispatch/*/actions.ts; app/dispatch/layout.tsx; app/crew/[crewId]/actions.ts:16,61; app/portal/actions.ts:44-75; app/photos/[name]/route.ts:14; app/portal/photos/[name]/route.ts:12; app/stripe/webhook/route.ts:10"
- },
- "K4": {
-  "s": "✔",
-  "text": "Swept crew and portal by-id paths: crew actions count visit by {id,crewId} from session, portal skip/reschedule/pay/photo check propertyId, portal pages resolve visits only from the caller's schedule; dispatcher is single-tenant staff so sees all (dispatch by-id pages not individually re-read).",
-  "evidence": "app/crew/[crewId]/actions.ts:20-24; src/visits/status.ts:87-91; src/billing/invoice.ts:118; src/portal/view.ts:64-66; app/portal/cancel/[visitId]/page.tsx:21"
- },
- "K5": {
-  "s": "✗",
-  "text": "Only a per-account 60s cooldown on link requests, no per-IP or shared-store limit on the unauthenticated forms (SEC-04 still open).",
-  "evidence": "src/session.ts:46-48; src/portal/session.ts:44"
- },
- "K6": {
-  "s": "N/A",
-  "text": "No public token links: emailed portal/login tokens are single-use sign-in links exchanged for a session by POST, not standing capability URLs.",
-  "evidence": "app/portal/[token]/page.tsx"
- },
- "K7": {
-  "s": "✗",
-  "text": "Global headers now set frame-ancestors, X-Frame-Options, Referrer-Policy and nosniff (SEC-03 done), but no Strict-Transport-Security header in code.",
-  "evidence": "next.config.ts:9-19"
- },
- "K8": {
-  "s": "✔",
-  "text": "Webhook HMAC uses timingSafeEqual and fails closed on an empty secret, no NEXT_PUBLIC vars, .env gitignored per prior audit, .env.example holds names only, APP_URL never from Host header.",
-  "evidence": "src/billing/stripe.ts:72-81; app/stripe/webhook/route.ts:12; .env.example"
- },
- "K9": {
-  "s": "✔",
-  "text": "Raw-body HMAC with 5-minute timestamp window; event claim and apply run in one transaction so a failure rolls back and Stripe retries (prior audit, verify-not-rerun on invoice.ts).",
-  "evidence": "src/billing/stripe.ts:64-82; src/billing/invoice.ts:184-219; app/stripe/webhook/route.ts:9-16"
- },
- "K10": {
-  "s": "✔",
-  "text": "Unconfigured channel now throws in production and the console provider is dev-only, so sign-in links are not logged (SEC-02 done).",
-  "evidence": "src/notifications/provider.ts:46-52"
- },
- "K11": {
-  "s": "✗",
-  "text": "No schema-validated env at boot: db.ts only checks DATABASE_URL; other vars read ad hoc (GROUNDWORK_ROAD_FACTOR is read but absent from .env.example).",
-  "evidence": "src/db.ts:4-10; .env.example"
- },
- "K12": {
-  "s": "✔",
-  "text": "Cloud-DB refusal in src/db.ts and prisma.config.ts, local .env.test, and Playwright webServer runs build plus next start (E2E_DEV escape hatch).",
-  "evidence": "src/db.ts:8-10; prisma.config.ts:10-19; playwright.config.ts:26-31"
- },
- "K13": {
-  "s": "✗",
-  "text": "No append-only audit log or DB triggers for privileged changes; only createdBy/decidedBy columns on invoices and reschedules.",
-  "evidence": "prisma/schema.prisma:202; prisma/migrations/20260922120000_job_origin/migration.sql:72-86"
- },
- "K14": {
-  "s": "✔",
-  "text": "ignoreCommand present in the canonical form, port 3900 in config, no cron routes.",
-  "evidence": "vercel.json:4; package.json"
- }
+"K1":{"s":"✔","text":"Sessions are DB rows with SHA-256 hashed session/link tokens, links spent by POST (updateMany usedAt), role read live per request, portal access revoked on contact change (SEC-01 fixed).","evidence":"src/session.ts:68-90,93-101; src/portal/session.ts; app/login/[token]/page.tsx"},
+"K2":{"s":"✗","text":"No second factor for dispatchers; a magic link alone signs in, and no backlog SEC item covers it.","evidence":"src/session.ts:75-90,115-118"},
+"K3":{"s":"✔","text":"Dispatch pages/actions use requireDispatcher, crew requireCrew/currentRole, portal currentPropertyId, photo and complete routes check a session, webhook and cron authenticate by signature/secret; no new unguarded entry points found since Sept.","evidence":"src/session.ts:131-142; app/crew/[crewId]/complete/route.ts; app/stripe/webhook/route.ts; app/api/cron/outbox/route.ts:9-13"},
+"K4":{"s":"✔","text":"Crew and portal by-id paths scope by session crewId/propertyId; dispatcher is single-tenant staff so sees all.","evidence":"app/crew/[crewId]/actions.ts; src/visits/status.ts; src/billing/invoice.ts:118; src/portal/view.ts"},
+"K5":{"s":"✔","text":"Per-IP limit (10/hour, counted across staff and portal sign-in forms) stored in Postgres plus per-account cooldown (SEC-04 fixed); IP trusts the first X-Forwarded-For hop set by the host.","evidence":"src/session.ts:20-21,44-55,63; src/portal/session.ts:7,44; app/actions.ts:13; app/portal/actions.ts:23"},
+"K6":{"s":"N/A","text":"No standing capability URLs: emailed tokens are single-use sign-in links exchanged for a session by POST.","evidence":"app/portal/[token]/page.tsx; app/login/[token]/page.tsx"},
+"K7":{"s":"✗","text":"Global frame-ancestors, X-Frame-Options, Referrer-Policy and nosniff are set (SEC-03 fixed) but there is still no Strict-Transport-Security header.","evidence":"next.config.ts:9-18"},
+"K8":{"s":"✔","text":"Stripe HMAC uses timingSafeEqual and fails closed on an empty secret, no NEXT_PUBLIC vars, no tracked env files, APP_URL never from Host header (the cron secret compare is non-constant-time, scored under K14).","evidence":"src/billing/stripe.ts:72-81; src/session.ts:24; .env.example"},
+"K9":{"s":"✔","text":"Raw-body HMAC with timestamp window; event claim and apply in one transaction so a failure rolls back and Stripe retries.","evidence":"src/billing/stripe.ts:64-82; src/billing/invoice.ts:184-219; app/stripe/webhook/route.ts"},
+"K10":{"s":"✔","text":"Unconfigured channel throws in production and the console provider logs bodies in development only (SEC-02 fixed); the one console.log is the only log call.","evidence":"src/notifications/provider.ts:15,46-52"},
+"K11":{"s":"✗","text":"Still no schema-validated env at boot (db.ts checks only DATABASE_URL), and GROUNDWORK_ROAD_FACTOR and GROUNDWORK_ALLOW_CLOUD_DB are read but absent from .env.example.","evidence":"src/db.ts:4-10; src/routes/route.ts:91; .env.example"},
+"K12":{"s":"✔","text":"Cloud-DB refusal in src/db.ts and prisma.config.ts, e2e on .env.test, Playwright webServer runs build plus next start with E2E_DEV escape hatch.","evidence":"src/db.ts:8-10; prisma.config.ts:10-19; playwright.config.ts:26-31; package.json:26"},
+"K13":{"s":"✗","text":"No append-only audit log; only origin-integrity triggers and createdBy/decidedBy columns, no privileged-change trail enforced in the DB.","evidence":"prisma/schema.prisma; prisma/migrations/20260922120000_job_origin/migration.sql:58-86"},
+"K14":{"s":"✗","text":"ignoreCommand canonical and port 3900 in config, but a daily cron now exists (/api/cron/outbox) and compares the Bearer secret with !== (fails closed when unset, not constant-time) (HEAD 7683ce0, 2026-11-10).","evidence":"vercel.json:4-10; app/api/cron/outbox/route.ts:11-12; package.json:8,10"}
 }

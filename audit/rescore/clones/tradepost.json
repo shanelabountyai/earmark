@@ -1,0 +1,72 @@
+{
+ "K1": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed (sessions, sign-in links, hashed tokens).",
+  "evidence": "src/core/auth identical to template"
+ },
+ "K2": {
+  "s": "✔",
+  "text": "Clone adds requirePlatformAdmin, which requires enrolled TOTP plus a fresh mfaAt before any admin dispute or review action; owner/admin MFA in core is untouched.",
+  "evidence": "src/lib/admin.ts:10-11"
+ },
+ "K3": {
+  "s": "✔",
+  "text": "Every clone server action goes through userAction/orgAction/manageAction, and every clone page calls requireUser/requireOrg/requirePlatformAdmin. The F-04 guards.ts patch turns a missing perm into notFound rather than throwing, which is stricter, not looser. The public /search page is intentionally open and reads only a projected listing select.",
+  "evidence": "src/app/jobs/actions.ts:15; src/app/o/[org]/listings/actions.ts:49; src/lib/roles.ts:17-21; src/core/authz/guards.ts:40; src/lib/admin.ts:10; src/app/search/page.tsx"
+ },
+ "K4": {
+  "s": "✔",
+  "text": "Provider rows go through providerDb and client rows through clientDb, which inject orgId/clientId on every query, and a lint test fails the build on any db.listing/db.job use outside tenancy.ts. Saved searches are scoped by { id, userId }. Cross-provider reads are limited to platform-admin or cron paths.",
+  "evidence": "src/lib/tenancy.ts:31-60,140-146; tests/unit/tenancy-lint.test.ts:13; src/lib/saved-searches.ts:66"
+ },
+ "K5": {
+  "s": "✔",
+  "text": "Clone adds no unauthenticated writes. /search is a public read with no write path, and geocoding is only reachable from the authenticated manageAction listing form. Sign-in, demo and token routes are the template's.",
+  "evidence": "src/app/search/page.tsx; src/app/o/[org]/listings/actions.ts:39"
+ },
+ "K6": {
+  "s": "N/A",
+  "text": "Clone mints no capability links; all token surfaces are in src/core/share and the template modules.",
+  "evidence": "grep: no token minting in src/lib or clone routes"
+ },
+ "K7": {
+  "s": "✔",
+  "text": "next.config.ts is byte-identical to the template, so global headers are unchanged. proxy.ts only adds a Basic-auth gate and does not touch headers.",
+  "evidence": "next.config.ts; src/proxy.ts"
+ },
+ "K8": {
+  "s": "✔",
+  "text": "The demo gate compares SHA-256 digests with timingSafeEqual, fails closed with 503 on Vercel when the password is unset, takes the credential from the Authorization header (not the query string), and exempts only /api/cron and /api/webhooks/stripe, which carry their own credentials. The cron route still uses core isAuthorizedCron.",
+  "evidence": "src/lib/demo-gate.ts:14-24; src/app/api/cron/route.ts:2"
+ },
+ "K9": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed (stripe webhook route is identical to the template; clone adds no webhooks).",
+  "evidence": "src/app/api/webhooks/stripe/route.ts identical"
+ },
+ "K10": {
+  "s": "✔",
+  "text": "Clone logging is limited to notify.failed, which logs the subject and error only and never the address or number. Contact audit records no phone number.",
+  "evidence": "src/lib/notify.ts:12; src/app/o/[org]/settings/contact/actions.ts:18"
+ },
+ "K11": {
+  "s": "✗",
+  "text": "The clone reads DEMO_ACCESS_PASSWORD and VERCEL straight from process.env in proxy.ts/demo-gate.ts, bypassing the schema-validated src/core/env.ts. DEMO_ACCESS_PASSWORD is also missing from .env.example (only DEMO_MODE is listed there).",
+  "evidence": "src/proxy.ts:7; src/lib/demo-gate.ts:16-18; .env.example:12"
+ },
+ "K12": {
+  "s": "✔",
+  "text": "Core db local-guard and the production-build e2e config are unchanged apart from blanking DEMO_ACCESS_PASSWORD for the test server. Clone adds a geocode stub for unit tests, not a remote DB path.",
+  "evidence": "playwright.config.ts:14-16; vitest.config.ts:8; src/core/db/index.ts:6"
+ },
+ "K13": {
+  "s": "✔",
+  "text": "Every privileged clone mutation writes an audit row: dispute resolution and review moderation inside the same transaction, admin thread reads, job moves, listing changes, contact changes and cron auto-confirm.",
+  "evidence": "src/lib/jobs.ts:151; src/lib/tenancy.ts:222; src/lib/threads.ts:45; src/lib/jobs.ts:124; src/app/o/[org]/listings/actions.ts:42"
+ },
+ "K14": {
+  "s": "✔",
+  "text": "Port 4200 is set in package.json and vercel.json has the template ignoreCommand with auto-deploy disabled. The only cron route is /api/cron, guarded by core isAuthorizedCron; clone jobs run inside it via cron-jobs.ts.",
+  "evidence": "package.json:8,10,19,21; vercel.json:3-4; src/app/api/cron/route.ts:2; src/app/cron-jobs.ts"
+ }
+}

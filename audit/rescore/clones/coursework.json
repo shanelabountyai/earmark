@@ -1,0 +1,72 @@
+{
+ "K1": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed.",
+  "evidence": "src/core/auth (identical to template)"
+ },
+ "K2": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed.",
+  "evidence": "src/core/auth (identical to template)"
+ },
+ "K3": {
+  "s": "✔",
+  "text": "All clone server actions go through orgAction with a permission (or null for the learner's own act) and all clone pages call requireOrg; no clone route handlers added.",
+  "evidence": "src/app/o/[org]/catalog/actions.ts:30; src/app/o/[org]/cohorts/actions.ts:27; src/app/o/[org]/learners/actions.ts:20; src/app/o/[org]/archive/actions.ts:11; src/app/o/[org]/me/page.tsx:8"
+ },
+ "K4": {
+  "s": "✔",
+  "text": "Every by-id read in clone actions is scoped with orgId (learner, cohort, submission, catalogVersion) and returns notFound otherwise; secondary ids (assignment via cohort, member via orgId_userId) are checked too; RLS policies regenerated for the clone models.",
+  "evidence": "src/app/o/[org]/cohorts/actions.ts:20,32-34,53; src/app/o/[org]/learners/actions.ts:15,22; src/app/o/[org]/catalog/actions.ts:20; prisma/migrations/20261108000004_rls_policies_coursework/migration.sql"
+ },
+ "K5": {
+  "s": "✔",
+  "text": "Clone adds no unauthenticated writes or token reads; all new surface is behind org auth.",
+  "evidence": "src/core (identical to template)"
+ },
+ "K6": {
+  "s": "✔",
+  "text": "Clone mints no capability links; share surface inherited.",
+  "evidence": "src/core (identical to template)"
+ },
+ "K7": {
+  "s": "✔",
+  "text": "next.config.ts is identical to the template, security headers unchanged.",
+  "evidence": "next.config.ts"
+ },
+ "K8": {
+  "s": "✔",
+  "text": "Clone adds no secret comparisons or cron routes; src/app/api/cron/route.ts is inherited unchanged.",
+  "evidence": "src/core (identical to template)"
+ },
+ "K9": {
+  "s": "N/A",
+  "text": "Billing module and its Stripe webhook were removed (billing_removed migration, inv-12 test dropped, cross-org allowlist entry removed); the clone adds no webhook.",
+  "evidence": "prisma/migrations/20261026100000_billing_removed; src/core/db/cross-org.ts"
+ },
+ "K10": {
+  "s": "✔",
+  "text": "No console/logger calls in clone code (src/course, src/graph, src/app/o).",
+  "evidence": "grep of src/course src/graph src/app/o"
+ },
+ "K11": {
+  "s": "✔",
+  "text": "Clone code reads no env vars outside src/core/env.ts (only inherited scripts/db-setup.ts and foundation-check-modules.ts touch process.env); .env.example is identical to the template.",
+  "evidence": ".env.example"
+ },
+ "K12": {
+  "s": "✔",
+  "text": "Test-DB guard and src/core unchanged; CI points at a local coursework_test Postgres, and e2e/start:test use the production build scripts (only the port differs).",
+  "evidence": "package.json:25-27; .github/workflows/ci.yml:23"
+ },
+ "K13": {
+  "s": "✔",
+  "text": "Every clone privileged mutation calls audit() in the same transaction (archive, completions, cohorts, grades, learners), and the clone adds DB append-only triggers on its own tables.",
+  "evidence": "src/course/archive.ts:54; src/course/grades.ts:50,68; src/course/learners.ts:30,43; prisma/migrations/20261026000000_coursework_init/migration.sql:337-353"
+ },
+ "K14": {
+  "s": "✔",
+  "text": "Own port 7400 set as default in package.json and playwright.config.ts; vercel.json unchanged from the template (ignoreCommand inherited); no clone cron routes.",
+  "evidence": "package.json:8,10; playwright.config.ts:4"
+ }
+}

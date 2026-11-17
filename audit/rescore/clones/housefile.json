@@ -1,0 +1,72 @@
+{
+ "K1": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed on origin/main (src/ and tests/ are byte-identical to the template; clone-owned files are only tools/*.py offline fixture scripts, fixtures/*.csv, port/db-name config).",
+  "evidence": "diff -rq src tests vs template: no differences"
+ },
+ "K2": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed on origin/main (src/ and tests/ are byte-identical to the template; clone-owned files are only tools/*.py offline fixture scripts, fixtures/*.csv, port/db-name config).",
+  "evidence": "diff -rq src tests vs template: no differences"
+ },
+ "K3": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed on origin/main (src/ and tests/ are byte-identical to the template; clone-owned files are only tools/*.py offline fixture scripts, fixtures/*.csv, port/db-name config).",
+  "evidence": "diff -rq src tests vs template: no differences"
+ },
+ "K4": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed on origin/main (src/ and tests/ are byte-identical to the template; clone-owned files are only tools/*.py offline fixture scripts, fixtures/*.csv, port/db-name config).",
+  "evidence": "diff -rq src tests vs template: no differences"
+ },
+ "K5": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed on origin/main (src/ and tests/ are byte-identical to the template; clone-owned files are only tools/*.py offline fixture scripts, fixtures/*.csv, port/db-name config).",
+  "evidence": "diff -rq src tests vs template: no differences"
+ },
+ "K6": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed on origin/main (src/ and tests/ are byte-identical to the template; clone-owned files are only tools/*.py offline fixture scripts, fixtures/*.csv, port/db-name config).",
+  "evidence": "diff -rq src tests vs template: no differences"
+ },
+ "K7": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed on origin/main (src/ and tests/ are byte-identical to the template; clone-owned files are only tools/*.py offline fixture scripts, fixtures/*.csv, port/db-name config).",
+  "evidence": "diff -rq src tests vs template: no differences"
+ },
+ "K8": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed on origin/main (src/ and tests/ are byte-identical to the template; clone-owned files are only tools/*.py offline fixture scripts, fixtures/*.csv, port/db-name config).",
+  "evidence": "diff -rq src tests vs template: no differences"
+ },
+ "K9": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed on origin/main (src/ and tests/ are byte-identical to the template; clone-owned files are only tools/*.py offline fixture scripts, fixtures/*.csv, port/db-name config).",
+  "evidence": "diff -rq src tests vs template: no differences"
+ },
+ "K10": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed on origin/main (src/ and tests/ are byte-identical to the template; clone-owned files are only tools/*.py offline fixture scripts, fixtures/*.csv, port/db-name config).",
+  "evidence": "diff -rq src tests vs template: no differences"
+ },
+ "K11": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed on origin/main (src/ and tests/ are byte-identical to the template; clone-owned files are only tools/*.py offline fixture scripts, fixtures/*.csv, port/db-name config).",
+  "evidence": "diff -rq src tests vs template: no differences"
+ },
+ "K12": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed on origin/main (src/ and tests/ are byte-identical to the template; clone-owned files are only tools/*.py offline fixture scripts, fixtures/*.csv, port/db-name config).",
+  "evidence": "package.json:19-21 dev:test/start:test; .github/workflows/ci.yml:23 housefile_test local DB; src and tests identical to template"
+ },
+ "K13": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed on origin/main (src/ and tests/ are byte-identical to the template; clone-owned files are only tools/*.py offline fixture scripts, fixtures/*.csv, port/db-name config).",
+  "evidence": "diff -rq src tests vs template: no differences"
+ },
+ "K14": {
+  "s": "✗",
+  "text": "origin/main configures port 5500, which use-case-insurance-fnol-intake owns; housefile's registered port is 5900 (the phase-1 branch has 5900, main never received it). vercel.json ignoreCommand is present and cron surface is inherited.",
+  "evidence": "package.json:8,10,19,21 (next -p 5500); playwright.config.ts:4 (?? 5500); vercel.json:4 ignoreCommand"
+ }
+}

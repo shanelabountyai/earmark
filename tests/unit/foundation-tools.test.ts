@@ -1,8 +1,11 @@
-import { readFileSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, describe, expect, it } from 'vitest';
 import { drift, hashOf, patchedHash, type Change } from '../../scripts/foundation-drift';
-import { MARKED_FILES, MODULES, modulesToRemove } from '../../scripts/foundation-modules';
+import { MARKED_FILES, MODULES, modulesToRemove, presentModules, removeModule } from '../../scripts/foundation-modules';
 import { portInUse, rewrite } from '../../scripts/new-project';
+import { guardGaps, orgTables, policySql, type OrgTable } from '../../scripts/rls-policies';
 
 const none = () => false;
 const edit = (path: string, ...lines: string[]): Change => ({ status: 'M', path, lines });
@@ -120,5 +123,85 @@ describe('marked files (v1.6.1)', () => {
   it('negative control: the v1.6.0 cross-org line without its marker is caught', () => {
     const planted = [{ f: 'src/core/db/cross-org.ts', text: "  'src/modules/billing/webhook.ts': 'Stripe webhook: the event names the org'," }];
     expect(unmarked(planted)).toHaveLength(1);
+  });
+});
+
+describe('rls:policies module guard (F-09; v1.6.3: present modules only)', () => {
+  // The real tree: whatever modules it still has (all four in the template; fewer in a clone that removed some by the
+  // recipe, e.g. housefile without billing). v1.6.2 asserted all four were present, so this failed in every such clone.
+  it('guards every table of each present module, and no core table', () => {
+    const tables = orgTables();
+    expect(tables.some((t) => !t.module)).toBe(true); // core has org tables (Membership, ...): the check never runs on nothing
+    expect(guardGaps(tables, presentModules())).toEqual([]);
+  });
+
+  // A fixture tree in the template's shape, so the three cases below hold in every clone whatever it removed.
+  const fixture = () => {
+    const root = mkdtempSync(join(tmpdir(), 'module-guard-'));
+    mkdirSync(join(root, 'prisma/schema'), { recursive: true });
+    for (const m of Object.keys(MODULES)) mkdirSync(join(root, MODULES[m]![0]!), { recursive: true });
+    const write = (f: string, text: string) => writeFileSync(join(root, 'prisma/schema', f), text);
+    write('core.prisma', [
+      'model Org {',
+      '  id             String          @id @db.Uuid',
+      '  billingAccount BillingAccount? // billing',
+      '  outbox         Outbox[] // notifications',
+      '}',
+      '',
+      'model Membership {',
+      '  id    String @id @db.Uuid',
+      '  orgId String @db.Uuid',
+      '}',
+      '',
+    ].join('\n'));
+    write('billing.prisma', 'model BillingAccount {\n  orgId String @id @db.Uuid\n  plan  String?\n}\n');
+    write('notifications.prisma', 'model Outbox {\n  id    String  @id @db.Uuid\n  orgId String? @db.Uuid\n}\n');
+    write('sso.prisma', 'model SsoConnection {\n  id    String @id @db.Uuid\n  orgId String @unique @db.Uuid\n}\n');
+    write('apikeys.prisma', 'model ApiKey {\n  id    String @id @db.Uuid\n  orgId String @db.Uuid\n}\n');
+    return root;
+  };
+  const roots: string[] = [];
+  afterEach(() => roots.splice(0).forEach((r) => rmSync(r, { recursive: true, force: true })));
+  const tree = () => {
+    const root = fixture();
+    roots.push(root);
+    return root;
+  };
+
+  it('(1) with every module present, billing\'s tables are guarded', () => {
+    const root = tree();
+    const tables = orgTables(join(root, 'prisma/schema'));
+    expect(presentModules(root)).toEqual(Object.keys(MODULES));
+    expect(tables.filter((t) => t.module === 'billing').map((t) => t.table)).toEqual(['BillingAccount']);
+    expect(policySql(tables.filter((t) => t.module === 'billing'))).toContain(`to_regclass('"BillingAccount"')`);
+    expect(guardGaps(tables, presentModules(root))).toEqual([]);
+  });
+
+  it('(2) with billing removed by the recipe, it passes on the modules left', () => {
+    const root = tree();
+    removeModule(root, 'billing', ['prisma/schema/core.prisma']); // the same code foundation:check-modules runs
+    const tables = orgTables(join(root, 'prisma/schema'));
+    expect(presentModules(root)).toEqual(['notifications', 'sso', 'apikeys']);
+    expect(tables.some((t) => t.module === 'billing')).toBe(false);
+    expect(readFileSync(join(root, 'prisma/schema/core.prisma'), 'utf8')).not.toContain('// billing');
+    expect(guardGaps(tables, presentModules(root))).toEqual([]);
+    // what v1.6.2 asserted (all four modules have tables) is exactly what fails here
+    expect([...new Set(tables.map((t) => t.module).filter(Boolean))].sort()).not.toEqual(Object.keys(MODULES).sort());
+  });
+
+  it('(3) mutation: an unguarded table of a present module still fails, and so does a guarded core table', () => {
+    const tables = orgTables(join(tree(), 'prisma/schema'));
+    const present = Object.keys(MODULES);
+    const unguard = (m: string) => (ts: OrgTable[]) => policySql(ts.map((t) => (t.module === m ? { ...t, module: undefined } : t)));
+    expect(guardGaps(tables, present, unguard('billing'))).toEqual(['BillingAccount: table of module billing has no to_regclass guard']);
+    expect(guardGaps(tables, present, unguard('sso'))).toEqual(['SsoConnection: table of module sso has no to_regclass guard']);
+    const guardCore = (ts: OrgTable[]) => policySql(ts.map((t) => ({ ...t, module: t.module ?? 'core' })));
+    expect(guardGaps(tables, present, guardCore)).toEqual(['Membership: core/clone table is guarded (a missing one would silently get no policy)']);
+  });
+
+  it('(3) mutation: a present module whose tables are not found fails (the check is not vacuous)', () => {
+    const root = tree();
+    rmSync(join(root, 'prisma/schema/billing.prisma')); // schema gone, module directory still there: billing is present
+    expect(guardGaps(orgTables(join(root, 'prisma/schema')), presentModules(root))).toEqual(['module billing is present but none of its org tables was found']);
   });
 });

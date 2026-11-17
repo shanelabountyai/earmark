@@ -57,6 +57,9 @@ FOUNDATION = {
  "K13": ("INV-19", "src/core/audit.ts; tests/invariants/inv-19-audit-append-only.test.ts"),
  "K14": ("CLAUDE.md", "vercel.json (ignoreCommand); package.json (port 4100); src/core/cron.ts"),
 }
+# Retired rows stay listed but are not scored (owner decision 2026-11-09).
+RETIRED = {"design-bridge": "retired, not scored (project is dead)"}
+# Accepted state: put ("≈", "<reason>, D-xxx", evidence) in OVERRIDES. Only with a decision-log row in the project first.
 def split(s):
     m = re.match(r"\s*(✔|✗|N/A|\?)\s*[—:\-]?\s*(.*)", s, re.S)
     return (m.group(1), m.group(2).strip()) if m else ("?", s.strip())
@@ -64,8 +67,8 @@ def cell(status, text, ev, basis):
     return {"s": status, "text": text, "evidence": ev, "secs": sorted(set(re.findall(r"SEC-\d+", text + " " + ev)), key=lambda x:int(x[4:])), "basis": basis}
 import os
 RESC = {st: json.load(open(f"rescore/{st}.json")) for st in REPOS if os.path.exists(f"rescore/{st}.json")}
-out = {"asOf": "2026-09-26", "foundationVersion": open("../FOUNDATION_VERSION").read().strip(), "keys": NAMES, "rows": []}
-f = {k: cell("✔", v[0] + " tests green (npm test, 122 pass, 2026-09-25)", v[1], "verified") for k, v in FOUNDATION.items()}
+out = {"asOf": "2026-11-13", "foundationVersion": open("../FOUNDATION_VERSION").read().strip(), "keys": NAMES, "rows": []}
+f = {k: cell("✔", v[0] + " tests green (npm test, 286 pass + 21 skipped, 2026-11-09)", v[1], "verified") for k, v in FOUNDATION.items()}
 out["rows"].append({"id": "foundation", "name": "saas foundation (template)", "cells": f})
 for stem, name in REPOS.items():
     raw = {}
@@ -76,17 +79,27 @@ for stem, name in REPOS.items():
             raw[m.group(1)] = c[1:]
     cells = {}
     for k in KEYS:
-        if k in OVERRIDES.get(stem, {}):
+        # 2026-11-10 re-score wins over older OVERRIDES, except the Opus K4 sweeps (more thorough than the Sonnet pass)
+        if k in OVERRIDES.get(stem, {}) and (k == "K4" or k not in RESC.get(stem, {})):
             s, t, e, *b = OVERRIDES[stem][k]; cells[k] = cell(s, t, e, b[0] if b else "verified 2026-09-25")
         elif k in RESC.get(stem, {}):
-            c = RESC[stem][k]; cells[k] = cell(c["s"], c["text"], c.get("evidence", ""), "rescored 2026-09-25 (agent sweep)")
+            c = RESC[stem][k]; cells[k] = cell(c["s"], c["text"], c.get("evidence", ""), "rescored 2026-11-10 (agent sweep)")
         elif k in raw:
             s, t = split(raw[k][0]); cells[k] = cell(s, t, raw[k][1] if len(raw[k]) > 1 else "", "baseline 2026-09-23")
         else:
             cells[k] = cell("N/A", "not scored in the baseline (no such surface)", "", "baseline 2026-09-23")
-    out["rows"].append({"id": stem, "name": name, "cells": cells})
+    row = {"id": stem, "name": name, "cells": cells}
+    if stem in RETIRED: row["retired"] = RETIRED[stem]
+    out["rows"].append(row)
+# Clone rows (F-15, 2026-11-13): clone-owned code only, one Sonnet sweep per clone against origin/main at v1.6.x.
+CLONES = ["adjuster","bracketry","callboard","commons","coursework","earmark","footnote","gavel","housefile","ledgerleave","loanbook","pulseboard","quorum","tradepost"]
+for c in CLONES:
+    d = json.load(open(f"rescore/clones/{c}.json"))
+    out["rows"].append({"id": "clone-"+c, "name": c+" (clone)", "cells": {k: cell(v["s"], v["text"], v.get("evidence",""), "clone sweep 2026-11-13 (agent, origin/main)") for k, v in d.items()}})
+out["rows"].append({"id": "clone-boxloop", "name": "boxloop (clone)", "cells": {}, "retired": "paused, not scored (on hold since 2026-10-19, still on v1.2.1)"})
 json.dump(out, open("scorecard.json", "w"), indent=1, ensure_ascii=False)
 tot = {}
 for r in out["rows"]:
     c = [x["s"] for x in r["cells"].values()]
-    print(f'{r["name"]:34}', "✔%d ✗%d N/A%d ?%d" % tuple(c.count(x) for x in ("✔","✗","N/A","?")))
+    if r.get("retired"): print(f'{r["name"]:34}', r["retired"]); continue
+    print(f'{r["name"]:34}', "✔%d ✗%d N/A%d ?%d" % tuple(c.count(x) for x in ("✔","✗","N/A","?")) + (" ≈%d" % c.count("≈")))

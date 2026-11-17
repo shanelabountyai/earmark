@@ -1,0 +1,72 @@
+{
+ "K1": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed.",
+  "evidence": "src/core/auth unchanged vs template (diff -rq)"
+ },
+ "K2": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed.",
+  "evidence": "src/core/auth unchanged vs template (diff -rq)"
+ },
+ "K3": {
+  "s": "✔",
+  "text": "All clone pages and actions sit behind orgAction/requireUser; the added bid route calls requireUser then membership-checks the lot.",
+  "evidence": "src/app/api/lots/[id]/bids/route.ts:17; src/app/o/[org]/lots/[id]/actions.ts:15"
+ },
+ "K4": {
+  "s": "✔",
+  "text": "Clone queries scope by orgId or membership; the bid and state routes 404 for another house's lot.",
+  "evidence": "src/app/api/lots/[id]/bids/route.ts:22-24; src/auction/place-bid.ts:77-79; src/auction/lot-view.ts:80-81"
+ },
+ "K5": {
+  "s": "✔",
+  "text": "Clone adds no unauthenticated writes; the bid route and actions require a signed-in org member.",
+  "evidence": "src/app/api/lots/[id]/bids/route.ts:17"
+ },
+ "K6": {
+  "s": "N/A",
+  "text": "Clone mints no capability links; no clone code outside src/core/share.",
+  "evidence": "grep token/share in src/auction: no link minting"
+ },
+ "K7": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed.",
+  "evidence": "template src/core, tests/invariants"
+ },
+ "K8": {
+  "s": "✔",
+  "text": "Demo password gate uses sha256 + timingSafeEqual and fails closed on Vercel; cron route unchanged and exempted by path only, so it keeps its own CRON_SECRET guard.",
+  "evidence": "src/auction/demo-gate.ts:14-21; src/proxy.ts:6"
+ },
+ "K9": {
+  "s": "N/A",
+  "text": "Billing/Stripe webhook removed (cross-org.ts drops src/modules/billing/webhook.ts); clone adds no webhooks.",
+  "evidence": "src/core/db/cross-org.ts:13 removed in clone"
+ },
+ "K10": {
+  "s": "✔",
+  "text": "Clone adds no token or body logging; bid error responses use fixed error text, not request bodies.",
+  "evidence": "grep console in src/auction, src/app/api: none"
+ },
+ "K11": {
+  "s": "✗",
+  "text": "DEMO_ACCESS_PASSWORD is read via process.env (not src/core/env.ts) and is absent from .env.example; the GAVEL_* vars are only commented lines, which the clone itself notes INV-14 forbids as live lines.",
+  "evidence": "src/proxy.ts:9; src/auction/demo-gate.ts:14; .env.example:26-29 (no DEMO_ACCESS_PASSWORD)"
+ },
+ "K12": {
+  "s": "✔",
+  "text": "Test-DB guard and production-build e2e inherited; clone only adds workers:1 and its port to playwright.config.ts.",
+  "evidence": "playwright.config.ts:4-12"
+ },
+ "K13": {
+  "s": "✔",
+  "text": "Clone-owned privileged mutations (withdraw, void bid, corrections, payment marks) call core audit() in the same transaction.",
+  "evidence": "src/auction/withdraw.ts:50; src/auction/void-bid.ts:80; src/auction/correct.ts:8"
+ },
+ "K14": {
+  "s": "✔",
+  "text": "Own port 6100 in config; ignoreCommand keeps the foundation diff logic with a preview-skip prefix; daily cron adds close and closingSoon jobs inside the core-guarded cron route.",
+  "evidence": "vercel.json:4; playwright.config.ts:4; src/app/cron-jobs.ts:16-19"
+ }
+}

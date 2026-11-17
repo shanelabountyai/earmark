@@ -1,0 +1,72 @@
+{
+ "K1": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed.",
+  "evidence": ""
+ },
+ "K2": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed.",
+  "evidence": ""
+ },
+ "K3": {
+  "s": "✔",
+  "text": "All clone server actions are orgAction-wrapped; the two upload route handlers call requireOrg first.",
+  "evidence": "src/app/o/[org]/f/actions.ts:37; src/app/o/[org]/f/uploads/route.ts:20; src/app/o/[org]/f/uploads/[id]/route.ts:10"
+ },
+ "K4": {
+  "s": "✔",
+  "text": "Clone queries carry orgId (e.g. post lookup, upload serving) and RLS policies were added for clone tables; not-found for cross-org.",
+  "evidence": "src/app/o/[org]/f/uploads/route.ts:22; prisma/migrations/20261109000000_rls_policies_commons"
+ },
+ "K5": {
+  "s": "✔",
+  "text": "No unauthenticated writes added; authenticated forum actions use a DB-backed sliding-window LimitHit store under advisory lock.",
+  "evidence": "src/forum/limits-store.ts:21-30"
+ },
+ "K6": {
+  "s": "N/A",
+  "text": "Clone mints no capability links; no public token routes.",
+  "evidence": ""
+ },
+ "K7": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed.",
+  "evidence": ""
+ },
+ "K8": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed.",
+  "evidence": ""
+ },
+ "K9": {
+  "s": "N/A",
+  "text": "Billing and the Stripe webhook were removed; clone adds no webhooks.",
+  "evidence": ""
+ },
+ "K10": {
+  "s": "✔",
+  "text": "Clone logs only pathname/content-type and error name/message in the upload route; no tokens or bodies.",
+  "evidence": "src/app/o/[org]/f/uploads/route.ts:19,39"
+ },
+ "K11": {
+  "s": "✗",
+  "text": "UPLOAD_ROOT is read directly from process.env outside src/core/env.ts and is absent from .env.example.",
+  "evidence": "src/forum/uploads.ts:16; .env.example (no UPLOAD_ROOT); src/core/env.ts (no UPLOAD_ROOT)"
+ },
+ "K12": {
+  "s": "✔",
+  "text": "Test scripts use .env.test with local DB and e2e builds then serves; core guard untouched.",
+  "evidence": "package.json:17-22"
+ },
+ "K13": {
+  "s": "✔",
+  "text": "Forum mutations call audit(); ModerationAction is an append-only table (DB trigger) for moderator actions.",
+  "evidence": "src/app/o/[org]/f/actions.ts (11 audit calls); prisma/migrations/20261029200000_commons_moderation/migration.sql:3"
+ },
+ "K14": {
+  "s": "✔",
+  "text": "Port 7500 in config; vercel.json unchanged; the clone's cron additions run inside the template's guarded cron job hook.",
+  "evidence": "playwright.config.ts:4; package.json:19,21; src/app/cron-jobs.ts:18-26"
+ }
+}

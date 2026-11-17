@@ -46,6 +46,8 @@ async function committed(tx: Tx, orgId: string): Promise<bigint> {
  * held, `fn` runs, and the hold is swapped for the AiUsage row priced from the billed `usage`. A refused call writes no
  * usage row; a throwing `fn` writes none either and releases its hold. A crashed process's hold stops counting after
  * HOLD_MS. The cap holds only if the estimate is a true upper bound: an under-estimate is recorded at its real cost.
+ * A non-positive estimate throws before anything runs; a call whose model has no price row is recorded at the estimate
+ * (audit A-03, A-09).
  */
 export async function withBudget<T extends { usage: AiUsageReport }>(
   ctx: SpendCtx,
@@ -55,6 +57,9 @@ export async function withBudget<T extends { usage: AiUsageReport }>(
   e = env,
 ): Promise<T> {
   if (e.AI_ENABLED === '0') throw new BudgetExceeded('AI features are turned off.');
+  // A-09 (v1.6.4): the estimate is the call's worst case. Zero or negative would hold nothing (or lower `committed` for
+  // every other caller), so it is a bug in the caller's arithmetic: refuse before anything is held or spent.
+  if (maxCostMicros <= 0n) throw new Error(`withBudget: maxCostMicros must be positive, got ${maxCostMicros}`);
   const { budget, holdId } = await withOrg(ctx, async (tx) => {
     await budgetOf(tx, ctx.orgId);
     await tx.$queryRaw`SELECT 1 FROM "AiBudget" WHERE "orgId" = ${ctx.orgId}::uuid FOR UPDATE`; // one check at a time per org
@@ -76,7 +81,15 @@ export async function withBudget<T extends { usage: AiUsageReport }>(
     throw err;
   }
   const { provider, model, inputTokens, outputTokens } = result.usage;
-  const cost = costMicros(provider, model, inputTokens, outputTokens);
+  // A-03 (v1.6.4): `fn` has run, so the provider has billed. A model with no price row must not read as free (it would
+  // never reach the cap): record the call at the caller's own worst case and say so, instead of throwing past the ledger.
+  let cost: bigint;
+  try {
+    cost = costMicros(provider, model, inputTokens, outputTokens);
+  } catch {
+    cost = maxCostMicros;
+    log('ai.usage.unpriced', { orgId: ctx.orgId, provider, model, recordedMicros: Number(maxCostMicros) });
+  }
   const total = await withOrg(ctx, async (tx) => {
     await tx.aiHold.deleteMany({ where: { id: holdId } });
     await tx.aiUsage.create({ data: { orgId: ctx.orgId, provider, model, inputTokens, outputTokens, costMicros: cost, feature, actorId: ctx.userId ?? null, createdAt: now() } });

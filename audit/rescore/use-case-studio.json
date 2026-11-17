@@ -36,7 +36,7 @@
  },
  "K8": {
   "s": "✗",
-  "text": "INTAKE_KEY gate is skipped when unset (fails open) and compared with !== from the request body (SEC-01); CRON_SECRET fails closed but uses !== (SEC-04).",
+  "text": "INTAKE_KEY gate still fails open when unset (SEC-01 open: `if (requiredKey && ...)`) and uses !== on a body field; CRON_SECRET fails closed but uses !== (SEC-04 open).",
   "evidence": "src/app/api/intake/route.ts:76-80; src/app/api/kickoff/worker/route.ts:17-19"
  },
  "K9": {
@@ -56,8 +56,8 @@
  },
  "K12": {
   "s": "✗",
-  "text": "Integration tests and CI e2e run against a Neon branch, no code-level guard refusing cloud URLs; e2e does use build+start (production build) but on port 3000.",
-  "evidence": "vitest.integration.config.ts:4-16; .github/workflows/ci.yml:65-106; playwright.config.ts:21-27"
+  "text": "Integration tests and CI e2e run against a Neon branch with no code-level guard refusing cloud URLs; e2e does use build+start (production build), now on port 5700.",
+  "evidence": "vitest.integration.config.ts:4-16; .github/workflows/ci.yml:57-106; playwright.config.ts:12-27"
  },
  "K13": {
   "s": "N/A",
@@ -66,7 +66,7 @@
  },
  "K14": {
   "s": "✗",
-  "text": "No ignoreCommand in vercel.json, port 3000 (collides with storage) not set in package.json (OPS-01), and cron worker compare is not constant-time (fails closed though).",
-  "evidence": "vercel.json; package.json:5-8; src/app/api/kickoff/worker/route.ts:17-19"
+  "text": "ignoreCommand now present and port 5700 set in package.json (OPS-01 fixed), but the cron worker still compares the bearer with !== (SEC-04 open), so cron is not constant-time. (HEAD 2ba93c6, 2026-11-10)",
+  "evidence": "vercel.json:2; package.json:7,9; src/app/api/kickoff/worker/route.ts:17-19"
  }
 }

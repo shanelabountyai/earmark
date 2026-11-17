@@ -1,3 +1,6 @@
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 // The removable modules (spec §4): everything a module owns, first entry being its directory.
 // Removing one also empties the lines marked `// <module>` in core.prisma and src/app/cron-jobs.ts.
 export const MODULES: Record<string, string[]> = {
@@ -35,4 +38,21 @@ export const MARKED_FILES = ['prisma/schema/core.prisma', 'src/app/cron-jobs.ts'
 export function modulesToRemove(required: readonly string[]): [string, string[]][] {
   for (const m of required) if (!(m in MODULES)) throw new Error(`required-modules.ts: unknown module "${m}"`);
   return Object.entries(MODULES).filter(([name]) => !required.includes(name));
+}
+
+// v1.6.3: a module is present while its directory (its first entry) exists. foundation:drift and the F-09 guard test
+// both ask this, so a clone that removed a module by the recipe is judged on the modules it still has.
+export function presentModules(root = '.'): string[] {
+  return Object.keys(MODULES).filter((m) => existsSync(join(root, MODULES[m]![0]!)));
+}
+
+// The "Removing a module" recipe (README) as code: delete the module's paths and its marked lines (`// <module>`, or
+// `{/* <module> */}` in a .tsx file). foundation:check-modules runs it in a scratch copy; the unit tests run it on a fixture.
+export function removeModule(root: string, name: string, files: readonly string[] = MARKED_FILES): void {
+  for (const p of MODULES[name] ?? []) rmSync(join(root, p), { recursive: true, force: true });
+  const marker = new RegExp(`(// ${name}|\\{/\\* ${name} \\*/\\})\\s*$`);
+  for (const f of files) {
+    const text = readFileSync(join(root, f), 'utf8');
+    writeFileSync(join(root, f), text.split('\n').filter((l) => !marker.test(l)).join('\n'));
+  }
 }

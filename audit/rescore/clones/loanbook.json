@@ -1,0 +1,72 @@
+{
+ "K1": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed.",
+  "evidence": "diff vs template: src/core untouched"
+ },
+ "K2": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed.",
+  "evidence": "diff vs template: src/core untouched"
+ },
+ "K3": {
+  "s": "✔",
+  "text": "Clone-owned loan pages and the two route handlers (adjust POST, statement CSV) call requireOrg then requireLoan before any ledger read/write; adjust also checks same-origin. Members page adds a servicer-only notFound.",
+  "evidence": "src/app/o/[org]/loans/[loanId]/adjust/route.ts:10-12; src/app/o/[org]/loans/[loanId]/statement/csv/route.ts:8-10; src/app/o/[org]/loans/access.ts:17-22; src/app/o/[org]/settings/members/page.tsx:16"
+ },
+ "K4": {
+  "s": "✔",
+  "text": "Ledger tables carry no orgId, so scoping goes through LoanAccess(orgId): requireLoan uses findFirst by loanId+orgId (not-yours is notFound), list/aging pages derive loanIds from orgId-scoped LoanAccess, and the waive path checks the entry belongs to the loan.",
+  "evidence": "src/app/o/[org]/loans/access.ts:19; src/app/o/[org]/loans/page.tsx:60; src/app/o/[org]/loans/aging/page.tsx:20-21; src/app/o/[org]/loans/[loanId]/adjust/route.ts:21-22"
+ },
+ "K5": {
+  "s": "N/A",
+  "text": "Clone adds no unauthenticated write or token-read surface; adjust and CSV require an org session.",
+  "evidence": "src/app routes beyond template: loans/* all behind requireOrg"
+ },
+ "K6": {
+  "s": "N/A",
+  "text": "Clone mints no capability links; the share route is the template's.",
+  "evidence": "no clone-owned token code under src/ledger or loans/"
+ },
+ "K7": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed.",
+  "evidence": "diff vs template: src/core untouched"
+ },
+ "K8": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed.",
+  "evidence": "diff vs template: src/core untouched"
+ },
+ "K9": {
+  "s": "N/A",
+  "text": "Clone adds no webhook; Stripe route is the template's.",
+  "evidence": "src/app/api/webhooks/stripe/route.ts unchanged"
+ },
+ "K10": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed.",
+  "evidence": "diff vs template: src/core untouched"
+ },
+ "K11": {
+  "s": "✔",
+  "text": "App code reads env via src/core/env.ts (access.ts uses env.DATABASE_URL); only CLI scripts read process.env.DATABASE_URL directly, and .env.example lists it.",
+  "evidence": "src/app/o/[org]/loans/access.ts:6,29; scripts/accrue.ts:15; .env.example:3"
+ },
+ "K12": {
+  "s": "✔",
+  "text": "CI, playwright config and test-DB guard unchanged apart from port/db name and paths-ignore. Clone scripts and tests open raw pg clients on DATABASE_URL without the guard, but they run from dotenv-loaded local env.",
+  "evidence": "playwright.config.ts:4; .github/workflows/ci.yml:31-34; scripts/pay.ts:16; tests/integration/owed.test.ts:12"
+ },
+ "K13": {
+  "s": "✔",
+  "text": "Fee waivers and write-offs post reversing entries to the ledger, whose LedgerEntry/LedgerLine are DB-trigger append-only and carry a required reason. They do not also emit a template AuditEvent, so the org audit log omits them.",
+  "evidence": "prisma/migrations/20260929000000_ledger_init/migration.sql:106,110; src/app/o/[org]/loans/[loanId]/adjust/route.ts:23-25"
+ },
+ "K14": {
+  "s": "✔",
+  "text": "Port 4700 is in package.json and playwright config, vercel.json keeps the ignoreCommand, and the clone adds no cron routes (cron-jobs.ts only wires the template's webhooks sweep).",
+  "evidence": "package.json dev/start -p 4700; vercel.json:4; src/app/cron-jobs.ts:11"
+ }
+}

@@ -61,9 +61,12 @@ export async function redeemLink(token: string): Promise<string | null> {
   });
   if (spent.count !== 1) return null;
   const row = await db.loginToken.findUniqueOrThrow({ where: { hash } });
-  // Checked again here: the link may predate the org turning SSO-required on (INV-36).
-  if (row.userId && (await ssoRefusesLink(row.userId))) return null;
-  const userId = row.userId ?? (await db.user.upsert({ where: { email: row.email }, create: { email: row.email }, update: {}, select: { id: true } })).id;
+  // Checked again here: the link may predate the org turning SSO-required on (INV-36). A sign-up link names no user, but
+  // the account may have appeared (and joined an SSO-required org) inside its 15 minutes, so resolve the user FIRST and
+  // check whoever it turns out to be (audit A-07, v1.6.4).
+  const existing = row.userId ?? (await db.user.findUnique({ where: { email: row.email }, select: { id: true } }))?.id ?? null;
+  if (existing && (await ssoRefusesLink(existing))) return null;
+  const userId = existing ?? (await db.user.upsert({ where: { email: row.email }, create: { email: row.email }, update: {}, select: { id: true } })).id;
   return createSession(userId);
 }
 

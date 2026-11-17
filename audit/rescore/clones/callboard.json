@@ -1,0 +1,72 @@
+{
+ "K1": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed.",
+  "evidence": "src/core (unchanged)"
+ },
+ "K2": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed.",
+  "evidence": "src/core (unchanged)"
+ },
+ "K3": {
+  "s": "✔",
+  "text": "All clone server actions are orgAction/ref-wrapped; public /p/[token] routes and the Twilio inbound route are documented public with token/signature as credential and a same-origin check.",
+  "evidence": "src/app/o/[org]/people/actions.ts:17; src/app/p/[token]/act/route.ts:31-35; src/app/api/sms/inbound/route.ts:11"
+ },
+ "K4": {
+  "s": "✔",
+  "text": "Clone reads/writes by id carry orgId (inOrg(ctx) or link-derived scope incl. eventId/personId); remaining findUniqueOrThrow calls take ids from already-scoped rows.",
+  "evidence": "src/app/p/[token]/act/route.ts:50-60; src/app/p/[token]/respond/route.ts:25; src/lib/swaps.ts:104-158; src/lib/dayof.ts:84-85"
+ },
+ "K5": {
+  "s": "✔",
+  "text": "Anonymous /p/[token] reads and all three POST routes go through readPersonLink, which uses the shared DB-backed hit() limiter per IP; the SMS webhook is signature-gated.",
+  "evidence": "src/lib/links.ts:31-33; src/app/p/[token]/act/route.ts:34"
+ },
+ "K6": {
+  "s": "✗",
+  "text": "Person links are hashed and expiring, but the clone removed no-referrer on /p/* (relies on global strict-origin-when-cross-origin, so same-origin Referer carries the token path) and has no per-link revoke; the only kill switch is rotating AUTH_SECRET.",
+  "evidence": "next.config.ts:27-36; next.config.ts:5; src/lib/links.ts:8-13"
+ },
+ "K7": {
+  "s": "✔",
+  "text": "Global headers are unchanged; the clone only adds noindex/no-store for /p/*.",
+  "evidence": "next.config.ts:5; next.config.ts:31-35"
+ },
+ "K8": {
+  "s": "✔",
+  "text": "Demo password gate hashes then timingSafeEquals, fails closed (503) on Vercel when unset; Twilio signature uses core safeEqual; cron route is the core guard.",
+  "evidence": "src/lib/demo-gate.ts:13-23; src/lib/inbound.ts:19-20; src/core/cron.ts:10"
+ },
+ "K9": {
+  "s": "✗",
+  "text": "The Twilio inbound webhook verifies the signature but has no timestamp window and no idempotent claim (MessageSid is never recorded), so a captured signed request can be replayed and re-applied.",
+  "evidence": "src/app/api/sms/inbound/route.ts:11-19; src/lib/inbound.ts:19-20"
+ },
+ "K10": {
+  "s": "✔",
+  "text": "No console/logger calls in clone code and no tokens or message bodies logged; SMS goes through the core outbox.",
+  "evidence": "src/lib, src/app/p, src/app/api (grep console. empty)"
+ },
+ "K11": {
+  "s": "✗",
+  "text": "DEMO_ACCESS_PASSWORD (and VERCEL) are read straight from process.env in the proxy/gate, bypassing src/core/env.ts, and DEMO_ACCESS_PASSWORD is missing from .env.example.",
+  "evidence": "src/lib/demo-gate.ts:16-18; src/proxy.ts:7; .env.example (no DEMO_ACCESS_PASSWORD)"
+ },
+ "K12": {
+  "s": "✔",
+  "text": "Clone only adds Playwright env (DEMO_ACCESS_PASSWORD blank, workers 1) and its own port; test-DB guard and production-build webServer are untouched.",
+  "evidence": "playwright.config.ts:4-19"
+ },
+ "K13": {
+  "s": "✔",
+  "text": "Clone mutations audit via core audit() either in the action or the shared lib (broadcast.sent/resent, person.*, card.*, alert.resolve, assignment.*); the append-only DB enforcement is inherited.",
+  "evidence": "src/lib/broadcast.ts:55,72; src/app/p/[token]/act/route.ts:89,100; src/app/o/[org]/people/actions.ts:68"
+ },
+ "K14": {
+  "s": "✔",
+  "text": "ignoreCommand is intact, port 4600 is the config default, and the cron stays on the core /api/cron guard (schedule changed to daily 13:00 UTC; the 5-minute day-of comment in cron-jobs.ts is a functional note, not a guard gap).",
+  "evidence": "vercel.json:5-10; playwright.config.ts:4; src/app/cron-jobs.ts"
+ }
+}

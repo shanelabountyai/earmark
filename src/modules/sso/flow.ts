@@ -1,3 +1,4 @@
+import { lookup } from 'node:dns/promises';
 import { cookies } from 'next/headers';
 import * as oidc from 'openid-client';
 import { audit } from '@/core/audit';
@@ -8,7 +9,9 @@ import { now } from '@/core/clock';
 import { db } from '@/core/db';
 import { asSystem, withOrg } from '@/core/db/rls';
 import { env } from '@/core/env';
+import { Refused } from '@/core/errors';
 import { log } from '@/core/log';
+import { checkOutboundUrl } from '@/core/net';
 import { hit, LIMITS } from '@/core/rate-limit';
 import { hashToken, newToken, safeEqual } from '@/core/tokens';
 import type { Role } from '@/generated/prisma/enums';
@@ -27,6 +30,25 @@ export const callbackUrl = () => `${env.APP_URL}/login/sso/callback`;
 /** Plain http only for a provider on this machine (the e2e mock), and never in a deployed environment. */
 export const insecureOk = (u: URL) => !env.VERCEL_ENV && u.protocol === 'http:' && (u.hostname === 'localhost' || u.hostname === '127.0.0.1');
 
+/** Tests replace this; everything else reads real DNS. */
+export const resolver = { lookup: (host: string) => lookup(host, { all: true }) };
+
+/**
+ * The issuer, and every endpoint discovery names that the SERVER fetches (token, JWKS, userinfo), must be a public https
+ * address (audit A-02, v1.6.4): an owner must not be able to point server-side fetches at 169.254.169.254 or the
+ * private network. The local mock (insecureOk) is exempt. The authorization endpoint is only a browser redirect.
+ */
+export async function checkIssuer(raw: string, what = 'The issuer'): Promise<void> {
+  let url: URL;
+  try {
+    url = new URL(raw.trim());
+  } catch {
+    throw new Refused(`${what} must be a URL.`);
+  }
+  if (insecureOk(url)) return;
+  await checkOutboundUrl(raw, { lookup: (h) => resolver.lookup(h), what });
+}
+
 type Conn = { orgId: string; issuer: string; clientId: string; clientSecretSealed: string };
 
 // ponytail: discovery (one fetch) on every start and callback; cache the Configuration per connection if a provider rate-limits it.
@@ -37,7 +59,13 @@ async function configFor(c: Conn) {
   // Non-repudiation: check the ID token's signature against the provider's JWKS (addendum §3 step 3). openid-client
   // skips it by default for a token fetched straight from the token endpoint, trusting TLS instead (OIDC Core 3.1.3.7).
   const execute = [oidc.enableNonRepudiationChecks, ...(insecureOk(url) ? [oidc.allowInsecureRequests] : [])];
-  return oidc.discovery(url, c.clientId, secret, undefined, { execute });
+  await checkIssuer(c.issuer); // again at use: the saved name may have been re-pointed since
+  const config = await oidc.discovery(url, c.clientId, secret, undefined, { execute });
+  const m = config.serverMetadata();
+  for (const [field, at] of [['token_endpoint', m.token_endpoint], ['jwks_uri', m.jwks_uri], ['userinfo_endpoint', m.userinfo_endpoint]] as const) {
+    if (at) await checkIssuer(at, `The provider's ${field}`);
+  }
+  return config;
 }
 
 /**

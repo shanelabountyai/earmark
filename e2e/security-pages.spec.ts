@@ -8,7 +8,8 @@ for (const [slug, name] of [['northwind', 'Northwind'], ['contoso', 'Contoso']] 
     await page.goto('/demo');
     await page.getByRole('button', { name: `owner@${slug}.demo.test` }).click();
     await page.getByRole('link', { name }).click();
-    const nav = page.getByRole('navigation');
+    // The nav holding the settings links, however many nav rows a clone's layout adds (F-08).
+    const nav = page.getByRole('navigation').filter({ has: page.getByRole('link', { name: 'Audit log' }) });
 
     await nav.getByRole('link', { name: 'Audit log' }).click();
     await expect(page.getByRole('heading', { name: 'Audit log' })).toBeVisible();
