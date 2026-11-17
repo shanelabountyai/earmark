@@ -1,4 +1,5 @@
 import { db } from '@/core/db';
+import { withOrg } from '@/core/db/rls';
 import type { Prisma } from '@/generated/prisma/client';
 
 type Tx = Prisma.TransactionClient;
@@ -60,4 +61,24 @@ export function toCsv(rows: unknown[][]): string {
     return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   return rows.map((r) => r.map(cell).join(',')).join('\r\n') + '\r\n';
+}
+
+/** The newest this many events matching the filter; past it, narrow the dates or use the org data export (v1.6.5, A-10). */
+export const AUDIT_CSV_MAX_ROWS = 10_000;
+
+/**
+ * F-01's Download CSV: the viewer's filter over the same query the data export uses (addendum §4, one exporter). Capped at
+ * AUDIT_CSV_MAX_ROWS, newest first, and the download is itself audited (v1.6.5, audit A-10). The caller has run requireOrg.
+ */
+export async function auditCsv(ctx: { orgId: string; userId: string }, f: AuditFilter): Promise<string> {
+  const rows = await withOrg(ctx, async (tx) => {
+    const page = await auditEvents(tx, ctx.orgId, f, { take: AUDIT_CSV_MAX_ROWS });
+    await audit(ctx, 'audit.exported', { data: { rows: page.length, capped: page.length === AUDIT_CSV_MAX_ROWS, actorUserId: f.actorUserId ?? null, actionPrefix: f.action ?? null, from: f.from?.toISOString() ?? null, to: f.to?.toISOString() ?? null } }, tx);
+    return page;
+  });
+  const emails = await actorEmails(rows.map((r) => r.actorUserId));
+  return toCsv([
+    ['id', 'at', 'actor', 'action', 'targetType', 'targetId', 'data'],
+    ...rows.map((r) => [r.id, r.at, r.actorUserId ? (emails.get(r.actorUserId) ?? r.actorUserId) : 'system', r.action, r.targetType, r.targetId, r.data]),
+  ]);
 }

@@ -1,5 +1,6 @@
 import { notFound, redirect } from 'next/navigation';
 import { requireUser, type SessionCtx } from '@/core/auth/session';
+import { ssoRefusesSession } from '@/core/auth/sso-hook';
 import { db } from '@/core/db';
 import { withOrg } from '@/core/db/rls';
 import type { Role } from '@/generated/prisma/enums';
@@ -32,6 +33,9 @@ export async function requireOrg(orgSlug: string, perm?: Permission): Promise<Or
       )
     : null;
   if (!m) notFound();
+  // Require SSO (INV-36, v1.6.5): a member of an SSO-required org gets in only on a session made through SSO, so
+  // deprovisioning at the provider ends access here. Sent to that org's SSO sign-in, not 404: they are a member.
+  if (await ssoRefusesSession(m.orgId, session.userId, session.method)) redirect(`/login/sso/start?org=${encodeURIComponent(orgSlug)}`);
   // requireUser already sent an enrolled user without mfaAt to /login/mfa; this catches the unenrolled. An SSO sign-in
   // whose provider asserted MFA (amr) counts as the second factor, but only in the org whose provider said so (§10.2).
   const mfa = !!session.mfaAt && (session.totpEnrolled || session.mfaOrgId === m.orgId);
