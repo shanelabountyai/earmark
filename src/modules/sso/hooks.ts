@@ -20,7 +20,7 @@ export const ssoHooks: SsoHooks = {
   refusesLink: (userId) =>
     asSystem(async (sys) => {
       const required = await sys.ssoConnection.findMany({
-        where: { required: true, enabledAt: { not: null }, org: { memberships: { some: { userId } } } },
+        where: { required: true, enabledAt: { not: null }, org: { memberships: { some: { userId, role: { not: 'guest' } } } } }, // a guest is outside staff: never on the org's IdP
         select: { requiredAt: true, requiredById: true },
       });
       const t = now().getTime();

@@ -4,6 +4,8 @@ import { sealSecret } from '@/core/auth/secret-box';
 import { db } from '@/core/db'; // importing it is what refuses a cloud database (INV-18, INV-27)
 import { asSystem } from '@/core/db/rls';
 import { env } from '@/core/env';
+import { costMicros } from '@/core/ai/prices';
+import { STUB_USAGE } from '@/lib/earmark/explainer-usage';
 import type { Role } from '@/generated/prisma/enums';
 import { seedEarmark } from './seed-earmark';
 
@@ -26,7 +28,7 @@ export const seedDemo = () => asSystem((sys) => seedWith(sys));
 async function seedWith(db: Parameters<Parameters<typeof asSystem>[0]>[0]) {
   const printed: string[] = [];
   for (const o of ORGS) {
-    const org = await db.org.upsert({ where: { slug: o.slug }, create: { slug: o.slug, name: o.name }, update: {} });
+    const org = await db.org.upsert({ where: { slug: o.slug }, create: { slug: o.slug, name: o.name }, update: { name: o.name } }); // a vitest run on the same DB leaves its own 'northwind' org
     for (const role of ROLES) {
       const email = `${role}@${o.domain}`;
       const mfa = role !== 'member'; // owners and admins are TOTP-enrolled, as the guard requires
@@ -44,7 +46,14 @@ async function seedWith(db: Parameters<Parameters<typeof asSystem>[0]>[0]) {
       printed.push(`${email}  ${role} of ${o.name}${mfa ? '  (TOTP)' : ''}`);
     }
     // §10.5: demo orgs cap AI spend at $1.00, so the refusal path is reachable in a demo.
-    await db.aiBudget.upsert({ where: { orgId: org.id }, create: { orgId: org.id, monthlyCapMicros: 1_000_000n }, update: { monthlyCapMicros: 1_000_000n } });
+    await db.aiBudget.upsert({ where: { orgId: org.id }, create: { orgId: org.id, monthlyCapMicros: 1_000_000n }, update: { monthlyCapMicros: 1_000_000n, pausedAt: null } });
+    // PRD §9 step 10: this month's spend is planted so three stub drafts fit and the fourth is refused. With a draft
+    // costing `a` and its worst-case check `w` (a/2 < w <= 1.5a for any prompt under ~9,000 characters): 3.5a planted below the cap passes three
+    // checks and fails the fourth. Reset on every seed, so each e2e sweep starts from the same spend.
+    const a = costMicros(STUB_USAGE.provider, STUB_USAGE.model, STUB_USAGE.inputTokens, STUB_USAGE.outputTokens);
+    await db.aiHold.deleteMany({ where: { orgId: org.id } });
+    await db.aiUsage.deleteMany({ where: { orgId: org.id } });
+    await db.aiUsage.create({ data: { orgId: org.id, provider: STUB_USAGE.provider, model: STUB_USAGE.model, inputTokens: 0, outputTokens: 0, costMicros: 1_000_000n - 3n * a - a / 2n, feature: 'seed', createdAt: now() } });
   }
   printed.push(...(await seedEarmark(db)));
   printed.push(...(await seedSso(db)));
@@ -74,7 +83,8 @@ async function seedSso(db: Parameters<Parameters<typeof asSystem>[0]>[0]): Promi
     }
     used.add(domain);
     const { id: orgId } = await db.org.findUniqueOrThrow({ where: { slug: p.slug }, select: { id: true } });
-    const data = { issuer: p.issuer, clientId: p.id, clientSecretSealed: sealSecret(p.secret, 'sso'), allowedDomains: [domain], enabledAt: now() };
+    // PRD §6: Require SSO on both demo orgs; guests (Dana) keep magic links (D-32).
+    const data = { issuer: p.issuer, clientId: p.id, clientSecretSealed: sealSecret(p.secret, 'sso'), allowedDomains: [domain], enabledAt: now(), required: true, requiredAt: now() };
     await conn.upsert({ where: { orgId }, create: { orgId, ...data }, update: data });
     await dom.upsert({ where: { orgId_domain: { orgId, domain } }, create: { orgId, domain, verifiedAt: now() }, update: { verifiedAt: now() } });
     out.push(`@${domain} signs in to ${p.slug} through ${p.name} (SSO_ENABLED=1)`);

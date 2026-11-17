@@ -3,8 +3,11 @@
 import { beforeEach, vi } from 'vitest';
 
 export class NavSignal extends Error {
+  readonly digest?: string;
   constructor(readonly kind: 'redirect' | 'notFound', readonly to?: string) {
     super(to ? `${kind} ${to}` : kind);
+    // Next's real digest, which the /api/v1 wrapper maps to a 404 (apikeys/api.ts `mapped`).
+    if (kind === 'notFound') this.digest = 'NEXT_HTTP_ERROR_FALLBACK;404';
   }
 }
 
