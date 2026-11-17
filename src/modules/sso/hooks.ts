@@ -40,6 +40,9 @@ export const ssoHooks: SsoHooks = {
   refusesSession: (orgId, userId, method) =>
     asSystem(async (sys) => {
       if (method === 'sso') return false; // ponytail: any org's SSO counts; sessions do not record which provider made them
+      // v1.6.6 (owner decision 2026-11-17): a /demo session is a shared synthetic account that exists only while DEMO_MODE
+      // is on (INV-27) and is never on any provider, so Require SSO does not apply to it; a demo org may show it switched on.
+      if (method === 'demo') return false;
       // earmark D-32: a guest (agency) member is outside staff and never on the org's IdP, so Require SSO does not apply
       const m = await sys.membership.findUnique({ where: { orgId_userId: { orgId, userId } }, select: { role: true } });
       if (m?.role === 'guest') return false;

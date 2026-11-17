@@ -445,6 +445,17 @@ describe('Require SSO v1.6.5: per org, by domain, enforced at the guard', () => 
     await expect(setRequired(await requireOrg(org.slug), true)).rejects.toThrow(/Sign in through this SSO connection first/);
   });
 
+  it('v1.6.6 a /demo session is not refused by Require SSO (shared demo accounts are never on a provider)', async () => {
+    const demo = await addMember(org.id, 'member', 'member@acme.demo.test');
+    await db.ssoConnection.update({ where: { orgId: org.id }, data: { required: true, requiredAt: now(), requiredById: null } });
+    const token = await createSession(demo.id, { mfa: true, method: 'demo' });
+    jar.clear();
+    jar.set(SESSION_COOKIE, token);
+    await expect(requireOrg(org.slug)).resolves.toMatchObject({ orgId: org.id });
+    await signInAs(demo.id, { mfa: true }); // the same account on a link session is still sent to SSO
+    await expect(requireOrg(org.slug)).rejects.toMatchObject({ kind: 'redirect' });
+  });
+
   it('the owner who turned it on keeps a link session for 24 h, then is sent to SSO', async () => {
     const owner = await addMember(org.id, 'owner', `owner@${DOMAIN}`);
     await db.ssoConnection.update({ where: { orgId: org.id }, data: { required: true, requiredAt: now(), requiredById: owner.id } });

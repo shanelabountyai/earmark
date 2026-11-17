@@ -2,7 +2,14 @@
 
 Entries prefixed `security:` are mandatory for anything touching an invariant. Clones must take a `security:` release within 7 days.
 
-## 1.6.5 (unreleased; tag after merge)
+## 1.6.6 (unreleased; tag after merge)
+
+Fix to 1.6.5's Require SSO guard (owner decision 2026-11-17): a session made through `/demo` passes `refusesSession`. Demo
+accounts are shared synthetic users that exist only while `DEMO_MODE` is on (INV-27) and are never on any provider, so a
+demo org that shows Require SSO switched on (earmark's Northwind) stopped admitting its own demo visitors. A link session
+for the same account is still refused. Not `security:`: it narrows nothing a real user could reach. No migration.
+
+## 1.6.5 (2026-11-17)
 
 security: the owner decisions on audit A-06 and A-10 (2026-11-17), the guard half of A-05, and the demo-gate env fix moved
 from v1.6.4. **Clones must take this within 7 days.** No migration. One new env pair (`DEMO_ACCESS_PASSWORD`, `VERCEL`),
