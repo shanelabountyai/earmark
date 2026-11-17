@@ -139,5 +139,5 @@ unzip -p ~/Downloads/<the zip> manifest.json | python3 -m json.tool | head -30  
 
 | Date | IdP | Org | Who | Result |
 |---|---|---|---|---|
-| | Google Workspace | Northwind | | |
-| | Okta | Contoso | | |
+| 2026-11-17 | Google Workspace | Northwind | Shane | Signed in; passed |
+| 2026-11-17 | Okta | Contoso | Shane | Signed in; passed |
