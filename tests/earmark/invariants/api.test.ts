@@ -72,3 +72,25 @@ it('POST /invoices needs the invoices scope and files under the key creator, wit
   expect(await refused({ ...body, number: 'INV-5' })).toEqual([422, 'Meridian Creative has been offboarded.']);
   expect(await db.invoice.count({ where: { orgId: w.orgId } })).toBe(1);
 });
+
+it('D-33/D-41: a malformed amount on a foreign agency is the same 404 as any foreign id; on our own agency it is a 400', async () => {
+  const w = await world('northwind');
+  const other = await world('contoso');
+  const key = await keyFor(w, ['invoices']);
+  const body = { agencyId: w.agency.id, number: 'INV-1', poNumber: '', amountCents: '125000', invoicedOn: '2026-11-01', dueOn: '2026-12-01' };
+  const answer = async (b: unknown) => {
+    const r = await post(b, key);
+    return [r.status, await r.text()];
+  };
+
+  const foreignId = await answer({ ...body, agencyId: other.agency.id });
+  const missingId = await answer({ ...body, agencyId: randomUUID() });
+  expect(foreignId[0]).toBe(404);
+  for (const amountCents of ['12.50', '0', 'abc', '-5']) {
+    expect(await answer({ ...body, agencyId: other.agency.id, amountCents })).toEqual(foreignId);
+    expect(await answer({ ...body, agencyId: randomUUID(), amountCents })).toEqual(missingId);
+    const own = await post({ ...body, amountCents }, key);
+    expect([own.status, (await own.json()).detail]).toEqual([400, 'amountCents: a positive whole number of cents, as a string']);
+  }
+  expect(await db.invoice.count({ where: { orgId: w.orgId } })).toBe(0);
+});

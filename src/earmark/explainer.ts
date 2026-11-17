@@ -26,7 +26,7 @@ export type Drafter = {
 };
 
 
-/** Claude over plain fetch (D-31). A failed or empty call throws, so withBudget releases its hold and records nothing. */
+/** Claude over plain fetch (D-35). A failed or empty call throws, so withBudget releases its hold and records nothing. */
 export const claudeDrafter = (apiKey: string): Drafter => ({
   provider: 'anthropic',
   model: MODEL,
