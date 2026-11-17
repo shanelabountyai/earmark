@@ -1,6 +1,6 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 
-// The deployed demo's shared password (D-64), checked by src/proxy.ts before anything else runs. HTTP Basic, any username.
+// The deployed demo's shared password (earmark.labintelligence.co, D-42), checked by src/proxy.ts before anything else runs. HTTP Basic, any username.
 // Ported from gavel `src/auction/demo-gate.ts` (same gate as boxloop, callboard, showcall and rent). It stands in front of
 // /demo, which signs anyone in as an owner. Read from process.env, not @/core/env: the template owns that schema.
 export type Gate = 'open' | 'allowed' | 'challenge' | 'misconfigured';
