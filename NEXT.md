@@ -32,7 +32,7 @@ Five commits (D-31 in `prd-earmark.md`).
 
 **(5) LinkedIn done (2026-11-13):** posts #168 (Impact, D-23) and #169 (Scale, D-32) added to the Lab Intelligence Ledger https://claude.ai/artifact/Ai5xKScgT2sWtqXRQ1ZA8i, unposted. Note: project id `earmark` may need an entry in the Ledger page's PROJECTS list.
 
-**▶ Next: Phase 5 closed.** PR #5 merged; Shane's Google and Okta hand checks passed 2026-11-17 (*Hand checks* in docs/DEMO.md). Only PR #6 (this docs branch) is left to merge.
+**▶ Next: Phase 5 closed.** PR #5 merged; Shane's Google and Okta hand checks passed 2026-11-17 (*Hand checks* in docs/DEMO.md). PR #6 merged 2026-11-17. Nothing left; the three open items below are optional.
 
 
 **Not built in Phase 3, on purpose (D-26):** rename/delete of plan rows; fiscal-year close/lock with carry-forward (nothing sets `lockedAt` yet).
