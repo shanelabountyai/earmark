@@ -8,11 +8,13 @@ import { removeMember } from '@/core/tenancy/orgs';
 import { withOrg } from '@/core/db/rls';
 import { dbSystem as db } from '@/core/db/system'; // fixtures run as the owner role (RLS enforce leg)
 import { emit } from '@/core/events';
+import { BAD_KEY_PER_IP } from '@/modules/apikeys/api';
 import { createKey, revokeKey } from '@/modules/apikeys/keys';
 import {
   BACKOFF_MS,
   checkUrl,
   createEndpoint,
+  isPrivateAddress,
   MAX_ATTEMPTS,
   PAUSE_AFTER,
   replayDelivery,
@@ -306,5 +308,68 @@ describe('INV-41 webhook deliveries: retried after a failure, sent once per even
     expect(await sweepWebhooks()).toMatchObject({ failed: 1 });
     expect(sent).toHaveLength(0);
     expect((await db.webhookDelivery.findFirstOrThrow()).lastError).toMatch(/private/);
+  });
+});
+
+// v1.6.4 (audit 2026-11-17, A-01 and A-13; moved from tests/defects when fixed).
+describe('INV-41 v1.6.4: an IPv6 spelling of a private IPv4 address is still private', () => {
+  it.each([
+    ['loopback, IPv4-mapped', 'https://[::ffff:127.0.0.1]/in'],
+    ['cloud metadata, IPv4-mapped', 'https://[::ffff:169.254.169.254]/latest/meta-data/'],
+    ['RFC 1918, IPv4-mapped', 'https://[::ffff:10.0.0.5]/in'],
+    ['RFC 1918, IPv4-mapped, already hex', 'https://[::ffff:c0a8:1]/in'],
+    ['cloud metadata through NAT64 (64:ff9b::/96)', 'https://[64:ff9b::a9fe:a9fe]/in'],
+  ])('A-01 %s: %s is refused at save', async (_, url) => {
+    const o = await org('acme');
+    await expect(createEndpoint(o.owner, { url, eventTypes: [] })).rejects.toThrow(/private address/);
+    await expect(checkUrl(url, false)).rejects.toThrow(/private address/);
+  });
+
+  it('A-01 a DNS answer in the hex-mapped form is private too, at save and at send', async () => {
+    expect(isPrivateAddress('::ffff:7f00:1')).toBe(true);
+    transport.lookup = async () => [{ address: '::ffff:a9fe:a9fe', family: 6 }];
+    await expect(checkUrl('https://hooks.example.test/in', false)).rejects.toThrow(/private address/);
+  });
+});
+
+describe('INV-41 v1.6.4: what a receiver can make the sender do (A-13)', () => {
+  it('reads at most 1 KiB of the answer, however much the receiver streams', async () => {
+    const e = await endpoint();
+    let pulled = 0;
+    transport.fetch = vi.fn(async () => {
+      const stream = new ReadableStream<Uint8Array>({
+        pull(c) {
+          pulled += 1;
+          if (pulled > 1000) return c.close(); // ~16 MiB if read to the end
+          c.enqueue(new Uint8Array(16 * 1024).fill(0x61));
+        },
+      });
+      return new Response(stream, { status: 500 });
+    });
+    await e.publish();
+    await sweepWebhooks();
+    const d = await db.webhookDelivery.findFirstOrThrow();
+    expect(d.lastResponseExcerpt).toHaveLength(1024);
+    expect(pulled, 'chunks pulled from the receiver').toBeLessThan(10);
+  });
+
+  it('never posts unsigned: when no secret opens, nothing is sent and the delivery fails with the reason', async () => {
+    const e = await endpoint();
+    const sent = receiver([200]);
+    await db.webhookEndpoint.update({ where: { id: e.ep.id }, data: { secretSealed: 'v1.not-a-sealed-secret' } });
+    await e.publish();
+    expect(await sweepWebhooks()).toMatchObject({ failed: 1, succeeded: 0 });
+    expect(sent).toEqual([]);
+    expect((await db.webhookDelivery.findFirstOrThrow()).lastError).toMatch(/signing secret/);
+  });
+
+  it('a missing or wrong key is metered per client address before the lookup', async () => {
+    const bad = () =>
+      projects.GET(new Request(`${URL_}/projects`, { headers: { authorization: 'Bearer api_wrong', 'x-forwarded-for': '203.0.113.9' } }));
+    for (let i = 0; i < BAD_KEY_PER_IP.limit; i++) expect((await bad()).status).toBe(401);
+    expect((await bad()).status).toBe(429);
+    // another address is not affected
+    const other = await projects.GET(new Request(`${URL_}/projects`, { headers: { authorization: 'Bearer api_wrong', 'x-forwarded-for': '198.51.100.7' } }));
+    expect(other.status).toBe(401);
   });
 });

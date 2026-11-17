@@ -1,5 +1,6 @@
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
+import { MODULES } from './foundation-modules';
 
 // `npm run rls:policies` (addendum §2): one migration enabling + forcing RLS on every model with an orgId column.
 //  - required orgId: one FOR ALL policy, rows visible and writable only with app.org_id set to that org.
@@ -7,12 +8,16 @@ import { pathToFileURL } from 'node:url';
 // nullif: after a transaction-local set_config ends, the setting reads '' (not NULL) on that connection, and
 // ''::uuid throws (spike S4a). nullif makes "no org set" match no row instead of erroring.
 // Idempotent (DROP POLICY IF EXISTS), so a clone re-running it over core tables recreates them unchanged.
+// A removable module's tables are wrapped in a to_regclass guard: a clone that removed the module may have dropped them
+// (README "Removing a module"), and a later policy migration must still apply (F-09). Core and clone tables stay
+// unguarded on purpose, so a missing one fails the migration instead of silently getting no policy.
 
-export type OrgTable = { model: string; table: string; column: string; nullable: boolean };
+export type OrgTable = { model: string; table: string; column: string; nullable: boolean; module?: string };
 
 export function orgTables(dir = 'prisma/schema'): OrgTable[] {
   const out: OrgTable[] = [];
   for (const f of readdirSync(dir).filter((n) => n.endsWith('.prisma')).sort()) {
+    const file = f.replace(/\.prisma$/, '');
     for (const [, model = '', body = ''] of readFileSync(`${dir}/${f}`, 'utf8').matchAll(/^model (\w+) \{([\s\S]*?)^\}/gm)) {
       const field = /^\s*orgId\s+String(\??)([^\n]*)/m.exec(body);
       if (!field) continue;
@@ -21,6 +26,7 @@ export function orgTables(dir = 'prisma/schema'): OrgTable[] {
         table: /@@map\("([^"]+)"\)/.exec(body)?.[1] ?? model,
         column: /@map\("([^"]+)"\)/.exec(field[2] ?? '')?.[1] ?? 'orgId',
         nullable: field[1] === '?',
+        ...(file in MODULES ? { module: file } : {}),
       });
     }
   }
@@ -31,7 +37,7 @@ const ORG = `nullif(current_setting('app.org_id', true), '')::uuid`;
 
 export function policySql(tables: OrgTable[]): string {
   return tables
-    .map(({ table: t, column: c, nullable }) => {
+    .map(({ table: t, column: c, nullable, module }) => {
       const scoped = `"${c}" = ${ORG}`;
       const lines = [
         `-- ${t}${nullable ? ' (append-style: insert open, everything else scoped)' : ''}`,
@@ -47,9 +53,26 @@ export function policySql(tables: OrgTable[]): string {
           `CREATE POLICY org_update ON "${t}" FOR UPDATE USING (${scoped}) WITH CHECK (${scoped});`,
           `CREATE POLICY org_delete ON "${t}" FOR DELETE USING (${scoped});`,
         );
-      return lines.join('\n');
+      if (!module) return lines.join('\n');
+      const [comment, ...body] = lines;
+      return [`${comment} [module ${module}: skipped if the table was dropped]`, `DO $$ BEGIN IF to_regclass('"${t}"') IS NOT NULL THEN`, ...body.map((l) => `  ${l}`), 'END IF; END $$;'].join('\n');
     })
     .join('\n\n');
+}
+
+// v1.6.3: what is wrong with the module guard for a tree whose present modules are `present` (empty = correct). Every
+// table of a present module must be guarded and no core or clone table may be; and each present module must contribute
+// at least one table, so a missing or unparsed schema file fails instead of making the check pass on nothing. A removed
+// module is simply not in `present`: its tables are gone with its schema file (README "Removing a module").
+export function guardGaps(tables: OrgTable[], present: readonly string[], sql: (t: OrgTable[]) => string = policySql): string[] {
+  const gaps: string[] = [];
+  for (const t of tables) {
+    const guarded = sql([t]).includes(`to_regclass('"${t.table}"')`);
+    if (t.module && !guarded) gaps.push(`${t.table}: table of module ${t.module} has no to_regclass guard`);
+    if (!t.module && guarded) gaps.push(`${t.table}: core/clone table is guarded (a missing one would silently get no policy)`);
+  }
+  for (const m of present) if (!tables.some((t) => t.module === m)) gaps.push(`module ${m} is present but none of its org tables was found`);
+  return gaps;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

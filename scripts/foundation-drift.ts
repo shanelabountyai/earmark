@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
-import { MODULES } from './foundation-modules';
+import { MODULES, presentModules } from './foundation-modules';
 
 // Plan §3.2: a clone never edits these. `npm run foundation:drift` diffs them against the release named in
 // FOUNDATION_VERSION and fails on any difference the rules below do not excuse.
@@ -71,7 +71,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     console.log('foundation:drift: this is the template itself; nothing to compare against.');
     process.exit(0);
   }
-  const absent = new Set(Object.keys(MODULES).filter((m) => !existsSync(MODULES[m]![0]!)));
+  const present = presentModules();
+  const absent = new Set(Object.keys(MODULES).filter((m) => !present.includes(m)));
   const patches = existsSync('FOUNDATION_PATCHES.md') ? readFileSync('FOUNDATION_PATCHES.md', 'utf8') : '';
   const changes = collect(base);
   const bad = drift(changes, absent, (c) => patchedHash(patches, c.path) === hashOf(c));

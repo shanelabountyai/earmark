@@ -5,7 +5,8 @@ import { now } from '@/core/clock';
 import { withOrg, type Tx } from '@/core/db/rls';
 import { Refused } from '@/core/errors';
 import { log } from '@/core/log';
-import { hit } from '@/core/rate-limit';
+import { clientIp } from '@/core/http';
+import { hit, spent } from '@/core/rate-limit';
 import { API_SCOPES } from '@/app/api-scopes';
 import { type ApiCtx, resolveKey } from './keys';
 import { sweepWebhooks } from './webhooks';
@@ -63,8 +64,14 @@ type RouteContext = { params: Promise<Record<string, string>> };
 export type Handler = (ctx: ApiCtx, req: Request, params: Record<string, string>) => Promise<Response>;
 
 /** Key, scope and rate limit for one request, or the problem to answer with. Exported for a clone's own routes (e.g. /ingest). */
+/** Failed key lookups per client address (audit A-13, v1.6.4): a guesser is metered before the lookup, not after. */
+export const BAD_KEY_PER_IP = { limit: 30, windowMs: 15 * 60_000 };
+
 export async function requireApiKey(req: Request, scope: string): Promise<ApiCtx | Response> {
+  const badKey = `api:401:ip:${clientIp(req.headers)}`;
+  if (await spent(badKey, BAD_KEY_PER_IP)) return problem('RATE_LIMITED', 'Too many requests with a missing or wrong API key. Wait 15 minutes.', { 'Retry-After': '900' });
   const ctx = await resolveKey(req.headers.get('authorization'));
+  if (!ctx) await hit(badKey, BAD_KEY_PER_IP);
   if (!ctx) return problem('UNAUTHENTICATED', `Send an API key as "Authorization: Bearer api_…". An owner or admin issues one under Settings → API keys.`, { 'WWW-Authenticate': 'Bearer' });
   if (!ctx.scopes.includes(scope)) return problem('FORBIDDEN_SCOPE', `This key does not have the "${scope}" scope.`);
   const perMinute = (API_SCOPES as Record<string, { perMinute: number }>)[scope]?.perMinute;

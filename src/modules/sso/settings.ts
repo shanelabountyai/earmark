@@ -10,7 +10,7 @@ import { withOrg } from '@/core/db/rls';
 import { env } from '@/core/env';
 import { Refused } from '@/core/errors';
 import type { Role } from '@/generated/prisma/enums';
-import { insecureOk } from './flow';
+import { checkIssuer, insecureOk } from './flow';
 import { domainVerifiedElsewhere } from './hooks';
 
 // The owner's SSO settings (addendum §3): `org.update` plus the owner role, every change audited, no secret in the log.
@@ -49,6 +49,7 @@ export async function saveConnection(ctx: OrgCtx, i: ConnectionInput) {
     throw new Refused('The issuer must be a URL.');
   }
   if (issuer.protocol !== 'https:' && !insecureOk(issuer)) throw new Refused('The issuer must be an https URL.');
+  await checkIssuer(i.issuer); // A-02 (v1.6.4): no private, loopback or link-local address
   const clientId = i.clientId.trim();
   if (!clientId) throw new Refused('Enter the client ID.');
   const allowedDomains = [...new Set(i.allowedDomains.split(/[\s,]+/).filter(Boolean).map(parseDomain))];
@@ -72,14 +73,25 @@ export async function setEnabled(ctx: OrgCtx, on: boolean) {
   });
 }
 
-/** INV-36: the owner who turns this on keeps magic links for 24 hours (src/modules/sso/hooks.ts). */
+/**
+ * INV-36: the owner who turns this on keeps magic links for 24 hours (src/modules/sso/hooks.ts).
+ * Turning it on also signs out every OTHER member's sessions that were not made through SSO (audit A-05, v1.6.4): the
+ * reason to require SSO is that deprovisioning at the provider ends access, and a 30-day magic-link session would
+ * outlive that. A session is per user, not per org, so those members sign in again everywhere; the acting owner keeps
+ * theirs (their 24-hour exemption). ponytail: the guard half (requireOrg asking how the session was made) is v1.7.0.
+ */
 export async function setRequired(ctx: OrgCtx, on: boolean) {
   assertOwner(ctx);
   const c = await connectionOf(ctx);
   if (!c?.enabledAt) throw new Refused('Turn the connection on first.');
   await withOrg(ctx, async (tx) => {
     await tx.ssoConnection.update({ where: inOrg(ctx), data: on ? { required: true, requiredAt: now(), requiredById: ctx.userId } : { required: false, requiredAt: null, requiredById: null } });
-    await audit(ctx, on ? 'sso.required_on' : 'sso.required_off', {}, tx);
+    let signedOut = 0;
+    if (on) {
+      const others = (await tx.membership.findMany({ where: inOrg(ctx), select: { userId: true } })).map((m) => m.userId).filter((id) => id !== ctx.userId);
+      ({ count: signedOut } = await tx.session.deleteMany({ where: { userId: { in: others }, method: { not: 'sso' } } }));
+    }
+    await audit(ctx, on ? 'sso.required_on' : 'sso.required_off', on ? { data: { sessionsEnded: signedOut } } : {}, tx);
   });
 }
 

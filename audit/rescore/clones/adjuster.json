@@ -1,0 +1,72 @@
+{
+ "K1": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed",
+  "evidence": "diff -rq against template: src/core and tests/invariants identical"
+ },
+ "K2": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed",
+  "evidence": "diff -rq against template: src/core and tests/invariants identical"
+ },
+ "K3": {
+  "s": "✔",
+  "text": "Clone-owned pages call requireOrg and the rule-set actions go through orgAction with notRef ids; no new route handlers or unguarded use server exports.",
+  "evidence": "src/app/o/[org]/rules/[id]/actions.ts:15-52; src/app/o/[org]/claims/[id]/page.tsx:16; src/app/o/[org]/rules/page.tsx:10"
+ },
+ "K4": {
+  "s": "✗",
+  "text": "Claims, documents, decisions and rule sets have no org column; the claim page reads a claim by id for any signed-in org member of any org. Deliberate (D73, global single-administrator model) but it is not tenant scoping.",
+  "evidence": "src/app/o/[org]/claims/[id]/page.tsx:17-18; prisma/schema/adjudication.prisma:45-57; docs/decisions.md:227"
+ },
+ "K5": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed",
+  "evidence": "diff -rq against template: src/core and tests/invariants identical"
+ },
+ "K6": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed",
+  "evidence": "diff -rq against template: src/core and tests/invariants identical"
+ },
+ "K7": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed",
+  "evidence": "diff -rq against template: src/core and tests/invariants identical"
+ },
+ "K8": {
+  "s": "✔",
+  "text": "Clone adds no secrets or compares; the cron route still uses the core isAuthorizedCron guard.",
+  "evidence": "src/app/api/cron/route.ts:11"
+ },
+ "K9": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed",
+  "evidence": "diff -rq against template: src/core and tests/invariants identical"
+ },
+ "K10": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed",
+  "evidence": "diff -rq against template: src/core and tests/invariants identical"
+ },
+ "K11": {
+  "s": "✔",
+  "text": "Services read env via core env (src/adjudication/pool.ts); only scripts read process.env.DATABASE_URL, which is listed in .env.example. No new variables.",
+  "evidence": "src/adjudication/pool.ts:6,11; scripts/seed-decisions.ts:151; .env.example:3"
+ },
+ "K12": {
+  "s": "✔",
+  "text": "Service pool runs the core local-DB guard and CI uses a local Postgres; the clone's dev scripts open pg directly from DATABASE_URL without the guard (minor, not a test path). e2e build unchanged.",
+  "evidence": "src/adjudication/pool.ts:6; scripts/decisions-verify.ts:13; .github/workflows/ci.yml:31"
+ },
+ "K13": {
+  "s": "✔",
+  "text": "Clone privileged mutations (publish, override, tier grant, status change, payment) insert AuditEvent in the same statement or transaction as the change.",
+  "evidence": "src/adjudication/drafts.ts:92,123; src/adjudication/authority.ts:11; src/adjudication/claim-status.ts:69; src/adjudication/pipeline.ts:144"
+ },
+ "K14": {
+  "s": "✔",
+  "text": "ignoreCommand matches the standard line, port 4900 is the config default in package.json and playwright config, and the single cron route stays behind the core cron guard.",
+  "evidence": "vercel.json:4; package.json dev/start -p 4900; playwright.config.ts:4; src/app/api/cron/route.ts:11"
+ }
+}

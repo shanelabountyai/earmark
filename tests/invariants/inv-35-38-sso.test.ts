@@ -12,9 +12,9 @@ import { dbSystem as db } from '@/core/db/system'; // fixtures run as the owner 
 import { env } from '@/core/env';
 import { Refused } from '@/core/errors';
 import { hashToken, newToken } from '@/core/tokens';
-import { finishSso, sharedIssuers, SSO_STATE_COOKIE, startSso } from '@/modules/sso/flow';
-import { addDomain, dns, saveConnection, txtValue, verifyDomain } from '@/modules/sso/settings';
-import { makeUser, resetAuthTables } from '../helpers/auth';
+import { finishSso, resolver, sharedIssuers, SSO_STATE_COOKIE, startSso } from '@/modules/sso/flow';
+import { addDomain, dns, saveConnection, setRequired, txtValue, verifyDomain } from '@/modules/sso/settings';
+import { makeUser, resetAuthTables, signInAs } from '../helpers/auth';
 import { jar, NavSignal } from '../helpers/next';
 import { addMember, actAs, makeOrg } from '../helpers/org';
 import { startOidcMock, type MockUser, type OidcMock } from '../helpers/oidc-mock';
@@ -326,5 +326,69 @@ describe('INV-22 with SSO (§10.2): provider MFA counts only when amr has mfa, a
     await db.membership.create({ data: { orgId: org.id, userId: u.id, role: 'admin' } });
     const { done } = await signIn({ amr: ['mfa'] });
     expect((await db.session.findUniqueOrThrow({ where: { hash: hashToken((done as { token: string }).token) } })).mfaAt).toBeNull();
+  });
+});
+
+// v1.6.4 (audit 2026-11-17, A-02, A-05, A-07; moved from tests/defects when fixed).
+describe('SSO v1.6.4: the issuer is a public address, and Require SSO ends link sessions', () => {
+  // the file's beforeEach has reset the tables and connected `org` to the mock (enabled, domain verified)
+
+  it.each(['https://169.254.169.254/', 'https://10.0.0.5/realms/x', 'https://[::1]/', 'https://localhost/', 'https://[::ffff:a9fe:a9fe]/'])(
+    'A-02 an issuer at %s is refused at save, and nothing is saved',
+    async (issuer) => {
+      const o = await makeOrg('acme');
+      const owner = await actAs((await addMember(o.id, 'owner', 'owner@acme.test')).id, o.slug);
+      await expect(saveConnection(owner, { issuer, clientId: 'c', clientSecret: 's', allowedDomains: '', defaultRole: 'member' })).rejects.toThrow(/private address/);
+      expect(await db.ssoConnection.count({ where: { orgId: o.id } })).toBe(0); // `org` from beforeEach has its own
+    },
+  );
+
+  it('A-02 an issuer NAME that resolves to a private address is refused too', async () => {
+    const real = resolver.lookup;
+    resolver.lookup = async () => [{ address: '10.0.0.5', family: 4 }];
+    try {
+      const o = await makeOrg('acme');
+      const owner = await actAs((await addMember(o.id, 'owner', 'owner@acme.test')).id, o.slug);
+      await expect(saveConnection(owner, { issuer: 'https://idp.internal.example', clientId: 'c', clientSecret: 's', allowedDomains: '', defaultRole: 'member' })).rejects.toThrow(/private address/);
+    } finally {
+      resolver.lookup = real;
+    }
+  });
+
+  it("A-05 turning Require SSO on ends other members' link sessions, keeps their SSO sessions and the owner's own", async () => {
+    const owner = await addMember(org.id, 'owner', `owner@${DOMAIN}`);
+    const linkMember = await addMember(org.id, 'member', `mel@${DOMAIN}`);
+    const ssoMember = await addMember(org.id, 'member', `sam@${DOMAIN}`);
+    const linkToken = await signInAs(linkMember.id, { mfa: true });
+    await signInAs(ssoMember.id, { mfa: true });
+    await db.session.updateMany({ where: { userId: ssoMember.id }, data: { method: 'sso' } });
+    const ownerCtx = await actAs(owner.id, org.slug);
+    const ownerSessions = await db.session.count({ where: { userId: owner.id } });
+
+    jar.clear();
+    jar.set(SESSION_COOKIE, linkToken);
+    expect(await requireOrg(org.slug).then(() => 'admitted'), 'before the switch').toBe('admitted');
+
+    await setRequired(ownerCtx, true);
+
+    expect(await db.session.count({ where: { userId: linkMember.id } }), 'the link session').toBe(0);
+    expect(await db.session.count({ where: { userId: ssoMember.id } }), 'the SSO session').toBe(1);
+    expect(await db.session.count({ where: { userId: owner.id } }), "the acting owner's").toBe(ownerSessions);
+    jar.clear();
+    jar.set(SESSION_COOKIE, linkToken);
+    await expect(requireOrg(org.slug)).rejects.toBeInstanceOf(NavSignal);
+  });
+
+  it('A-07 a sign-up link issued before the account existed does not sign in a member of an SSO-required org', async () => {
+    await db.ssoConnection.update({ where: { orgId: org.id }, data: { required: true, requiredAt: now(), requiredById: null } });
+    const email = 'newhire@elsewhere.example';
+    await requestLink(email, randomUUID()); // unknown address: a 15-minute sign-up token with userId = null
+    const row = await db.loginToken.findFirstOrThrow({ where: { email } });
+    expect(row.purpose).toBe('signup');
+    await addMember(org.id, 'member', email); // inside those 15 minutes the account appears and joins the org
+    const token = newToken(); // the emailed token is unknown here (only its hash is stored), so plant one of the same shape
+    await db.loginToken.create({ data: { ...row, hash: hashToken(token) } });
+    expect(await redeemLink(token)).toBeNull();
+    expect(await db.session.count()).toBe(0);
   });
 });

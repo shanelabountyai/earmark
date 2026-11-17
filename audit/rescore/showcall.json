@@ -11,7 +11,7 @@
  },
  "K3": {
   "s": "✗",
-  "text": "proxy.ts puts one shared password in front of every route incl. server actions, file routes and portals, but there is no per-entry-point guard or identity across the 18 'use server' page files (SEC-01 open); swept via the matcher, not per action.",
+  "text": "proxy.ts puts one shared password in front of every route incl. server actions, file routes and portals, but there is no per-entry-point guard or identity across the 19 files with 'use server' (SEC-01 open); swept via the matcher, not per action.",
   "evidence": "proxy.ts:19-21; docs/decisions.md:875-884; docs/backlog.md:86"
  },
  "K4": {
@@ -61,12 +61,12 @@
  },
  "K13": {
   "s": "✔",
-  "text": "DB triggers block UPDATE/DELETE on the history tables (per baseline, not re-read); no verified actor since no auth exists.",
-  "evidence": "prisma/migrations/*/migration.sql"
+  "text": "DB triggers (RAISE EXCEPTION) block UPDATE/DELETE on the history tables incl. the new ShowChange log, re-confirmed in migrations; no verified actor since no per-user auth exists.",
+  "evidence": "prisma/migrations/20260921170417_init/migration.sql; prisma/migrations/20261019120000_show_change_log/migration.sql"
  },
  "K14": {
   "s": "✗",
-  "text": "ignoreCommand is canonical and port 4000 is in config, but the cron route compares the bearer secret with === instead of a constant-time compare (it does fail closed in production).",
-  "evidence": "vercel.json:4; app/api/cron/escalate/route.ts:10-11; package.json"
+  "text": "ignoreCommand is canonical and port 4000 is in config, but the cron route compares the bearer secret with === instead of a constant-time compare (it does fail closed in production). (HEAD d52dcb7, 2026-11-10)",
+  "evidence": "vercel.json:4,8-11; app/api/cron/escalate/route.ts:12-13; package.json"
  }
 }

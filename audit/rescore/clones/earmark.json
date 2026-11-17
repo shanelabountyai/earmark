@@ -1,0 +1,72 @@
+{
+ "K1": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed",
+  "evidence": "src/core/authz/permissions.ts:11 (only adds guest: [])"
+ },
+ "K2": {
+  "s": "✔",
+  "text": "Inherited; the only change is the guest role with no core grants, which FOUNDATION_PATCHES says is not MFA-gated (guard gates owner/admin only). Guests hold only invoice.submit.",
+  "evidence": "src/core/authz/permissions.ts:11; src/earmark/core.ts:28"
+ },
+ "K3": {
+  "s": "✔",
+  "text": "All clone mutations are built with orgAction (ref() ids) plus requirePerm; clone pages call requireOrg and the audit CSV and export routes are inherited. The one clone-owned cron job is wired through the core /api/cron.",
+  "evidence": "src/earmark/actions.ts:1-5,38; src/app/o/[org]/lines/[id]/page.tsx:15; src/app/cron-jobs.ts:11"
+ },
+ "K4": {
+  "s": "✔",
+  "text": "Every by-id read goes through findFirst with inOrg(ctx) inside withOrg (RLS on, 68 ENABLE/FORCE statements in the earmark policy migration), and guests are narrowed by scopeOf to one agency with not-found on miss. The cross-org alerts cron is allowlisted in cross-org.ts and works per org with withOrg.",
+  "evidence": "src/earmark/core.ts:44-57; src/earmark/actions.ts:51-52,94,270-271; src/core/db/cross-org.ts:19; prisma/migrations/20261109000002_rls_policies_earmark/migration.sql"
+ },
+ "K5": {
+  "s": "N/A",
+  "text": "Clone adds no unauthenticated writes or public forms; its routes and actions all require an org session.",
+  "evidence": "src/app/o/[org] (no public routes added)"
+ },
+ "K6": {
+  "s": "N/A",
+  "text": "Clone mints no capability links; guest access is by membership with an agency tie, and the guest projection is an allowlist.",
+  "evidence": "src/earmark/core.ts:63-79"
+ },
+ "K7": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed",
+  "evidence": "next.config.ts identical to template"
+ },
+ "K8": {
+  "s": "✔",
+  "text": "No secret handling added; the new cron job runs behind the unchanged core /api/cron guard and the clone reads no secrets.",
+  "evidence": "src/app/cron-jobs.ts:11; src/app/api/cron/route.ts (identical to template)"
+ },
+ "K9": {
+  "s": "N/A",
+  "text": "Billing module and its Stripe webhook were removed and the clone adds no inbound webhooks; only the inherited outbound apikeys webhooks remain.",
+  "evidence": "src/modules (billing absent); tests/invariants (inv-12 absent)"
+ },
+ "K10": {
+  "s": "✔",
+  "text": "Clone code has no console logging or token/body logging; alert emails go through the core sendEmail and the audit row stores only a seat and recipient count.",
+  "evidence": "src/earmark/alerts.ts:70-73"
+ },
+ "K11": {
+  "s": "✔",
+  "text": "Clone code reads no process.env; .env.example is identical to the template. Alert thresholds are data in rules/alerts.json.",
+  "evidence": "grep process.env src/earmark src/lib: none; .env.example identical"
+ },
+ "K12": {
+  "s": "✔",
+  "text": "Test DB guard and e2e build are inherited; the clone only renames the test DB (earmark_test, local Postgres), moves the port to 7600 and adds a global-setup seed.",
+  "evidence": "playwright.config.ts:4,8; .github/workflows/ci.yml:23-24"
+ },
+ "K13": {
+  "s": "✔",
+  "text": "Every clone privileged mutation (rules, seats, guest assignment, agency offboard, plan, invoices, approvals) calls audit(...) in the same transaction, and the append-only audit table is inherited.",
+  "evidence": "src/earmark/actions.ts:70,216,434,450,513,546"
+ },
+ "K14": {
+  "s": "✔",
+  "text": "ignoreCommand matches the standard line, port 7600 is the config default, and the clone adds no cron routes of its own (only a job in the core-guarded cron).",
+  "evidence": "vercel.json:4; playwright.config.ts:4; src/app/cron-jobs.ts:11"
+ }
+}

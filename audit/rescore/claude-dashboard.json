@@ -1,16 +1,16 @@
 {
-"K1":{"s":"N/A","text":"No sessions or accounts; single-user local tool with no auth system.","evidence":"server.js:1-261"},
-"K2":{"s":"N/A","text":"No users or privileged roles exist.","evidence":"package.json (express only)"},
-"K3":{"s":"✗","text":"Swept all 10 routes: none has any auth check, including GET /api/skills/run and /api/agents/run which spawn the claude CLI; SEC-01 (fixed a009fce) narrows exposure to loopback only, so any local process or a cross-site browser GET can still reach them, and the optional token check was deliberately not done.","evidence":"server.js:22,30,43,72,154,163,179,189,217,249; server.js:259"},
-"K4":{"s":"N/A","text":"No tenants or owners. Note: projectPath query param on /api/agents/run is not validated against configured paths (swept, SEC-02 covered by loopback bind only).","evidence":"server.js:189-211; lib/config.js:39-51"},
-"K5":{"s":"N/A","text":"No public unauthenticated write surface; loopback-only after SEC-01.","evidence":"server.js:259"},
+"K1":{"s":"N/A","text":"No sessions or accounts; single-user local tool with no auth system.","evidence":"server.js:1-282"},
+"K2":{"s":"N/A","text":"No users or privileged roles exist.","evidence":"package.json:21-23 (express only)"},
+"K3":{"s":"✗","text":"None of the 10 /api routes has an auth check; SEC-01 (fixed, loopback bind) and SEC-02 (fixed 3c84761, cross-site/Origin/Host 403 middleware) keep the LAN and other web pages out, but any local process can still reach GET /api/skills/run and /api/agents/run, and the optional token check was deliberately not done.","evidence":"server.js:23-36; server.js:43,51,64,93,175,184,200,210,238,270; server.js:280"},
+"K4":{"s":"N/A","text":"No tenants or owners; note /api/agents/run does not check projectPath against configured paths and /api/sessions/:slug/:sessionId joins unvalidated slug/sessionId into a path (.jsonl only), both only reachable from the local user.","evidence":"server.js:210-232; lib/sessions.js:177-178"},
+"K5":{"s":"N/A","text":"No public unauthenticated write surface; loopback-only.","evidence":"server.js:280"},
 "K6":{"s":"N/A","text":"No capability/token links exist.","evidence":"server.js (no token routes)"},
-"K7":{"s":"N/A","text":"Local loopback tool, no security headers set and none required by its trusted-machine model.","evidence":"server.js:15-16"},
-"K8":{"s":"✗","text":"Spawned claude process inherits full process.env (every shell secret) with a caller-supplied prompt; no tracked secrets, no VITE/NEXT_PUBLIC vars, config.json is gitignored.","evidence":"lib/runner.js:34; .gitignore:2"},
+"K7":{"s":"N/A","text":"Local loopback tool, no security headers set and none required by its trusted-machine model (cross-site refusal is done by header check in the /api middleware).","evidence":"server.js:23-36"},
+"K8":{"s":"✗","text":"Spawned claude process still inherits full process.env (every shell secret) with a caller-supplied prompt; no tracked secrets, no VITE/NEXT_PUBLIC vars, config.json and .env* are gitignored.","evidence":"lib/runner.js:34; .gitignore:2,5"},
 "K9":{"s":"N/A","text":"No webhooks.","evidence":"server.js routes list"},
-"K10":{"s":"?","text":"Logging is only a startup line, but several catch blocks return raw err.message to the client and it was not deeply reviewed; low risk on loopback.","evidence":"server.js:26,260; lib/runner.js:40"},
-"K11":{"s":"N/A","text":"Only env var is PORT with inline default; no .env files.","evidence":"server.js:12"},
-"K12":{"s":"N/A","text":"No database and no test suite.","evidence":"package.json"},
+"K10":{"s":"✔","text":"Only log is the startup line and no tokens or bodies are logged; catch blocks return raw err.message to the loopback-only client, acceptable for this tool.","evidence":"server.js:281; lib/runner.js:40,54"},
+"K11":{"s":"N/A","text":"Only env var is PORT with inline default; no .env files, nothing to validate.","evidence":"server.js:12"},
+"K12":{"s":"N/A","text":"No database; a node --test suite now exists (cross-site test) but there is nothing to point at a DB.","evidence":"package.json:10; test/cross-site.test.js"},
 "K13":{"s":"N/A","text":"No privileged changes to audit; single user.","evidence":"server.js"},
-"K14":{"s":"✔","text":"Own fixed port 4173 in config default matching the port table; no Vercel deploy so ignoreCommand and cron routes do not apply.","evidence":"server.js:12"}
+"K14":{"s":"✔","text":"Own fixed port 4173 in config default matching the port table and bound to 127.0.0.1; no Vercel deploy so ignoreCommand and cron routes do not apply (HEAD 3c84761, 2026-11-10).","evidence":"server.js:12,280"}
 }

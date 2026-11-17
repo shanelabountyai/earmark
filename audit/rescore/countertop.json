@@ -1,16 +1,72 @@
 {
-"K1":{"s":"✗","text":"Staff cookie is a salted but deterministic digest of the shared passcode; no server-side session rows, revocation only by rotating the passcode for everyone (SEC-03, open). No sign-in links.","evidence":"apps/web/lib/staff-auth.ts:35,54-58; apps/web/app/kitchen/login/actions.ts:31-38"},
-"K2":{"s":"✗","text":"Single shared passcode, no second factor and no per-user roles (not in the backlog as a fix item).","evidence":"apps/web/app/kitchen/login/actions.ts:16-29"},
-"K3":{"s":"✗","text":"Sweep of all 7 'use server' files and 3 route handlers: kitchen pages, actions and routes are guarded only by the /kitchen middleware matcher; no action calls a guard itself (SEC-04, open). Customer actions (cart, checkout) and /api/updates are public by design.","evidence":"apps/web/middleware.ts:16-45,64; apps/web/app/kitchen/actions.ts; apps/web/app/kitchen/settings/actions.ts; apps/web/app/kitchen/menu/actions.ts; apps/web/app/kitchen/loyalty/actions.ts; apps/web/app/kitchen/events/route.ts:12; apps/web/app/kitchen/report/export/route.ts"},
-"K4":{"s":"N/A","text":"Single-restaurant, single-tenant product with no accounts; the only per-customer handle is the 192-bit status token, which is the key itself (not-found on a wrong token).","evidence":"apps/web/app/status/[token]/page.tsx:1-8; packages/db/placement.ts:243"},
-"K5":{"s":"✗","text":"No rate limiter anywhere (grep for ratelimit/throttle hits only the kitchen prep-throttle); the passcode login, SMS verification start and public checkout are unthrottled (SEC-02, open).","evidence":"apps/web/app/kitchen/login/actions.ts:16-29; apps/web/app/checkout/actions.ts:191-200"},
-"K6":{"s":"✗","text":"Status token is 192-bit random but stored raw (unique column), no expiry or revocation, page and next.config set no Referrer-Policy, no-store or noindex (SEC-05, open).","evidence":"packages/db/placement.ts:243; packages/db/prisma/schema.prisma:589; apps/web/next.config.ts:1-25"},
-"K7":{"s":"✗","text":"next.config.ts defines no headers() and there is no headers block in vercel.json; no Referrer-Policy, nosniff, frame-ancestors or HSTS (no SEC item covers global headers).","evidence":"apps/web/next.config.ts; apps/web/vercel.json"},
-"K8":{"s":"✔","text":"Passcode compare is constant-time over fixed-length digests, unset passcode locks /kitchen (fails closed), pepper unset refuses enrolment, no NEXT_PUBLIC vars found in the app or env example.","evidence":"apps/web/lib/staff-auth.ts:37-45,61-73; packages/db/loyalty.ts:57; .env.example"},
-"K9":{"s":"N/A","text":"Payment is a mock provider and there is no inbound webhook route among the 3 route handlers.","evidence":"packages/db/provider.ts; apps/web/app/api/updates/route.ts"},
-"K10":{"s":"✗","text":"SMS verification stub returns the code and requestCheckoutVerification hands echoedCode to the browser, including in production, and nothing fails loudly (SEC-01, open).","evidence":"packages/db/verification.ts:59,72-75; apps/web/app/checkout/actions.ts:191-200"},
-"K11":{"s":"✗","text":"No schema validation of env at boot (vars read ad hoc via process.env); .env.example does list DATABASE_URL, DIRECT_URL, PORT, STAFF_PASSCODE(_PREVIOUS) and LOYALTY_PHONE_PEPPER, names only, but that is only half the rule.","evidence":".env.example; apps/web/lib/staff-auth.ts:45,50; packages/db/loyalty.ts:57"},
-"K12":{"s":"✔","text":"Tests use local Postgres via .env.test with dotenv first-wins, assertLocalDatabase guards destructive scripts, e2e runs build:test then start:test (production build) with E2E_DEV escape hatch.","evidence":"package.json:16,21-24; packages/db/local-guard.ts:48,66; apps/web/playwright.config.ts:33"},
-"K13":{"s":"✔","text":"OrderEvent (and adjustment/ledger tables) are append-only via DB triggers in migrations, including menu_change and staff_note events; spot-checked schema comments, not every migration.","evidence":"packages/db/prisma/schema.prisma:467,751; packages/db/prisma/migrations/20260916110000_menu_change_event; packages/db/prisma/migrations/20260921100000_order_event_seq"},
-"K14":{"s":"✗","text":"Port 3400 is the config default in package.json and playwright, but vercel.json still has no ignoreCommand (OPS-01, open); there are no cron routes. No commits landed since the baseline audit.","evidence":"apps/web/vercel.json; apps/web/package.json:6,8"}
+"K1": {
+"s": "✗",
+"text": "Staff cookie is a salted but deterministic digest of the shared passcode; no server-side session rows, revocation only by rotating the passcode for everyone (SEC-03, open). No sign-in links. Rotation without mass sign-out (C-158) added; still a deterministic digest.",
+"evidence": "apps/web/lib/staff-auth.ts:35,54-58; apps/web/app/kitchen/login/actions.ts:31-38; apps/web/middleware.ts:25-39"
+},
+"K2": {
+"s": "✗",
+"text": "Single shared passcode, no second factor and no per-user roles (not in the backlog as a fix item).",
+"evidence": "apps/web/app/kitchen/login/actions.ts:16-29"
+},
+"K3": {
+"s": "✗",
+"text": "Sweep of all 7 'use server' files and 3 route handlers: kitchen pages, actions and routes are guarded only by the /kitchen middleware matcher; no action calls a guard itself (SEC-04, open). Customer actions (cart, checkout) and /api/updates are public by design.",
+"evidence": "apps/web/middleware.ts:16-45,64; apps/web/app/kitchen/actions.ts; apps/web/app/kitchen/settings/actions.ts; apps/web/app/kitchen/menu/actions.ts; apps/web/app/kitchen/loyalty/actions.ts; apps/web/app/kitchen/events/route.ts:12; apps/web/app/kitchen/report/export/route.ts"
+},
+"K4": {
+"s": "N/A",
+"text": "Single-restaurant, single-tenant product with no accounts; the only per-customer handle is the 192-bit status token, which is the key itself (not-found on a wrong token).",
+"evidence": "apps/web/app/status/[token]/page.tsx:1-8; packages/db/placement.ts:243"
+},
+"K5": {
+"s": "✗",
+"text": "No rate limiter anywhere (grep for ratelimit/throttle hits only the kitchen prep-throttle); the passcode login, SMS verification start and public checkout are unthrottled (SEC-02, open).",
+"evidence": "apps/web/app/kitchen/login/actions.ts:16-29; apps/web/app/checkout/actions.ts:191-200"
+},
+"K6": {
+"s": "✗",
+"text": "Status token is 192-bit random but stored raw (unique column), no expiry or revocation, page and next.config set no Referrer-Policy, no-store or noindex (SEC-05, open).",
+"evidence": "packages/db/placement.ts:243; packages/db/prisma/schema.prisma:589; apps/web/next.config.ts:1-25"
+},
+"K7": {
+"s": "✗",
+"text": "next.config.ts defines no headers() and there is no headers block in vercel.json; no Referrer-Policy, nosniff, frame-ancestors or HSTS (no SEC item covers global headers).",
+"evidence": "apps/web/next.config.ts; apps/web/vercel.json"
+},
+"K8": {
+"s": "✔",
+"text": "Passcode compare is constant-time over fixed-length digests, unset passcode locks /kitchen (fails closed), pepper unset refuses enrolment, no NEXT_PUBLIC vars found in the app or env example.",
+"evidence": "apps/web/lib/staff-auth.ts:37-45,61-73; packages/db/loyalty.ts:57; .env.example"
+},
+"K9": {
+"s": "N/A",
+"text": "Payment is a mock provider and there is no inbound webhook route among the 3 route handlers.",
+"evidence": "packages/db/provider.ts; apps/web/app/api/updates/route.ts"
+},
+"K10": {
+"s": "✗",
+"text": "SMS verification stub returns the code and requestCheckoutVerification hands echoedCode to the browser, including in production, and nothing fails loudly (SEC-01, open).",
+"evidence": "packages/db/verification.ts:59,72-75; apps/web/app/checkout/actions.ts:191-200"
+},
+"K11": {
+"s": "✗",
+"text": "No schema validation of env at boot (vars read ad hoc via process.env); .env.example does list DATABASE_URL, DIRECT_URL, PORT, STAFF_PASSCODE(_PREVIOUS) and LOYALTY_PHONE_PEPPER, names only, but that is only half the rule.",
+"evidence": ".env.example; apps/web/lib/staff-auth.ts:45,50; packages/db/loyalty.ts:57"
+},
+"K12": {
+"s": "✔",
+"text": "Tests use local Postgres via .env.test with dotenv first-wins, assertLocalDatabase guards destructive scripts, e2e runs build:test then start:test (production build) with E2E_DEV escape hatch.",
+"evidence": "package.json:16,21-24; packages/db/local-guard.ts:48,66; apps/web/playwright.config.ts:33"
+},
+"K13": {
+"s": "✔",
+"text": "OrderEvent (and adjustment/ledger tables) are append-only via DB triggers in migrations, including menu_change and staff_note events; spot-checked schema comments, not every migration.",
+"evidence": "packages/db/prisma/schema.prisma:467,751; packages/db/prisma/migrations/20260916110000_menu_change_event; packages/db/prisma/migrations/20260921100000_order_event_seq"
+},
+"K14": {
+"s": "✔",
+"text": "vercel.json now has the canonical ignoreCommand (VERCEL_GIT_PREVIOUS_SHA, repo-root anchored, docs and *.md excluded, falls to build) plus git.deploymentEnabled=false (OPS-01 fixed); port 3400 is the default in package.json; there are no cron routes (HEAD e2f070f, 2026-11-10).",
+"evidence": "apps/web/vercel.json:3-6; apps/web/package.json:6,8"
+}
 }

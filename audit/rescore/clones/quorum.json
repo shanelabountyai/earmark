@@ -1,0 +1,72 @@
+{
+ "K1": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed.",
+  "evidence": ""
+ },
+ "K2": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed. Archive action additionally requires assertFresh.",
+  "evidence": "src/app/o/[org]/settings/archive/actions.ts:12"
+ },
+ "K3": {
+  "s": "✔",
+  "text": "All clone-owned server actions (ledger, roster, meetings, violations, archive, vote, desk, results) go through orgAction with a permission, or null (member-side) with an in-body OwnerLink check. No new route handlers or public pages were added.",
+  "evidence": "src/app/o/[org]/ledger/actions.ts:11; src/app/o/[org]/meetings/[id]/vote/actions.ts:11; src/app/o/[org]/settings/archive/actions.ts:10"
+ },
+ "K4": {
+  "s": "✔",
+  "text": "Clone-owned domain queries filter by orgId or by a parent relation (unit.orgId, meeting.orgId); ids are resolved with findFirst and orgId. Org tables are also covered by RLS and the export-hook coverage check.",
+  "evidence": "src/violations/violations.ts:45,68; src/meetings/admin.ts:34,88-90; src/ledger/ledger.ts:45"
+ },
+ "K5": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed. The clone adds no unauthenticated write; ballot casting is session-bound.",
+  "evidence": ""
+ },
+ "K6": {
+  "s": "✔",
+  "text": "The clone mints no capability links. Ballot receipts are verified in-session. No new token or share surface outside src/core/share.",
+  "evidence": "src/app/o/[org]/meetings/[id]/results/actions.ts:9"
+ },
+ "K7": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed.",
+  "evidence": "next.config.ts identical to template"
+ },
+ "K8": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed. The clone adds no secret compares or secret env vars.",
+  "evidence": ""
+ },
+ "K9": {
+  "s": "N/A",
+  "text": "N/A: billing and the Stripe webhook were removed, and the clone adds no webhooks. Removing the webhook also dropped its cross-org entry and inv-12 test.",
+  "evidence": "src/core/db/cross-org.ts"
+ },
+ "K10": {
+  "s": "✔",
+  "text": "No console or log calls in clone-owned src. Notices are queued to the outbox and the drain is deliberately disabled (D-44), so nothing is sent and nothing logged.",
+  "evidence": "src/app/cron-jobs.ts:7-9"
+ },
+ "K11": {
+  "s": "✔",
+  "text": "Clone-owned src reads no process.env. The only env reads outside core are the template's db-setup script (LOCAL_PG_URL_BASE, PGUSER, PGPASSWORD, dev-only). .env.example changed by one comment line only.",
+  "evidence": "scripts/db-setup.ts:16; .env.example:2"
+ },
+ "K12": {
+  "s": "✔",
+  "text": "Test DB guard and e2e production-build setup are untouched. The clone only changed the playwright default port to 6200.",
+  "evidence": "playwright.config.ts:4"
+ },
+ "K13": {
+  "s": "✔",
+  "text": "Clone privileged mutations audit via core audit(): dues run, payments and credits, roster import, meeting create/close, proxies, violations, archive, ballot cast. The AuditEvent trigger is inherited, and OrgArchive and the ballot tables get their own append-only triggers.",
+  "evidence": "src/ledger/ledger.ts:51,87; src/violations/violations.ts:59,98; src/meetings/casting.ts:50; prisma/migrations/20261027100000_quorum_owner_link_archive/migration.sql:54"
+ },
+ "K14": {
+  "s": "✔",
+  "text": "vercel.json and the cron route are inherited. cron-jobs.ts only drops the outbox drain (a reduction) and adds no cron route. Port 6200 is set in config.",
+  "evidence": "src/app/cron-jobs.ts:7; playwright.config.ts:4"
+ }
+}

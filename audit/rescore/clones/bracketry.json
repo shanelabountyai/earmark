@@ -1,0 +1,72 @@
+{
+ "K1": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed.",
+  "evidence": "src/core and tests/invariants identical to template (diff -rq clean)"
+ },
+ "K2": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed.",
+  "evidence": "src/core and tests/invariants identical to template (diff -rq clean)"
+ },
+ "K3": {
+  "s": "✔",
+  "text": "All clone-owned server actions are built with orgAction (guard + role + zod ref validation) and season pages call requireOrg; the public /l routes are annotated public and read-only.",
+  "evidence": "src/app/o/[org]/seasons/actions.ts:44; src/app/o/[org]/seasons/version-actions.ts:30; src/app/o/[org]/seasons/page.tsx:11; src/app/l/[org]/[season]/page.tsx:1"
+ },
+ "K4": {
+  "s": "✔",
+  "text": "Clone queries scope by inOrg(ctx)/orgId and refs are typed; the anonymous league reads derive orgId from the published version/link and filter every placement/bracket query by it. Export hooks filter by orgId.",
+  "evidence": "src/app/o/[org]/seasons/version-actions.ts:166,181; src/app/l/public-league.ts:150-170; src/app/export-hooks.ts:10-25"
+ },
+ "K5": {
+  "s": "✔",
+  "text": "The three unauthenticated clone routes (league page, preview page, calendar.ics) call the shared DB-backed hit() with LIMITS.shareReadPerIp before any read; the clone adds no other public writes.",
+  "evidence": "src/app/l/[org]/[season]/page.tsx:15; src/app/l/[org]/[season]/preview/[token]/page.tsx:17; src/app/l/[org]/[season]/calendar.ics/route.ts:13"
+ },
+ "K6": {
+  "s": "✔",
+  "text": "Preview links are minted by hand outside src/core/share, but meet the contract: newToken, hashToken at rest, required expiry, audited, revoked via core revokeShareLink, noindex and no-referrer, one 404 for misses. Residual risk is that the clone owns the projection and mint path rather than the core registry.",
+  "evidence": "src/app/o/[org]/seasons/version-actions.ts:165-177; src/app/l/[org]/[season]/preview/[token]/page.tsx:14; src/app/l/public-league.ts:195"
+ },
+ "K7": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed.",
+  "evidence": "src/core and tests/invariants identical to template (diff -rq clean)"
+ },
+ "K8": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed.",
+  "evidence": "src/core and tests/invariants identical to template (diff -rq clean)"
+ },
+ "K9": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed.",
+  "evidence": "src/core and tests/invariants identical to template (diff -rq clean)"
+ },
+ "K10": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed.",
+  "evidence": "src/core and tests/invariants identical to template (diff -rq clean)"
+ },
+ "K11": {
+  "s": "✔",
+  "text": "Clone reads env only through src/core/env (version-actions uses env.APP_URL); the only raw process.env uses are dev scripts (db-setup, check-modules), not app code. No new env var names introduced.",
+  "evidence": "src/app/o/[org]/seasons/version-actions.ts:177; scripts/db-setup.ts:16"
+ },
+ "K12": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed.",
+  "evidence": "src/core and tests/invariants identical to template (diff -rq clean)"
+ },
+ "K13": {
+  "s": "✔",
+  "text": "Clone privileged mutations (publish, pins, results, voids, withdrawals, brackets, standings config, preview link create/revoke, rules) call audit() in the same transaction; audit table and its DB enforcement are inherited.",
+  "evidence": "src/app/o/[org]/seasons/version-actions.ts:107,141,156,173; src/app/o/[org]/seasons/result-actions.ts:67,90; src/app/o/[org]/seasons/withdraw-actions.ts:56"
+ },
+ "K14": {
+  "s": "✔",
+  "text": "vercel.json identical to the template (ignoreCommand intact), own port 5100 in package.json and playwright.config.ts, no clone cron routes (inherited cron route untouched).",
+  "evidence": "vercel.json; package.json:8,10,19,21; playwright.config.ts:4"
+ }
+}

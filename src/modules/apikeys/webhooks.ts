@@ -1,6 +1,5 @@
 import { createHmac, randomBytes } from 'node:crypto';
 import { lookup } from 'node:dns/promises';
-import { isIP } from 'node:net';
 import { notFound } from 'next/navigation';
 import { audit } from '@/core/audit';
 import { openSecret, sealSecret } from '@/core/auth/secret-box';
@@ -10,6 +9,7 @@ import { now } from '@/core/clock';
 import { asSystem, withOrg } from '@/core/db/rls';
 import { env } from '@/core/env';
 import { Refused } from '@/core/errors';
+import { checkOutboundUrl, isPrivateAddress } from '@/core/net';
 import { safeEqual } from '@/core/tokens';
 import { EVENT_TYPES } from '@/app/event-types';
 
@@ -54,38 +54,12 @@ const newSecret = () => `whsec_${randomBytes(32).toString('base64url')}`;
 
 // ---- where a webhook may go: https, no credentials, no private address, checked at save AND at send (a name can be
 // re-pointed at 169.254.169.254 after it was saved). WEBHOOK_ALLOW_PRIVATE=1 lifts it for a local receiver in tests.
+// The address rules live in core (src/core/net.ts, v1.6.4 audit A-01) so the SSO module applies the same ones.
 
-function v4Private(ip: string) {
-  const [a, b] = ip.split('.').map(Number) as [number, number];
-  return a === 0 || a === 10 || a === 127 || (a === 100 && b >= 64 && b <= 127) || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || a >= 224;
-}
-export function isPrivateAddress(ip: string) {
-  if (isIP(ip) === 4) return v4Private(ip);
-  const v6 = ip.toLowerCase();
-  const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(v6);
-  if (mapped) return v4Private(mapped[1]!);
-  return v6 === '::' || v6 === '::1' || /^f[cd]/.test(v6) || /^fe[89ab]/.test(v6);
-}
+export { isPrivateAddress };
 
-/**
- * ponytail: resolve-then-fetch leaves a DNS-rebinding window of milliseconds; closing it means pinning the resolved
- * address into the connection (a custom dispatcher), worth it once endpoints point anywhere but the org's own tools.
- */
 export async function checkUrl(raw: string, allowPrivate = env.WEBHOOK_ALLOW_PRIVATE === '1'): Promise<string> {
-  let url: URL;
-  try {
-    url = new URL(raw.trim());
-  } catch {
-    throw new Refused('The endpoint must be a URL.');
-  }
-  if (url.protocol !== 'https:' && !(allowPrivate && url.protocol === 'http:')) throw new Refused('The endpoint must be an https URL.');
-  if (url.username || url.password) throw new Refused('The endpoint URL must not carry a user name or password.');
-  if (allowPrivate) return url.toString();
-  const host = url.hostname.replace(/^\[|\]$/g, '');
-  const addrs = host === 'localhost' ? [{ address: '127.0.0.1' }] : isIP(host) ? [{ address: host }] : await transport.lookup(host).catch(() => []);
-  if (!addrs.length) throw new Refused(`${host} does not resolve.`);
-  if (addrs.some((a) => isPrivateAddress(a.address))) throw new Refused('The endpoint must not point at a private address.');
-  return url.toString();
+  return checkOutboundUrl(raw, { lookup: (host) => transport.lookup(host), allowPrivate, allowHttp: allowPrivate });
 }
 
 // ---- owner controls (settings page). Every change needs apikeys.manage and is audited; secrets are shown once.
@@ -258,11 +232,38 @@ async function claimDelivery(orgId: string | undefined, skip: string[]): Promise
 
 type Outcome = { ok: boolean; status: number | null; excerpt: string | null; error: string | null };
 
+/**
+ * At most the first 1 KiB of the receiver's answer, then the stream is cancelled: a hostile receiver must not be able to
+ * stream into memory until the timeout (audit A-13, v1.6.4). Cut at a byte boundary, decoded leniently.
+ */
+async function firstKiB(res: Response): Promise<string> {
+  const reader = res.body?.getReader();
+  if (!reader) return '';
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    while (size < 1024) {
+      const { done, value } = await reader.read();
+      if (done || !value) break;
+      chunks.push(value);
+      size += value.byteLength;
+    }
+  } catch {
+    // a broken stream leaves whatever arrived
+  } finally {
+    reader.cancel().catch(() => {});
+  }
+  const all = new Uint8Array(size);
+  let at = 0;
+  for (const c of chunks) all.set(c, (at += c.byteLength) - c.byteLength);
+  return new TextDecoder().decode(all.subarray(0, 1024));
+}
+
 async function send(url: string, headers: Record<string, string>, body: string): Promise<Outcome> {
   try {
     await checkUrl(url); // again at send time: DNS may have moved
     const res = await transport.fetch(url, { method: 'POST', headers, body, redirect: 'manual', signal: AbortSignal.timeout(SEND_TIMEOUT_MS) });
-    const excerpt = (await res.text().catch(() => '')).slice(0, 1024);
+    const excerpt = await firstKiB(res);
     const ok = res.status >= 200 && res.status < 300;
     return { ok, status: res.status, excerpt, error: ok ? null : `HTTP ${res.status}` };
   } catch (e) {
@@ -279,16 +280,21 @@ async function deliver(c: Claimed): Promise<'succeeded' | 'failed' | 'dead'> {
     const body = JSON.stringify(eventBody(event, c.replayed));
     const secrets = [openSecret(ep.secretSealed, 'webhook')];
     if (ep.previousSecretSealed && ep.previousSecretExpiresAt && ep.previousSecretExpiresAt > t) secrets.push(openSecret(ep.previousSecretSealed, 'webhook'));
+    const live = secrets.filter((s): s is string => !!s);
     const headers = {
       'content-type': 'application/json',
       'user-agent': 'Foundation-Webhooks/1',
-      [SIGNATURE_HEADER]: signatureHeader(secrets.filter((s): s is string => !!s), Math.floor(t.getTime() / 1000), body),
+      [SIGNATURE_HEADER]: signatureHeader(live, Math.floor(t.getTime() / 1000), body),
       'Webhook-Event-Id': event.id,
       'Webhook-Event-Type': event.type,
       'Webhook-Delivery-Id': c.id,
       'Webhook-Attempt': String(c.attempts),
     };
-    const o = await send(ep.url, headers, body);
+    // A delivery is never posted unsigned (audit A-13, v1.6.4): if no secret opens (AUTH_SECRET rotated without
+    // re-sealing), fail it like any other error, so it retries, then pauses the endpoint and shows on the settings page.
+    const o: Outcome = live.length
+      ? await send(ep.url, headers, body)
+      : { ok: false, status: null, excerpt: null, error: 'No signing secret could be opened; rotate the endpoint secret.' };
     const last = { lastResponseStatus: o.status, lastResponseExcerpt: o.excerpt, lastError: o.error, updatedAt: now() };
     if (o.ok) {
       await sys.$transaction([

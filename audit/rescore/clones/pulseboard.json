@@ -1,0 +1,72 @@
+{
+ "K1": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed.",
+  "evidence": "src/core and src/modules byte-identical to template (diff -rq clean)"
+ },
+ "K2": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed.",
+  "evidence": "src/core and src/modules byte-identical to template (diff -rq clean)"
+ },
+ "K3": {
+  "s": "✔",
+  "text": "Only new entry points are /ingest (requireApiKey with ingest scope before reading the body) and the dashboard page (requireOrg); no new 'use server' exports.",
+  "evidence": "src/app/ingest/route.ts:11-12; src/app/o/[org]/page.tsx:82"
+ },
+ "K4": {
+  "s": "✔",
+  "text": "All clone queries take orgId from requireOrg or the API key context and filter by it; RLS policies were generated for the new models.",
+  "evidence": "src/app/o/[org]/page.tsx:89-99; src/lib/ingest.ts:51,60; src/lib/funnels.ts:32,43; src/lib/retention.ts:23,29; prisma/migrations/20261109000001_rls_policies_pulseboard/migration.sql:1"
+ },
+ "K5": {
+  "s": "✔",
+  "text": "/ingest is a public write limited by the core requireApiKey shared-store limiter, with a new 'ingest' scope in api-scopes (3000/min); also bounded by 1MB body and 500-row batch caps.",
+  "evidence": "src/app/api-scopes.ts:7; src/app/ingest/route.ts:11-15,23"
+ },
+ "K6": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed.",
+  "evidence": "src/core and src/modules byte-identical to template (diff -rq clean)"
+ },
+ "K7": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed.",
+  "evidence": "src/core and src/modules byte-identical to template (diff -rq clean)"
+ },
+ "K8": {
+  "s": "✔",
+  "text": "Clone adds no secret comparisons; API key auth is the inherited constant-time/fail-closed core. Cron stays on /api/cron with the core guard; rollups is just a job in cron-jobs.ts.",
+  "evidence": "src/app/cron-jobs.ts:15; src/app/ingest/route.ts:11"
+ },
+ "K9": {
+  "s": "N/A",
+  "text": "Clone adds no webhook receivers; only the inherited outbound webhook module exists.",
+  "evidence": "src/app (no webhook routes added)"
+ },
+ "K10": {
+  "s": "✔",
+  "text": "Clone code has no console/logger calls; rejected rows go to a DB dead-letter table with a reason, not to logs.",
+  "evidence": "src/lib/ingest.ts:57-62 (grep console in src/lib, src/app/ingest: none)"
+ },
+ "K11": {
+  "s": "✔",
+  "text": "Clone-owned src code reads no env vars; only dev scripts read BENCH_*/LOAD_URL, outside the app runtime.",
+  "evidence": "grep process.env src/lib src/app/ingest: none; scripts/load-run.ts:15"
+ },
+ "K12": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed; clone only renames the test DB (pulseboard_test, local) and port in CI/playwright.",
+  "evidence": ".github/workflows/ci.yml:27; playwright.config.ts:4"
+ },
+ "K13": {
+  "s": "✔",
+  "text": "Inherited from foundation v1.6.2, no clone-owned surface changed; clone adds no privileged mutations (ingest writes tenant event data, rollups write derived tables).",
+  "evidence": "src/app/ingest/route.ts:10; src/lib/rollups.ts:26"
+ },
+ "K14": {
+  "s": "✔",
+  "text": "vercel.json has the canonical ignoreCommand and a single daily cron on /api/cron; port 4500 set as default in package.json, playwright config and CI.",
+  "evidence": "vercel.json:4-10; package.json:8; playwright.config.ts:4; .github/workflows/ci.yml"
+ }
+}

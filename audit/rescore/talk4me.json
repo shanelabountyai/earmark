@@ -1,16 +1,16 @@
 {
 "K1":{"s":"N/A","text":"No accounts or sessions; static local-first SPA with IndexedDB only.","evidence":"src/store/db.ts; api/ contains only tts.ts"},
-"K2":{"s":"N/A","text":"No privileged server users; the caregiver PIN is a client-side UX lock, not a role.","evidence":"src/routes/RequireEditPin.tsx:18"},
-"K3":{"s":"✗","text":"The only entry point, POST /api/tts, is public with no auth, origin check or token (open paid-API proxy); sweep is complete since api/ has a single file. SEC-01 still open, no commits since 2026-09-23 touch api/.","evidence":"api/tts.ts:44-71; api/tts.ts:15-26"},
+"K2":{"s":"N/A","text":"No privileged server users; the caregiver PIN is a client-side UX lock, not a role (SEC-04, by design).","evidence":"src/routes/RequireEditPin.tsx:18"},
+"K3":{"s":"✗","text":"The only entry point, POST /api/tts, is public by design with no auth, origin check or token (SEC-01 only partly mitigated); the deployment currently sits behind Vercel SSO, which is platform protection and not an app guard.","evidence":"api/tts.ts:73-82; api/tts.ts:15-26"},
 "K4":{"s":"N/A","text":"No server-side records or by-id reads/writes; all data is in the browser.","evidence":"api/tts.ts (stateless proxy)"},
-"K5":{"s":"✗","text":"No rate limit on the unauthenticated paid proxy; MAX_CHARS is still 10,000 and any regex-valid voiceId is accepted (SEC-01).","evidence":"api/tts.ts:39; api/tts.ts:42; vercel.json:1-9"},
+"K5":{"s":"✗","text":"A 30/min per-IP limit was added (5505c68, SEC-01 partly fixed) but it lives in an in-memory Map per warm instance, not a shared store; MAX_CHARS is still 10,000 and any regex-valid voiceId is accepted.","evidence":"api/tts.ts:49-64,79-82; api/tts.ts:39; api/tts.ts:42"},
 "K6":{"s":"N/A","text":"No share or token links exist.","evidence":"src/App.tsx routes; no api/ token routes"},
-"K7":{"s":"✗","text":"vercel.json has only ignoreCommand and the SPA rewrite; no headers block, no CSP/XFO/nosniff/Referrer-Policy/HSTS, and index.html has no CSP meta (SEC-02).","evidence":"vercel.json:1-9; index.html:4-12"},
-"K8":{"s":"✔","text":"ELEVENLABS_API_KEY is server-only, fails closed with 503 when unset, sent in a header not a query string; only VITE_TTS_PROVIDER (non-secret switch) is client-side; .env.example holds names only. No constant-time compare needed since no inbound secret.","evidence":"api/tts.ts:50-56,78; .env.example"},
+"K7":{"s":"✗","text":"vercel.json still has only git, ignoreCommand and the SPA rewrite; no headers block, no CSP/XFO/nosniff/Referrer-Policy/HSTS (SEC-02 open).","evidence":"vercel.json:1-13; index.html"},
+"K8":{"s":"✔","text":"ELEVENLABS_API_KEY is server-only, fails closed with 503 when unset, sent in a header not a query string; only VITE_TTS_PROVIDER (non-secret switch) is client-side; .env.example holds names only and no env file is tracked. No constant-time compare needed since no inbound secret.","evidence":"api/tts.ts:84-90,112; .env.example; git ls-files shows only .env.example"},
 "K9":{"s":"N/A","text":"No webhooks.","evidence":"api/ contains only tts.ts"},
-"K10":{"s":"✗","text":"Upstream error body, which can echo the user's spoken text, is still logged via console.error (SEC-03, minor).","evidence":"api/tts.ts:92"},
-"K11":{"s":"✗","text":"No schema-validated env at boot; the single server var is checked ad hoc at use time. Low severity (one var, fail-closed); .env.example does list both vars.","evidence":"api/tts.ts:50; .env.example"},
-"K12":{"s":"N/A","text":"No database; e2e already runs against a production build via vite preview.","evidence":"package.json:14 (e2e:serve = build && vite preview --port 3800)"},
+"K10":{"s":"✗","text":"Upstream error body, which can echo the user's spoken text, is still logged via console.error (SEC-03 open, minor).","evidence":"api/tts.ts:126"},
+"K11":{"s":"✗","text":"No schema-validated env at boot; the single server var is checked ad hoc at use time. Low severity (one var, fail-closed); .env.example does list both vars.","evidence":"api/tts.ts:84; .env.example"},
+"K12":{"s":"N/A","text":"No database; e2e already runs against a production build via build && vite preview.","evidence":"package.json:16 (e2e:serve)"},
 "K13":{"s":"N/A","text":"No privileged server-side changes to audit.","evidence":"api/tts.ts (stateless)"},
-"K14":{"s":"✔","text":"ignoreCommand matches the CLAUDE.md form (previous-SHA diff, repo-root anchored, exclude docs and *.md, falls to build); port 3800 set in config; no cron routes.","evidence":"vercel.json:2; vite.config.ts:54-55; package.json:7,9,14"}
+"K14":{"s":"✔","text":"ignoreCommand matches the CLAUDE.md form (previous-SHA diff, repo-root anchored, excludes docs and *.md, falls to build) and per-push deploys are now off via git.deploymentEnabled=false; port 3800 set in config; no cron routes (HEAD 5505c68, 2026-11-10).","evidence":"vercel.json:2-4; vite.config.ts:54-55; package.json:9,11,16"}
 }

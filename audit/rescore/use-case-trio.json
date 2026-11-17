@@ -1,72 +1,16 @@
 {
- "K1": {
-  "s": "N/A",
-  "text": "next-auth is declared but no auth wiring exists; scaffold-only app.",
-  "evidence": "use-case-*/apps/web/app (layout.tsx, page.tsx only)"
- },
- "K2": {
-  "s": "N/A",
-  "text": "No roles or guards exist yet.",
-  "evidence": "use-case-*/apps/web/app (layout.tsx, page.tsx only)"
- },
- "K3": {
-  "s": "N/A",
-  "text": "No pages beyond a static placeholder, no server actions or route handlers.",
-  "evidence": "use-case-*/apps/web/app (layout.tsx, page.tsx only)"
- },
- "K4": {
-  "s": "N/A",
-  "text": "packages/db/prisma/schema.prisma has no models in any repo.",
-  "evidence": "use-case-*/packages/db/prisma/schema.prisma"
- },
- "K5": {
-  "s": "N/A",
-  "text": "No unauthenticated writes or token reads exist.",
-  "evidence": "use-case-*/apps/web/app (layout.tsx, page.tsx only)"
- },
- "K6": {
-  "s": "N/A",
-  "text": "No capability links built.",
-  "evidence": "use-case-*/apps/web/app (layout.tsx, page.tsx only)"
- },
- "K7": {
-  "s": "N/A",
-  "text": "No headers() in next.config.mjs, but no server surface yet; add before first real route.",
-  "evidence": "use-case-*/apps/web/next.config.mjs"
- },
- "K8": {
-  "s": "✗",
-  "text": "support-ticket-deflection/.env.local still holds populated DATABASE_URL, DIRECT_URL and ANTHROPIC_API_KEY at rest (gitignored, untracked); the other two repos have no .env.local.",
-  "evidence": "use-case-support-ticket-deflection/.env.local; use-case-support-ticket-deflection/.gitignore:24-25"
- },
- "K9": {
-  "s": "N/A",
-  "text": "No webhooks built.",
-  "evidence": "use-case-*/apps/web/app (layout.tsx, page.tsx only)"
- },
- "K10": {
-  "s": "N/A",
-  "text": "No server code that logs; only scripts in ticket-deflection use console.",
-  "evidence": "use-case-support-ticket-deflection/scripts"
- },
- "K11": {
-  "s": "✗",
-  "text": "No schema-validated env at boot (no env.ts/zod); .env.example lists names only and is the only tracked env file.",
-  "evidence": "use-case-*/.env.example"
- },
- "K12": {
-  "s": "✗",
-  "text": "Tests point at local .env.test but there is no code-level guard refusing cloud DB URLs and Playwright webServer runs dev:test (dev server), not a production build.",
-  "evidence": "use-case-*/playwright.config.ts:10-11; use-case-*/package.json:18"
- },
- "K13": {
-  "s": "N/A",
-  "text": "No models or privileged writes exist.",
-  "evidence": "use-case-*/packages/db/prisma/schema.prisma"
- },
- "K14": {
-  "s": "✗",
-  "text": "No vercel.json/ignoreCommand and no dedicated port: dev/start use default 3000, which is claimed by the storage project.",
-  "evidence": "use-case-*/apps/web/package.json:6,9; use-case-*/playwright.config.ts:5,11"
- }
+"K1":{"s":"N/A","text":"next-auth declared but no auth wiring in any of the three repos; apps/web/app is layout.tsx, page.tsx, globals.css only.","evidence":"use-case-*/apps/web/app"},
+"K2":{"s":"N/A","text":"No roles or guards exist in any of the three repos.","evidence":"use-case-*/apps/web/app"},
+"K3":{"s":"N/A","text":"No server actions, route handlers or private pages in any repo; only a static placeholder page.","evidence":"use-case-*/apps/web/app"},
+"K4":{"s":"N/A","text":"schema.prisma has no models in any repo (still scaffold-only; ticket-deflection added pure core/redact/draft/agreement libraries and scripts, no DB access).","evidence":"use-case-*/packages/db/prisma/schema.prisma; use-case-support-ticket-deflection/packages/core"},
+"K5":{"s":"N/A","text":"No unauthenticated writes or token reads exist.","evidence":"use-case-*/apps/web/app"},
+"K6":{"s":"N/A","text":"No capability links built.","evidence":"use-case-*/apps/web/app"},
+"K7":{"s":"N/A","text":"next.config.mjs has only transpilePackages and no headers(), but there is no server surface yet; add before the first real route.","evidence":"use-case-*/apps/web/next.config.mjs:2-4"},
+"K8":{"s":"✗","text":"SEC-01 still open in support-ticket-deflection: .env.local (Aug 14) still holds populated DATABASE_URL, DIRECT_URL and ANTHROPIC_API_KEY at rest (gitignored, untracked); grant-proposal and fnol-intake have no .env.local.","evidence":"use-case-support-ticket-deflection/.env.local; use-case-support-ticket-deflection/.gitignore:2-3,23-25; use-case-support-ticket-deflection/SECURITY_BACKLOG.md"},
+"K9":{"s":"N/A","text":"No webhooks built.","evidence":"use-case-*/apps/web/app"},
+"K10":{"s":"N/A","text":"No server code that logs; only the db singleton and seed script exist, and ticket-deflection scripts use console offline.","evidence":"use-case-*/packages/db/index.ts; use-case-support-ticket-deflection/scripts/draft-demo.mts"},
+"K11":{"s":"✗","text":"No schema-validated env at boot (no env.ts/zod in any repo); .env.example lists names only and is the only tracked env file.","evidence":"use-case-*/.env.example; use-case-support-ticket-deflection/scripts/draft-demo.mts:33"},
+"K12":{"s":"✔","text":"Changed since Sep: e2e now runs on a production build (e2e:server = build:test && start:test, E2E_DEV escape hatch); .env.test is local Postgres (first in dotenv order) and tests/test-database.test.ts fails on cloud URLs or a sibling's DB (test-level guard, no runtime guard, but no app code touches the DB yet).","evidence":"use-case-*/playwright.config.ts:5-10; use-case-*/package.json:17-23; use-case-*/tests/test-database.test.ts:19-34"},
+"K13":{"s":"N/A","text":"No models or privileged writes exist.","evidence":"use-case-*/packages/db/prisma/schema.prisma"},
+"K14":{"s":"✗","text":"Ports fixed since Sep (grant 5400, fnol 5500, ticket-deflection 5600, in package.json and playwright baseURL; OPS-01 fixed) but no vercel.json/ignoreCommand in any repo (OPS-02 open, none deployed); no cron routes. HEADs: grant-proposal 8e3801c, insurance-fnol 4ce78ca, support-ticket-deflection c6ed112 (2026-11-10)","evidence":"use-case-grant-proposal-assembly/apps/web/package.json:6,9; use-case-insurance-fnol-intake/apps/web/package.json:6,9; use-case-support-ticket-deflection/apps/web/package.json:6,9; use-case-*/playwright.config.ts:5; use-case-*/SECURITY_BACKLOG.md (OPS-02)"}
 }
