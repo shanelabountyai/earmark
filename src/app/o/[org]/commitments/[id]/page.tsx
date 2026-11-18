@@ -10,8 +10,8 @@ import { Card, day, InvoiceState, Metrics, Money, PageHead, PoState, TableWrap }
 type P = { params: Promise<{ org: string; id: string }> };
 // A foreign or other-agency id gets the same generic title as a missing one (E-INV-03).
 export async function generateMetadata({ params }: P) {
-  const { org, id } = await params;
-  const ctx = await requireOrg(org);
+  const ctx = await requireOrg((await params).org);
+  const { id } = await params;
   if (!isUuid(id)) return { title: 'Purchase order' };
   const c = await withOrg(ctx, async (tx) => tx.commitment.findFirst({ where: { id, ...inOrg(ctx), ...(await scopeOf(tx, ctx)) }, select: { poNumber: true } }), { atomic: false });
   return { title: c ? c.poNumber : 'Purchase order' };

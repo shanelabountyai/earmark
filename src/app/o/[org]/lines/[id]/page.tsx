@@ -12,8 +12,8 @@ import { variance } from '@/lib/earmark/variance';
 
 type P = { params: Promise<{ org: string; id: string }> };
 export async function generateMetadata({ params }: P) {
-  const { org, id } = await params;
-  const ctx = await requireOrg(org);
+  const ctx = await requireOrg((await params).org);
+  const { id } = await params;
   if (ctx.role === 'guest' || !UUID.test(id)) return { title: 'Budget line' };
   const l = await withOrg(ctx, (tx) => tx.budgetLine.findFirst({ where: { id, ...inOrg(ctx) }, select: { name: true } }), { atomic: false });
   return { title: l ? `${l.name} · line` : 'Budget line' };

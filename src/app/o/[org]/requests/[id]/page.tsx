@@ -13,8 +13,8 @@ import { formatUsd } from '@/lib/earmark/money';
 type P = { params: Promise<{ org: string; id: string }> };
 // The tab names the request (2.4.2); a missing or foreign id gets the generic title, like its 404.
 export async function generateMetadata({ params }: P) {
-  const { org, id } = await params;
-  const ctx = await requireOrg(org);
+  const ctx = await requireOrg((await params).org);
+  const { id } = await params;
   if (ctx.role === 'guest' || !isUuid(id)) return { title: 'Request' };
   const r = await withOrg(ctx, (tx) => tx.spendRequest.findFirst({ where: { id, ...inOrg(ctx) }, select: { description: true } }), { atomic: false });
   return { title: r ? `Request: ${r.description}` : 'Request' };

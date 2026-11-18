@@ -13,8 +13,8 @@ import { formatUsd, min } from '@/lib/earmark/money';
 
 type P = { params: Promise<{ org: string; id: string }> };
 export async function generateMetadata({ params }: P) {
-  const { org, id } = await params;
-  const ctx = await requireOrg(org);
+  const ctx = await requireOrg((await params).org);
+  const { id } = await params;
   if (ctx.role === 'guest' || !isUuid(id)) return { title: 'Invoice' };
   const i = await withOrg(ctx, (tx) => tx.invoice.findFirst({ where: { id, ...inOrg(ctx) }, select: { number: true } }), { atomic: false });
   return { title: i ? `Invoice ${i.number}` : 'Invoice' };
