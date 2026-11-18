@@ -37,6 +37,8 @@ Each file is a self-contained Design Component: HTML with inline styles, `{{hole
 
 Design each gap as a new `docs/design/<Name>.dc.html` in the same look before building it.
 
+**Gap artboards added 2026-11-18 (design pass, scheduled run):** `Plan.dc.html`, `Variance.dc.html`, `Approvals.dc.html`, `Requests.dc.html`, `Commitments.dc.html` (staff POs), `Invoices.dc.html`, `Seats.dc.html`, `Agencies.dc.html`, all in `canvas.json`. They also fix the staff sidebar's shape: the seven main items, then a *Settings* group (Rules, Seats, Agencies, Members, Audit log, Security, …) filtered by permission, and the signed-in user at the foot. Not yet on the Claude Design canvas; add them there if wanted.
+
 ## Placeholders
 
 [Bracketed] values (committed, actual, available, PO numbers, dates) are placeholders; compute from real rows, never hard-code.

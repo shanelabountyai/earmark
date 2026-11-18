@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Earmark — Plan</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+a{color:#1f5f4a}a:hover{color:#174a3a}
+</style>
+</helmet>
+<div style="min-height: 1400px; background: #f7f6f2; color: #1c1b18; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 16px; line-height: 1.55; display: flex; flex-wrap: wrap; align-items: stretch;">
+<nav aria-label="Earmark" style="flex: 1 1 220px; background: #173f33; color: #ffffff; padding: 20px 12px; display: flex; flex-direction: column; gap: 2px;">
+<a href="Main.dc.html" style="display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 10px; color: #ffffff; text-decoration: none; font: 700 20px/1 system-ui, -apple-system, 'Segoe UI', sans-serif; letter-spacing: -0.01em;"><span aria-hidden="true" style="width: 18px; height: 22px; border-radius: 2px; background: linear-gradient(225deg, #173f33 0 7px, #9fc7b4 7px 8px, #e4f2ea 8px);"></span>Earmark</a>
+<span style="padding: 4px 12px 14px; font: 600 13px/1.4 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #b9d3c6;">Northwind · FY2026</span>
+<a href="Main.dc.html" style="display: flex; align-items: center; min-height: 44px; padding: 0 12px; border-radius: 3px; text-decoration: none; font: 15px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #d6e6dd; font-weight: 500;">Dashboard</a>
+<a href="Plan.dc.html" aria-current="page" style="display: flex; align-items: center; min-height: 44px; padding: 0 12px; border-radius: 3px; text-decoration: none; font: 15px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #ffffff; font-weight: 700; background: #1f5f4a;">Plan</a>
+<a href="Requests.dc.html" style="display: flex; align-items: center; min-height: 44px; padding: 0 12px; border-radius: 3px; text-decoration: none; font: 15px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #d6e6dd; font-weight: 500;">Requests</a>
+<a href="Approvals.dc.html" style="display: flex; align-items: center; min-height: 44px; padding: 0 12px; border-radius: 3px; text-decoration: none; font: 15px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #d6e6dd; font-weight: 500;">Approvals</a>
+<a href="Commitments.dc.html" style="display: flex; align-items: center; min-height: 44px; padding: 0 12px; border-radius: 3px; text-decoration: none; font: 15px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #d6e6dd; font-weight: 500;">Purchase orders</a>
+<a href="Invoices.dc.html" style="display: flex; align-items: center; min-height: 44px; padding: 0 12px; border-radius: 3px; text-decoration: none; font: 15px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #d6e6dd; font-weight: 500;">Invoices</a>
+<a href="Variance.dc.html" style="display: flex; align-items: center; min-height: 44px; padding: 0 12px; border-radius: 3px; text-decoration: none; font: 15px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #d6e6dd; font-weight: 500;">Variance</a>
+<span style="margin-top: 14px; padding: 8px 12px 4px; font: 600 12px/1.3 system-ui, -apple-system, 'Segoe UI', sans-serif; letter-spacing: 0.1em; text-transform: uppercase; color: #b9d3c6;">Settings</span>
+<a href="Rules.dc.html" style="display: flex; align-items: center; min-height: 44px; padding: 0 12px 0 24px; border-radius: 3px; text-decoration: none; font: 14px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #d6e6dd; font-weight: 500;">Rules</a>
+<a href="Seats.dc.html" style="display: flex; align-items: center; min-height: 44px; padding: 0 12px 0 24px; border-radius: 3px; text-decoration: none; font: 14px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #d6e6dd; font-weight: 500;">Seats</a>
+<a href="Agencies.dc.html" style="display: flex; align-items: center; min-height: 44px; padding: 0 12px 0 24px; border-radius: 3px; text-decoration: none; font: 14px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #d6e6dd; font-weight: 500;">Agencies</a>
+<a href="#" style="display: flex; align-items: center; min-height: 44px; padding: 0 12px 0 24px; border-radius: 3px; text-decoration: none; font: 14px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #d6e6dd; font-weight: 500;">Members</a>
+<a href="#" style="display: flex; align-items: center; min-height: 44px; padding: 0 12px 0 24px; border-radius: 3px; text-decoration: none; font: 14px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #d6e6dd; font-weight: 500;">Audit log</a>
+<a href="#" style="display: flex; align-items: center; min-height: 44px; padding: 0 12px 0 24px; border-radius: 3px; text-decoration: none; font: 14px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #d6e6dd; font-weight: 500;">Security</a>
+<span style="margin-top: auto; padding: 16px 12px 0; font: 13px/1.5 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #b9d3c6;">[signed-in email]<br>[role]</span>
+</nav>
+<main style="flex: 999 1 640px; min-width: 0; max-width: 68rem; padding: 28px 32px 64px; box-sizing: border-box; display: flex; flex-direction: column; gap: 20px;">
+<header style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 24px; padding-bottom: 16px; border-bottom: 1px solid #e3e0d8;">
+<div style="display: flex; flex-direction: column; gap: 8px; min-width: 0;">
+<span style="font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: #5f5c55; font-weight: 600;">Northwind · Plan</span>
+<h1 style="margin: 0; font: 700 30px/1.15 system-ui, -apple-system, 'Segoe UI', sans-serif; letter-spacing: -0.02em;">Plan</h1>
+<p style="margin: 0; font-size: 18px; line-height: 1.45; color: #5f5c55; max-width: 44rem;">Fiscal years, then programs, campaigns and lines. Only lines hold money. Planned is edited on each line’s page, where an edit after the first PO shows as a replan.</p>
+</div>
+
+</header>
+<div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start;">
+<section aria-labelledby="fy-h" style="flex: 999 1 480px; min-width: 0; background: #ffffff; border: 1px solid #e3e0d8; border-radius: 4px; padding: 20px; display: flex; flex-direction: column; gap: 12px;">
+<h2 id="fy-h" style="margin: 0; font: 700 17px/1.3 system-ui, -apple-system, 'Segoe UI', sans-serif;">FY2026 <span style="font: 500 15px/1 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #5f5c55;">from [start date] · 12 periods</span></h2>
+<div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center;"><span style="display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; min-height: 26px; font: 600 13px/1 system-ui, -apple-system, 'Segoe UI', sans-serif; border-radius: 3px; white-space: nowrap; background: #e4f2ea; color: #1f5f4a; border: 1px solid #2f7d62;">✓ Open for planning</span><span style="font-size: 15px; color: #5f5c55;">4 programs · 32 lines · <span style="font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: #1c1b18;">$4,800,000.00</span> planned</span></div>
+<ul aria-label="FY2026 plan" style="margin: 0; padding: 0; list-style: none;">
+<li style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 16px; padding: 9px 0 9px 0px; border-bottom: 1px solid #e3e0d8; font-weight: 700;"><span>Brand</span><span style="display: inline-flex; gap: 16px; align-items: baseline; font-weight: 400; color: #5f5c55; font-size: 15px;"></span></li>
+<li style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 16px; padding: 9px 0 9px 0px; border-bottom: 1px solid #e3e0d8; font-weight: 700;"><span>Demand Gen</span><span style="display: inline-flex; gap: 16px; align-items: baseline; font-weight: 400; color: #5f5c55; font-size: 15px;"></span></li>
+<li style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 16px; padding: 9px 0 9px 24px; border-bottom: 1px solid #e3e0d8; font-weight: 600;"><span>Paid Social</span><span style="display: inline-flex; gap: 16px; align-items: baseline; font-weight: 400; color: #5f5c55; font-size: 15px;"></span></li>
+<li style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 16px; padding: 9px 0 9px 48px; border-bottom: 1px solid #e3e0d8; font-weight: 400;"><span><a href="Line.dc.html">Q1 Paid Social</a></span><span style="display: inline-flex; gap: 16px; align-items: baseline; font-weight: 400; color: #5f5c55; font-size: 15px;">P[n] · <span style="font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: #1c1b18;">$225,000.00</span> · Demand Gen Owner</span></li>
+<li style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 16px; padding: 9px 0 9px 48px; border-bottom: 1px solid #e3e0d8; font-weight: 400;"><span><a href="Line.dc.html">Q2 Paid Social</a></span><span style="display: inline-flex; gap: 16px; align-items: baseline; font-weight: 400; color: #5f5c55; font-size: 15px;">P[n] · <span style="font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: #1c1b18;">$225,000.00</span> · Demand Gen Owner</span></li>
+<li style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 16px; padding: 9px 0 9px 24px; border-bottom: 1px solid #e3e0d8; font-weight: 600;"><span>Search</span><span style="display: inline-flex; gap: 16px; align-items: baseline; font-weight: 400; color: #5f5c55; font-size: 15px;"></span></li>
+<li style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 16px; padding: 9px 0 9px 0px; border-bottom: 1px solid #e3e0d8; font-weight: 700;"><span>Events</span><span style="display: inline-flex; gap: 16px; align-items: baseline; font-weight: 400; color: #5f5c55; font-size: 15px;"></span></li>
+<li style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 16px; padding: 9px 0 9px 0px; border-bottom: 1px solid #e3e0d8; font-weight: 700;"><span>Content</span><span style="display: inline-flex; gap: 16px; align-items: baseline; font-weight: 400; color: #5f5c55; font-size: 15px;"></span></li>
+</ul>
+<p style="margin: 0; font-size: 15px; color: #5f5c55;">Rename and delete aren’t in v0.1: a line with requests or POs can’t be removed safely (D-26). A locked year refuses every plan change.</p>
+</section>
+<div style="flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 20px;">
+<section aria-labelledby="new-line-h" style="background: #ffffff; border: 1px solid #e3e0d8; border-radius: 4px; padding: 20px; display: flex; flex-direction: column; gap: 12px;">
+<h2 id="new-line-h" style="margin: 0; font: 700 17px/1.3 system-ui, -apple-system, 'Segoe UI', sans-serif;">New line</h2>
+<form style="display: flex; flex-direction: column; gap: 12px;">
+<label style="display: flex; flex-direction: column; gap: 4px; font-weight: 500;">Campaign
+<select style="font: inherit; min-height: 44px; padding: 0 12px; border-radius: 4px; border: 1px solid #8f8b80; background: #ffffff; color: #1c1b18;"><option>FY2026 / Demand Gen / Paid Social</option></select>
+</label>
+<label style="display: flex; flex-direction: column; gap: 4px; font-weight: 500;">Period
+<select style="font: inherit; min-height: 44px; padding: 0 12px; border-radius: 4px; border: 1px solid #8f8b80; background: #ffffff; color: #1c1b18;"><option>FY2026 P[n] ([start date])</option></select>
+</label>
+<label style="display: flex; flex-direction: column; gap: 4px; font-weight: 500;">Line name
+<input type="text" style="font: inherit; min-height: 44px; padding: 0 12px; border-radius: 4px; border: 1px solid #8f8b80; background: #ffffff; color: #1c1b18;">
+</label>
+<label style="display: flex; flex-direction: column; gap: 4px; font-weight: 500;">Planned (USD)
+<input type="text" style="font: inherit; min-height: 44px; padding: 0 12px; border-radius: 4px; border: 1px solid #8f8b80; background: #ffffff; color: #1c1b18; font-variant-numeric: tabular-nums;">
+<span style="font-size: 14px; color: #5f5c55; font-weight: 400;">Whole dollars and cents, like 25,000.00</span>
+</label>
+<label style="display: flex; flex-direction: column; gap: 4px; font-weight: 500;">Owner seat
+<select style="font: inherit; min-height: 44px; padding: 0 12px; border-radius: 4px; border: 1px solid #8f8b80; background: #ffffff; color: #1c1b18;"><option>Demand Gen Owner</option></select>
+<span style="font-size: 14px; color: #5f5c55; font-weight: 400;">Its holders approve the first step of every request on this line.</span>
+</label>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;"><label style="display: flex; flex-direction: column; gap: 4px; font-weight: 500;">Cost center
+<input type="text" style="font: inherit; min-height: 44px; padding: 0 12px; border-radius: 4px; border: 1px solid #8f8b80; background: #ffffff; color: #1c1b18;">
+</label><label style="display: flex; flex-direction: column; gap: 4px; font-weight: 500;">GL code
+<input type="text" style="font: inherit; min-height: 44px; padding: 0 12px; border-radius: 4px; border: 1px solid #8f8b80; background: #ffffff; color: #1c1b18;">
+</label></div>
+<button type="button" style="align-self: flex-start; font: 600 15px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif; min-height: 44px; padding: 0 18px; border-radius: 4px; background: #1f5f4a; color: #ffffff; border: 1px solid #1f5f4a; cursor: pointer; white-space: nowrap;">Create line</button>
+</form>
+</section>
+<section aria-labelledby="new-camp-h" style="background: #ffffff; border: 1px solid #e3e0d8; border-radius: 4px; padding: 20px; display: flex; flex-direction: column; gap: 12px;">
+<h2 id="new-camp-h" style="margin: 0; font: 700 17px/1.3 system-ui, -apple-system, 'Segoe UI', sans-serif;">New campaign</h2>
+<form style="display: flex; flex-direction: column; gap: 12px;">
+<label style="display: flex; flex-direction: column; gap: 4px; font-weight: 500;">Program
+<select style="font: inherit; min-height: 44px; padding: 0 12px; border-radius: 4px; border: 1px solid #8f8b80; background: #ffffff; color: #1c1b18;"><option>FY2026 / Demand Gen</option></select>
+</label>
+<label style="display: flex; flex-direction: column; gap: 4px; font-weight: 500;">Campaign name
+<input type="text" style="font: inherit; min-height: 44px; padding: 0 12px; border-radius: 4px; border: 1px solid #8f8b80; background: #ffffff; color: #1c1b18;">
+</label>
+<button type="button" style="align-self: flex-start; font: 600 15px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif; min-height: 44px; padding: 0 18px; border-radius: 4px; background: #ffffff; color: #1c1b18; border: 1px solid #8f8b80; cursor: pointer; white-space: nowrap;">Create campaign</button>
+</form>
+</section>
+<section aria-labelledby="new-prog-h" style="background: #ffffff; border: 1px solid #e3e0d8; border-radius: 4px; padding: 20px; display: flex; flex-direction: column; gap: 12px;">
+<h2 id="new-prog-h" style="margin: 0; font: 700 17px/1.3 system-ui, -apple-system, 'Segoe UI', sans-serif;">New program</h2>
+<form style="display: flex; flex-direction: column; gap: 12px;">
+<label style="display: flex; flex-direction: column; gap: 4px; font-weight: 500;">Fiscal year
+<select style="font: inherit; min-height: 44px; padding: 0 12px; border-radius: 4px; border: 1px solid #8f8b80; background: #ffffff; color: #1c1b18;"><option>FY2026</option></select>
+</label>
+<label style="display: flex; flex-direction: column; gap: 4px; font-weight: 500;">Program name
+<input type="text" style="font: inherit; min-height: 44px; padding: 0 12px; border-radius: 4px; border: 1px solid #8f8b80; background: #ffffff; color: #1c1b18;">
+</label>
+<button type="button" style="align-self: flex-start; font: 600 15px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif; min-height: 44px; padding: 0 18px; border-radius: 4px; background: #ffffff; color: #1c1b18; border: 1px solid #8f8b80; cursor: pointer; white-space: nowrap;">Create program</button>
+</form>
+</section>
+<section aria-labelledby="new-fy-h" style="background: #ffffff; border: 1px solid #e3e0d8; border-radius: 4px; padding: 20px; display: flex; flex-direction: column; gap: 12px;">
+<h2 id="new-fy-h" style="margin: 0; font: 700 17px/1.3 system-ui, -apple-system, 'Segoe UI', sans-serif;">New fiscal year</h2>
+<form style="display: flex; flex-direction: column; gap: 12px;">
+<label style="display: flex; flex-direction: column; gap: 4px; font-weight: 500;">Label
+<input type="text" value="[FY label]" style="font: inherit; min-height: 44px; padding: 0 12px; border-radius: 4px; border: 1px solid #8f8b80; background: #ffffff; color: #1c1b18;">
+</label>
+<label style="display: flex; flex-direction: column; gap: 4px; font-weight: 500;">Starts on
+<input type="date" style="font: inherit; min-height: 44px; padding: 0 12px; border-radius: 4px; border: 1px solid #8f8b80; background: #ffffff; color: #1c1b18;">
+<span style="font-size: 14px; color: #5f5c55; font-weight: 400;">The 1st of a month. Its twelve periods are created with it.</span>
+</label>
+<button type="button" style="align-self: flex-start; font: 600 15px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif; min-height: 44px; padding: 0 18px; border-radius: 4px; background: #ffffff; color: #1c1b18; border: 1px solid #8f8b80; cursor: pointer; white-space: nowrap;">Create fiscal year</button>
+</form>
+</section>
+</div>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1400}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

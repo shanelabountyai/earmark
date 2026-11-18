@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Earmark — Purchase orders</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+a{color:#1f5f4a}a:hover{color:#174a3a}
+</style>
+</helmet>
+<div style="min-height: 900px; background: #f7f6f2; color: #1c1b18; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 16px; line-height: 1.55; display: flex; flex-wrap: wrap; align-items: stretch;">
+<nav aria-label="Earmark" style="flex: 1 1 220px; background: #173f33; color: #ffffff; padding: 20px 12px; display: flex; flex-direction: column; gap: 2px;">
+<a href="Main.dc.html" style="display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 10px; color: #ffffff; text-decoration: none; font: 700 20px/1 system-ui, -apple-system, 'Segoe UI', sans-serif; letter-spacing: -0.01em;"><span aria-hidden="true" style="width: 18px; height: 22px; border-radius: 2px; background: linear-gradient(225deg, #173f33 0 7px, #9fc7b4 7px 8px, #e4f2ea 8px);"></span>Earmark</a>
+<span style="padding: 4px 12px 14px; font: 600 13px/1.4 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #b9d3c6;">Northwind · FY2026</span>
+<a href="Main.dc.html" style="display: flex; align-items: center; min-height: 44px; padding: 0 12px; border-radius: 3px; text-decoration: none; font: 15px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #d6e6dd; font-weight: 500;">Dashboard</a>
+<a href="Plan.dc.html" style="display: flex; align-items: center; min-height: 44px; padding: 0 12px; border-radius: 3px; text-decoration: none; font: 15px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #d6e6dd; font-weight: 500;">Plan</a>
+<a href="Requests.dc.html" style="display: flex; align-items: center; min-height: 44px; padding: 0 12px; border-radius: 3px; text-decoration: none; font: 15px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #d6e6dd; font-weight: 500;">Requests</a>
+<a href="Approvals.dc.html" style="display: flex; align-items: center; min-height: 44px; padding: 0 12px; border-radius: 3px; text-decoration: none; font: 15px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #d6e6dd; font-weight: 500;">Approvals</a>
+<a href="Commitments.dc.html" aria-current="page" style="display: flex; align-items: center; min-height: 44px; padding: 0 12px; border-radius: 3px; text-decoration: none; font: 15px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #ffffff; font-weight: 700; background: #1f5f4a;">Purchase orders</a>
+<a href="Invoices.dc.html" style="display: flex; align-items: center; min-height: 44px; padding: 0 12px; border-radius: 3px; text-decoration: none; font: 15px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #d6e6dd; font-weight: 500;">Invoices</a>
+<a href="Variance.dc.html" style="display: flex; align-items: center; min-height: 44px; padding: 0 12px; border-radius: 3px; text-decoration: none; font: 15px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #d6e6dd; font-weight: 500;">Variance</a>
+<span style="margin-top: 14px; padding: 8px 12px 4px; font: 600 12px/1.3 system-ui, -apple-system, 'Segoe UI', sans-serif; letter-spacing: 0.1em; text-transform: uppercase; color: #b9d3c6;">Settings</span>
+<a href="Rules.dc.html" style="display: flex; align-items: center; min-height: 44px; padding: 0 12px 0 24px; border-radius: 3px; text-decoration: none; font: 14px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #d6e6dd; font-weight: 500;">Rules</a>
+<a href="Seats.dc.html" style="display: flex; align-items: center; min-height: 44px; padding: 0 12px 0 24px; border-radius: 3px; text-decoration: none; font: 14px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #d6e6dd; font-weight: 500;">Seats</a>
+<a href="Agencies.dc.html" style="display: flex; align-items: center; min-height: 44px; padding: 0 12px 0 24px; border-radius: 3px; text-decoration: none; font: 14px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #d6e6dd; font-weight: 500;">Agencies</a>
+<a href="#" style="display: flex; align-items: center; min-height: 44px; padding: 0 12px 0 24px; border-radius: 3px; text-decoration: none; font: 14px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #d6e6dd; font-weight: 500;">Members</a>
+<a href="#" style="display: flex; align-items: center; min-height: 44px; padding: 0 12px 0 24px; border-radius: 3px; text-decoration: none; font: 14px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #d6e6dd; font-weight: 500;">Audit log</a>
+<a href="#" style="display: flex; align-items: center; min-height: 44px; padding: 0 12px 0 24px; border-radius: 3px; text-decoration: none; font: 14px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #d6e6dd; font-weight: 500;">Security</a>
+<span style="margin-top: auto; padding: 16px 12px 0; font: 13px/1.5 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #b9d3c6;">[signed-in email]<br>[role]</span>
+</nav>
+<main style="flex: 999 1 640px; min-width: 0; max-width: 68rem; padding: 28px 32px 64px; box-sizing: border-box; display: flex; flex-direction: column; gap: 20px;">
+<header style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 24px; padding-bottom: 16px; border-bottom: 1px solid #e3e0d8;">
+<div style="display: flex; flex-direction: column; gap: 8px; min-width: 0;">
+<span style="font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: #5f5c55; font-weight: 600;">Northwind · Purchase orders</span>
+<h1 style="margin: 0; font: 700 30px/1.15 system-ui, -apple-system, 'Segoe UI', sans-serif; letter-spacing: -0.02em;">Purchase orders</h1>
+<p style="margin: 0; font-size: 18px; line-height: 1.45; color: #5f5c55; max-width: 44rem;">Every PO here was issued by the last approval on a request, in the same step. Left to bill is the PO amount less what has been matched to it.</p>
+</div>
+
+</header>
+<section aria-labelledby="po-h" style="background: #ffffff; border: 1px solid #e3e0d8; border-radius: 4px; padding: 20px; display: flex; flex-direction: column; gap: 12px;">
+<h2 id="po-h" style="margin: 0; font: 700 17px/1.3 system-ui, -apple-system, 'Segoe UI', sans-serif;">All POs</h2>
+<div style="overflow-x: auto;">
+<table aria-label="Purchase orders" style="border-collapse: collapse; width: 100%; font-size: 16px; font-variant-numeric: tabular-nums;">
+<thead><tr><th scope="col" style="text-align: left; padding: 8px 14px; border-bottom: 1px solid #e3e0d8; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #5f5c55;">PO</th><th scope="col" style="text-align: left; padding: 8px 14px; border-bottom: 1px solid #e3e0d8; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #5f5c55;">Agency</th><th scope="col" style="text-align: left; padding: 8px 14px; border-bottom: 1px solid #e3e0d8; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #5f5c55;">Line</th><th scope="col" style="text-align: left; padding: 8px 14px; border-bottom: 1px solid #e3e0d8; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #5f5c55;">Issued</th><th scope="col" style="text-align: right; padding: 8px 14px; border-bottom: 1px solid #e3e0d8; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #5f5c55;">Amount</th><th scope="col" style="text-align: right; padding: 8px 14px; border-bottom: 1px solid #e3e0d8; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #5f5c55;">Left to bill</th><th scope="col" style="text-align: left; padding: 8px 14px; border-bottom: 1px solid #e3e0d8; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #5f5c55;">Status</th></tr></thead>
+<tbody>
+<tr><td style="padding: 10px 14px; border-bottom: 1px solid #e3e0d8; text-align: left;"><a href="#">PO-NO-[n]</a></td><td style="padding: 10px 14px; border-bottom: 1px solid #e3e0d8; text-align: left;">Meridian Creative</td><td style="padding: 10px 14px; border-bottom: 1px solid #e3e0d8; text-align: left;">Q2 Paid Social</td><td style="padding: 10px 14px; border-bottom: 1px solid #e3e0d8; text-align: left;">[issued]</td><td style="padding: 10px 14px; border-bottom: 1px solid #e3e0d8; text-align: right; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 15px;">$12,000.00</td><td style="padding: 10px 14px; border-bottom: 1px solid #e3e0d8; text-align: right; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 15px;">$12,000.00</td><td style="padding: 10px 14px; border-bottom: 1px solid #e3e0d8; text-align: left;"><span style="display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; min-height: 26px; font: 600 13px/1 system-ui, -apple-system, 'Segoe UI', sans-serif; border-radius: 3px; white-space: nowrap; background: #e4f2ea; color: #1f5f4a; border: 1px solid #2f7d62;">✓ Open</span> <span style="font-size: 14px; color: #5f5c55;">unbilled</span></td></tr>
+<tr><td style="padding: 10px 14px; border-bottom: 1px solid #e3e0d8; text-align: left;"><a href="#">PO-NO-[n]</a></td><td style="padding: 10px 14px; border-bottom: 1px solid #e3e0d8; text-align: left;">[agency]</td><td style="padding: 10px 14px; border-bottom: 1px solid #e3e0d8; text-align: left;">[line]</td><td style="padding: 10px 14px; border-bottom: 1px solid #e3e0d8; text-align: left;">[issued]</td><td style="padding: 10px 14px; border-bottom: 1px solid #e3e0d8; text-align: right; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 15px;">[amount]</td><td style="padding: 10px 14px; border-bottom: 1px solid #e3e0d8; text-align: right; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 15px;">[left]</td><td style="padding: 10px 14px; border-bottom: 1px solid #e3e0d8; text-align: left;"><span style="display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; min-height: 26px; font: 600 13px/1 system-ui, -apple-system, 'Segoe UI', sans-serif; border-radius: 3px; white-space: nowrap; background: #e4f2ea; color: #1f5f4a; border: 1px solid #2f7d62;">✓ Open</span> <span style="font-size: 14px; color: #5f5c55;">part billed</span></td></tr>
+<tr><td style="padding: 10px 14px; text-align: left;"><a href="#">PO-NO-[n]</a></td><td style="padding: 10px 14px; text-align: left;">[agency]</td><td style="padding: 10px 14px; text-align: left;">[line]</td><td style="padding: 10px 14px; text-align: left;">[issued]</td><td style="padding: 10px 14px; text-align: right; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 15px;">[amount]</td><td style="padding: 10px 14px; text-align: right; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 15px;">$0.00</td><td style="padding: 10px 14px; text-align: left;"><span style="display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; min-height: 26px; font: 600 13px/1 system-ui, -apple-system, 'Segoe UI', sans-serif; border-radius: 3px; white-space: nowrap; background: #efeee9; color: #4a4842; border: 1px solid #8f8b80;">■ Closed</span> <span style="font-size: 14px; color: #5f5c55;">fully billed</span></td></tr>
+</tbody>
+</table>
+</div>
+<p style="margin: 0; font-size: 15px; color: #5f5c55;">Agency guests see only their own agency’s POs, with the amount and what’s left, and never the line.</p>
+</section>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
