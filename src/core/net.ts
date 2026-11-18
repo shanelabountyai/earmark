@@ -1,4 +1,7 @@
-import { isIP } from 'node:net';
+import { request as httpRequest, type IncomingMessage } from 'node:http';
+import { request as httpsRequest } from 'node:https';
+import { isIP, type LookupFunction } from 'node:net';
+import { Readable } from 'node:stream';
 import { Refused } from '@/core/errors';
 
 // Where the server may send a request it was told to send (audit A-01, A-02; v1.6.4). Used by every module that
@@ -7,8 +10,9 @@ import { Refused } from '@/core/errors';
 // An address is classified by its BYTES, never by how it was spelled: `new URL()` rewrites `[::ffff:127.0.0.1]` to
 // `[::ffff:7f00:1]`, and a DNS answer can come back in either form, so a pattern on the dotted text never matched a URL.
 // IPv6 ranges that carry an IPv4 address (mapped, compatible, NAT64, 6to4, Teredo) are judged by that IPv4 address.
-// ponytail: resolve-then-fetch still leaves a DNS-rebinding window of milliseconds; closing it means pinning the
-// resolved address into the connection (a custom dispatcher), planned for v1.7.0.
+// v1.7.0: resolve-then-fetch left a DNS-rebinding window (the name could answer a public address to the check and a
+// private one to the connection). resolveOutbound() returns the addresses it checked and fetchPinned() connects to one
+// of them, so the address that was judged is the address that is dialled.
 
 type V4 = [number, number, number, number];
 
@@ -84,7 +88,18 @@ export type Lookup = (host: string) => Promise<readonly { address: string }[]>;
  * Checks a URL the server will fetch: https (or http when `allowHttp`), no credentials, and neither the literal host
  * nor any address it resolves to is private. Returns the normalised URL. `what` names the field in the message.
  */
-export async function checkOutboundUrl(raw: string, opts: { lookup: Lookup; allowPrivate?: boolean; allowHttp?: boolean; what?: string }): Promise<string> {
+export async function checkOutboundUrl(raw: string, opts: OutboundOpts): Promise<string> {
+  return (await resolveOutbound(raw, opts)).url;
+}
+
+type OutboundOpts = { lookup: Lookup; allowPrivate?: boolean; allowHttp?: boolean; what?: string };
+export type Pin = { address: string; family: 4 | 6 };
+
+/**
+ * checkOutboundUrl, plus the address to dial: the first resolved address of a name, all of which were checked. `pin` is
+ * null when the host is an IP literal (nothing to re-resolve) or when `allowPrivate` skipped the check (a local receiver).
+ */
+export async function resolveOutbound(raw: string, opts: OutboundOpts): Promise<{ url: string; pin: Pin | null }> {
   const what = opts.what ?? 'The endpoint';
   let url: URL;
   try {
@@ -94,10 +109,40 @@ export async function checkOutboundUrl(raw: string, opts: { lookup: Lookup; allo
   }
   if (url.protocol !== 'https:' && !(opts.allowHttp && url.protocol === 'http:')) throw new Refused(`${what} must be an https URL.`);
   if (url.username || url.password) throw new Refused(`${what} URL must not carry a user name or password.`);
-  if (opts.allowPrivate) return url.toString();
+  if (opts.allowPrivate) return { url: url.toString(), pin: null };
   const host = url.hostname.replace(/^\[|\]$/g, '').replace(/\.$/, '');
-  const addrs = host === 'localhost' || host.endsWith('.localhost') ? [{ address: '127.0.0.1' }] : isIP(host) ? [{ address: host }] : await opts.lookup(host).catch(() => []);
+  const literal = isIP(host) !== 0;
+  const addrs = host === 'localhost' || host.endsWith('.localhost') ? [{ address: '127.0.0.1' }] : literal ? [{ address: host }] : await opts.lookup(host).catch(() => []);
   if (!addrs.length) throw new Refused(`${host} does not resolve.`);
   if (addrs.some((a) => isPrivateAddress(a.address))) throw new Refused(`${what} must not point at a private address.`);
-  return url.toString();
+  const first = addrs[0]!.address;
+  return { url: url.toString(), pin: literal ? null : { address: first, family: isIP(first) === 6 ? 6 : 4 } };
+}
+
+const NULL_BODY = new Set([101, 204, 205, 304]);
+
+/**
+ * A POST/GET to `url` whose TCP connection goes to `pin`, never to a fresh DNS answer. The URL's host still names the
+ * Host header and the TLS server name, so the certificate is checked against the name as usual. No redirects are
+ * followed. A small fetch: method, string headers, a string body and an abort signal, which is all a webhook needs.
+ */
+export function fetchPinned(url: string, init: { method?: string; headers?: Record<string, string>; body?: string; signal?: AbortSignal }, pin: Pin): Promise<Response> {
+  const lookup: LookupFunction = (_host, options, cb) =>
+    (options as { all?: boolean }).all ? (cb as unknown as (e: null, a: Pin[]) => void)(null, [pin]) : cb(null, pin.address, pin.family);
+  const request = new URL(url).protocol === 'http:' ? httpRequest : httpsRequest;
+  return new Promise((resolve, reject) => {
+    const req = request(url, { method: init.method ?? 'GET', headers: init.headers, signal: init.signal, lookup }, (res: IncomingMessage) => {
+      const headers = new Headers();
+      for (const [k, v] of Object.entries(res.headers)) for (const one of [v ?? []].flat()) headers.append(k, one);
+      const status = res.statusCode ?? 0;
+      try {
+        resolve(new Response(NULL_BODY.has(status) ? (res.resume(), null) : (Readable.toWeb(res) as ReadableStream), { status, headers }));
+      } catch (e) {
+        res.destroy();
+        reject(e);
+      }
+    });
+    req.on('error', reject);
+    req.end(init.body);
+  });
 }

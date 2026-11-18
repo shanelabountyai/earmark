@@ -24,7 +24,9 @@ model SsoDomain {
   orgId      String    @db.Uuid
   org        Org       @relation(fields: [orgId], references: [id], onDelete: Cascade)
   domain     String // lowercased; only one org may have it verified at a time
-  verifiedAt DateTime? @db.Timestamptz(6)
+  verifiedAt DateTime? @db.Timestamptz(6) // one verified row per domain: partial unique index, hand-written (v1.7.0)
+  checkedAt  DateTime? @db.Timestamptz(6) // last cron re-check of the TXT record (v1.7.0)
+  checkFailedAt DateTime? @db.Timestamptz(6) // first re-check that missed the record; unverified after the grace period
   createdAt  DateTime  @default(now()) @db.Timestamptz(6)
 
   @@unique([orgId, domain])

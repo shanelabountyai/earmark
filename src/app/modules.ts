@@ -10,6 +10,6 @@ registerSsoHooks(ssoHooks); // sso
 export const moduleExportTables: readonly ExportTable[] = [
   { name: 'SsoConnection', rows: (tx, orgId) => tx.ssoConnection.findMany({ where: { orgId }, select: { issuer: true, clientId: true, defaultRole: true, allowedDomains: true, required: true, enabledAt: true, createdAt: true } }) }, // sso
   { name: 'ApiKey', rows: (tx, orgId) => tx.apiKey.findMany({ where: { orgId }, select: { id: true, label: true, prefix: true, scopes: true, createdById: true, lastUsedAt: true, revokedAt: true, createdAt: true } }) }, // apikeys
-  { name: 'WebhookEndpoint', rows: (tx, orgId) => tx.webhookEndpoint.findMany({ where: { orgId }, select: { id: true, url: true, eventTypes: true, status: true, disabledReason: true, cursorSeq: true, createdAt: true } }) }, // apikeys
+  { name: 'WebhookEndpoint', rows: (tx, orgId) => tx.webhookEndpoint.findMany({ where: { orgId }, select: { id: true, url: true, eventTypes: true, status: true, disabledReason: true, cursorSeq: true, createdById: true, createdAt: true } }) }, // apikeys
   { name: 'SsoDomain', rows: (tx, orgId) => tx.ssoDomain.findMany({ where: { orgId }, select: { domain: true, verifiedAt: true, createdAt: true } }) }, // sso
 ];

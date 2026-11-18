@@ -89,6 +89,12 @@ describe.skipIf(!enforce)('INV-30: every orgId model has RLS enabled, forced, an
   });
 });
 
+// The other columns an insert into each append-style (nullable orgId) table needs.
+const APPEND_ROWS: Record<string, Record<string, unknown>> = {
+  AuditEvent: { action: 'inv29.insert' },
+  Outbox: { channel: 'email', to: 'x@example.test', template: 'inv29', data: {} },
+};
+
 describe.skipIf(!enforce)('INV-29: no org set, no rows; org A set, only A rows', () => {
   const [a, b] = [randomUUID(), randomUUID()];
   beforeAll(async () => {
@@ -131,8 +137,15 @@ describe.skipIf(!enforce)('INV-29: no org set, no rows; org A set, only A rows',
     const [mine, others] = await withOrg({ orgId: a }, (tx) => Promise.all([count(tx, q(` WHERE "${t.column}" = '${a}'`)), count(tx, q(` WHERE "${t.column}" IS DISTINCT FROM '${a}'`))]));
     expect(mine).toBeGreaterThan(0);
     expect(others).toBe(0);
-    // A write into B while A is set is refused (append-style tables accept inserts by design; their reads stay scoped).
-    if (!t.nullable) {
+    // A write into B while A is set is refused. Append-style tables accept a row with no org or with A (v1.7.0, A-11).
+    if (t.nullable) {
+      const row = APPEND_ROWS[t.table];
+      expect(row, `${t.table}: add an insert fixture to APPEND_ROWS`).toBeDefined();
+      const insert = (orgId: string | null) => withOrg({ orgId: a }, (tx) => (tx as unknown as Record<string, { createMany: (x: unknown) => Promise<unknown> }>)[t.model[0]!.toLowerCase() + t.model.slice(1)]!.createMany({ data: [{ ...row, [t.column]: orgId }] }));
+      await expect(insert(b)).rejects.toThrow(/row-level security/);
+      await expect(insert(a)).resolves.toEqual({ count: 1 });
+      await expect(insert(null)).resolves.toEqual({ count: 1 });
+    } else {
       await expect(withOrg({ orgId: a }, (tx) => tx.$executeRawUnsafe(`UPDATE "${t.table}" SET "${t.column}" = "${t.column}" WHERE "${t.column}" = '${b}'`))).resolves.toBe(0);
     }
   });

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { onMembershipEnded } from '@/app/org-hooks';
+import { onMembershipEnded, onRoleChanged } from '@/app/org-hooks';
 import { AuthzError, requireOrg } from '@/core/authz/guards';
 import { can, type Permission } from '@/core/authz/permissions';
 import { dbSystem as db } from '@/core/db/system'; // fixtures run as the owner role (RLS enforce leg)
@@ -41,7 +41,7 @@ describe('scorekeeper role (D-21)', () => {
     const member = await addMember(org.id, 'member', 'member@example.test');
     const ctx = await actAs(admin.id, org.slug);
     await createInvite(ctx, 'new@example.test', 'scorekeeper');
-    await changeRole(ctx, member.id, 'scorekeeper');
+    await changeRole(ctx, member.id, 'scorekeeper', onRoleChanged);
     expect(await roleOf(org.id, member.id)).toBe('scorekeeper');
     await removeMember(ctx, member.id, onMembershipEnded);
     expect(await roleOf(org.id, member.id)).toBeNull();
@@ -53,7 +53,7 @@ describe('scorekeeper role (D-21)', () => {
     const owner = await addMember(org.id, 'owner', 'owner@example.test');
     const admin = await addMember(org.id, 'admin', 'admin@example.test');
     await createInvite(await actAs(admin.id, org.slug), 'new@example.test', 'scorekeeper');
-    await changeRole(await actAs(owner.id, org.slug), admin.id, 'scorekeeper');
+    await changeRole(await actAs(owner.id, org.slug), admin.id, 'scorekeeper', onRoleChanged);
     expect(await db.invite.count({ where: { role: 'scorekeeper', revokedAt: null } })).toBe(0);
   });
 });

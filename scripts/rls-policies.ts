@@ -4,7 +4,8 @@ import { MODULES } from './foundation-modules';
 
 // `npm run rls:policies` (addendum §2): one migration enabling + forcing RLS on every model with an orgId column.
 //  - required orgId: one FOR ALL policy, rows visible and writable only with app.org_id set to that org.
-//  - nullable orgId (append-style: AuditEvent, Outbox): INSERT unrestricted, SELECT/UPDATE/DELETE scoped.
+//  - nullable orgId (append-style: AuditEvent, Outbox): INSERT of a row with no org or the scoped org (v1.7.0, audit
+//    A-11; was unrestricted), SELECT/UPDATE/DELETE scoped.
 // nullif: after a transaction-local set_config ends, the setting reads '' (not NULL) on that connection, and
 // ''::uuid throws (spike S4a). nullif makes "no org set" match no row instead of erroring.
 // Idempotent (DROP POLICY IF EXISTS), so a clone re-running it over core tables recreates them unchanged.
@@ -40,7 +41,7 @@ export function policySql(tables: OrgTable[]): string {
     .map(({ table: t, column: c, nullable, module }) => {
       const scoped = `"${c}" = ${ORG}`;
       const lines = [
-        `-- ${t}${nullable ? ' (append-style: insert open, everything else scoped)' : ''}`,
+        `-- ${t}${nullable ? ' (append-style: insert no-org or own-org, everything else scoped)' : ''}`,
         `ALTER TABLE "${t}" ENABLE ROW LEVEL SECURITY;`,
         `ALTER TABLE "${t}" FORCE ROW LEVEL SECURITY;`,
         ...['org_isolation', 'org_insert', 'org_select', 'org_update', 'org_delete'].map((p) => `DROP POLICY IF EXISTS ${p} ON "${t}";`),
@@ -48,7 +49,7 @@ export function policySql(tables: OrgTable[]): string {
       if (!nullable) lines.push(`CREATE POLICY org_isolation ON "${t}" FOR ALL USING (${scoped}) WITH CHECK (${scoped});`);
       else
         lines.push(
-          `CREATE POLICY org_insert ON "${t}" FOR INSERT WITH CHECK (true);`,
+          `CREATE POLICY org_insert ON "${t}" FOR INSERT WITH CHECK ("${c}" IS NULL OR ${scoped});`,
           `CREATE POLICY org_select ON "${t}" FOR SELECT USING (${scoped});`,
           `CREATE POLICY org_update ON "${t}" FOR UPDATE USING (${scoped}) WITH CHECK (${scoped});`,
           `CREATE POLICY org_delete ON "${t}" FOR DELETE USING (${scoped});`,

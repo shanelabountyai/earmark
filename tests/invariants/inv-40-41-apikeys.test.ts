@@ -1,24 +1,28 @@
+import { readFileSync } from 'node:fs';
 import { createHmac } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { onMembershipEnded } from '@/app/org-hooks';
+import { onMembershipEnded, onRoleChanged } from '@/app/org-hooks';
 import { currentSession } from '@/core/auth/session';
 import { advanceClock, now } from '@/core/clock';
 import { deleteAccount } from '@/core/tenancy/delete';
-import { removeMember } from '@/core/tenancy/orgs';
+import { changeRole, removeMember } from '@/core/tenancy/orgs';
 import { withOrg } from '@/core/db/rls';
 import { dbSystem as db } from '@/core/db/system'; // fixtures run as the owner role (RLS enforce leg)
 import { emit } from '@/core/events';
 import { BAD_KEY_PER_IP } from '@/modules/apikeys/api';
-import { createKey, revokeKey } from '@/modules/apikeys/keys';
+import { createKey, resolveKey, revokeKey } from '@/modules/apikeys/keys';
 import {
   BACKOFF_MS,
   checkUrl,
   createEndpoint,
+  ENDPOINT_CREATOR_DEMOTED,
+  ENDPOINT_CREATOR_LEFT,
   isPrivateAddress,
   MAX_ATTEMPTS,
   PAUSE_AFTER,
   replayDelivery,
   rotateSecret,
+  setEndpointStatus,
   SIGNATURE_HEADER,
   sweepWebhooks,
   transport,
@@ -309,6 +313,18 @@ describe('INV-41 webhook deliveries: retried after a failure, sent once per even
     expect(sent).toHaveLength(0);
     expect((await db.webhookDelivery.findFirstOrThrow()).lastError).toMatch(/private/);
   });
+
+  it('the send dials the address the check judged, not a second DNS answer (v1.7.0, DNS rebinding)', async () => {
+    transport.lookup = async () => [{ address: '93.184.216.34', family: 4 }];
+    const e = await endpoint();
+    receiver([]);
+    await e.publish();
+    transport.lookup = async () => [{ address: '93.184.216.35', family: 4 }]; // public, but not what was saved
+    await sweepWebhooks();
+    expect(transport.fetch).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(transport.fetch).mock.calls[0]![2]).toEqual({ address: '93.184.216.35', family: 4 }); // checked at send, then pinned
+    expect(readFileSync('src/modules/apikeys/webhooks.ts', 'utf8')).toMatch(/pin \? fetchPinned\(url, init, pin\)/); // the real transport uses it
+  });
 });
 
 // v1.6.4 (audit 2026-11-17, A-01 and A-13; moved from tests/defects when fixed).
@@ -373,3 +389,106 @@ describe('INV-41 v1.6.4: what a receiver can make the sender do (A-13)', () => {
     expect(other.status).toBe(401);
   });
 });
+
+// ---- v1.7.0: a credential does not outlive the right that made it (audit A-04, A-08; owner decisions 2026-11-17)
+
+describe('INV-40 v1.7.0: keys and webhook endpoints end with their creator’s membership or apikeys.manage', () => {
+  const sending = () => {
+    const sent: string[] = [];
+    transport.fetch = vi.fn(async (url: string) => (sent.push(url), new Response('ok')));
+    return sent;
+  };
+  const publish = (o: { orgId: string }) => withOrg(o, (tx) => emit(o, 'project.created', { project: { name: 'Later' } }, tx));
+
+  it("A-04 removing a member disables the endpoints they created, and no one else's; nothing more is sent to them", async () => {
+    const a = await org('acme');
+    const admin = await addMember(a.orgId, 'admin', 'leaver@acme.test');
+    await createEndpoint(await actAs(admin.id, 'acme'), { url: 'https://leaver-controlled.example.test/collect', eventTypes: [] });
+    await createEndpoint(await actAs(a.owner.userId, 'acme'), { url: 'https://hooks.example.test/owner', eventTypes: [] });
+
+    await removeMember(await actAs(a.owner.userId, 'acme'), admin.id, onMembershipEnded);
+    const theirs = await db.webhookEndpoint.findFirstOrThrow({ where: { createdById: admin.id } });
+    expect(theirs).toMatchObject({ status: 'disabled', disabledReason: ENDPOINT_CREATOR_LEFT });
+    expect((await db.webhookEndpoint.findFirstOrThrow({ where: { createdById: a.owner.userId } })).status).toBe('active');
+    expect(await db.auditEvent.count({ where: { action: 'webhook.disabled_with_member', targetId: admin.id } })).toBe(1);
+
+    const sent = sending();
+    await publish(a);
+    await sweepWebhooks();
+    expect(sent).toEqual(['https://hooks.example.test/owner']);
+  });
+
+  it('A-04 leaving, and deleting the account, disable them too', async () => {
+    const a = await org('acme');
+    const leaver = await addMember(a.orgId, 'admin', 'leaver@acme.test');
+    const deleter = await addMember(a.orgId, 'admin', 'admin@acme.test');
+    await createEndpoint(await actAs(leaver.id, 'acme'), { url: 'https://hooks.example.test/a', eventTypes: [] });
+    await createEndpoint(await actAs(deleter.id, 'acme'), { url: 'https://hooks.example.test/b', eventTypes: [] });
+
+    await removeMember(await actAs(leaver.id, 'acme'), leaver.id, onMembershipEnded);
+    await actAs(deleter.id, 'acme');
+    await deleteAccount((await currentSession())!, 'admin@acme.test', onMembershipEnded);
+    expect(await db.webhookEndpoint.count({ where: { status: 'disabled', disabledReason: ENDPOINT_CREATOR_LEFT } })).toBe(2);
+  });
+
+  it('A-04 an owner who switches it back on takes it over: it then lives and dies with them', async () => {
+    const a = await org('acme');
+    const admin = await addMember(a.orgId, 'admin', 'leaver@acme.test');
+    await createEndpoint(await actAs(admin.id, 'acme'), { url: 'https://hooks.example.test/kept', eventTypes: [] });
+    await removeMember(await actAs(a.owner.userId, 'acme'), admin.id, onMembershipEnded);
+    const ep = await db.webhookEndpoint.findFirstOrThrow();
+
+    await setEndpointStatus(await actAs(a.owner.userId, 'acme'), ep.id, 'active');
+    expect(await db.webhookEndpoint.findUniqueOrThrow({ where: { id: ep.id } })).toMatchObject({ status: 'active', createdById: a.owner.userId, disabledReason: null });
+    const sent = sending();
+    await publish(a);
+    await sweepWebhooks();
+    expect(sent).toEqual(['https://hooks.example.test/kept']);
+  });
+
+  it('A-08 admin → member: the keys they created stop resolving and their endpoints are disabled', async () => {
+    const a = await org('acme');
+    const admin = await addMember(a.orgId, 'admin', 'demoted@acme.test');
+    const ctx = await actAs(admin.id, 'acme');
+    const key = await createKey(ctx, { label: 'crm', scopes: ['read', 'write'] });
+    await createEndpoint(ctx, { url: 'https://hooks.example.test/demoted', eventTypes: [] });
+    const ownerKey = await createKey(await actAs(a.owner.userId, 'acme'), { label: 'owner crm', scopes: ['read'] });
+
+    await changeRole(await actAs(a.owner.userId, 'acme'), admin.id, 'member', onRoleChanged);
+    expect(await resolveKey(`Bearer ${key}`)).toBeNull();
+    expect((await projects.GET(req('/projects', key))).status).toBe(401);
+    expect(await resolveKey(`Bearer ${ownerKey}`)).not.toBeNull();
+    expect(await db.webhookEndpoint.findFirstOrThrow()).toMatchObject({ status: 'disabled', disabledReason: ENDPOINT_CREATOR_DEMOTED });
+    expect(await db.auditEvent.count({ where: { action: 'apikey.revoked_with_role', targetId: admin.id } })).toBe(1);
+    expect(await db.auditEvent.count({ where: { action: 'webhook.disabled_with_role', targetId: admin.id } })).toBe(1);
+  });
+
+  it('A-08 any role without apikeys.manage ends them (scorekeeper); a move that keeps it (admin → owner → admin) does not', async () => {
+    const a = await org('acme');
+    const keeper = await addMember(a.orgId, 'admin', 'keeper@acme.test');
+    const scorer = await addMember(a.orgId, 'admin', 'scorer@acme.test');
+    const kept = await createKey(await actAs(keeper.id, 'acme'), { label: 'kept', scopes: ['read'] });
+    const ended = await createKey(await actAs(scorer.id, 'acme'), { label: 'ended', scopes: ['read'] });
+
+    const owner = await actAs(a.owner.userId, 'acme');
+    await changeRole(owner, keeper.id, 'owner', onRoleChanged);
+    await changeRole(await actAs(a.owner.userId, 'acme'), keeper.id, 'admin', onRoleChanged);
+    await changeRole(await actAs(a.owner.userId, 'acme'), scorer.id, 'scorekeeper', onRoleChanged);
+    expect(await resolveKey(`Bearer ${kept}`)).not.toBeNull();
+    expect(await resolveKey(`Bearer ${ended}`)).toBeNull();
+  });
+
+  it('a refused role change ends nothing: the hook runs inside the change, after its checks', async () => {
+    const a = await org('acme');
+    const admin = await addMember(a.orgId, 'admin', 'admin@acme.test');
+    const other = await addMember(a.orgId, 'admin', 'other@acme.test');
+    const key = await createKey(await actAs(other.id, 'acme'), { label: 'crm', scopes: ['read'] });
+    // an admin cannot demote an owner (INV-28) and the change is refused before the hook
+    await expect(changeRole(await actAs(admin.id, 'acme'), a.owner.userId, 'member', onRoleChanged)).rejects.toThrow();
+    // a hook that throws rolls the whole change back, so the role and the credentials move together or not at all
+    await expect(changeRole(await actAs(a.owner.userId, 'acme'), other.id, 'member', async () => { throw new Error('hook failed'); })).rejects.toThrow('hook failed');
+    expect((await db.membership.findFirstOrThrow({ where: { userId: other.id } })).role).toBe('admin');
+    expect(await resolveKey(`Bearer ${key}`)).not.toBeNull();
+  });
+});
+

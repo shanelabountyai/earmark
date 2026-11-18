@@ -76,14 +76,22 @@ const revokeInvitesBeyond = (tx: Tx, orgId: string, userId: string, role: Role |
     data: { revokedAt: now() },
   });
 
+/**
+ * What else follows a role change, run in its transaction (the app passes `onRoleChanged` from org-hooks.ts). Required, like
+ * MembershipEnded, so no caller can forget it: a credential must not outlive the right that made it (audit A-08, owner
+ * decision 2026-11-17). `to` is the new role; the hook decides what the person can no longer hold.
+ */
+export type RoleChanged = (tx: Prisma.TransactionClient, orgId: string, userId: string, to: Role) => Promise<void>;
+
 /** D-11 in core, not the UI: only an owner grants, changes or removes `owner` (INV-28). */
-export async function changeRole(ctx: OrgCtx, userId: string, role: Role) {
+export async function changeRole(ctx: OrgCtx, userId: string, role: Role, changed: RoleChanged) {
   await withMembers(ctx, userId, async (tx, actor, from) => {
     if (!mayAssign(actor, from, role)) throw new AuthzError('members.manage');
     if (from === role) return;
     if (from === 'owner') await assertOwnerRemains(tx, ctx.orgId, userId);
     await tx.membership.update({ where: { orgId_userId: { orgId: ctx.orgId, userId } }, data: { role } });
     await revokeInvitesBeyond(tx, ctx.orgId, userId, role);
+    await changed(tx, ctx.orgId, userId, role);
     await audit(ctx, 'member.role_changed', { targetType: 'user', targetId: userId, data: { from, to: role } }, tx);
   });
 }

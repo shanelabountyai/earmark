@@ -13,6 +13,7 @@ import { env } from '@/core/env';
 import { Refused } from '@/core/errors';
 import { hashToken, newToken } from '@/core/tokens';
 import { finishSso, resolver, sharedIssuers, SSO_STATE_COOKIE, startSso } from '@/modules/sso/flow';
+import { RECHECK_GRACE_MS, RECHECK_MS, recheckSsoDomains } from '@/modules/sso/hooks';
 import { addDomain, dns, saveConnection, setRequired, txtValue, verifyDomain } from '@/modules/sso/settings';
 import { makeUser, resetAuthTables, signInAs } from '../helpers/auth';
 import { jar, NavSignal } from '../helpers/next';
@@ -186,6 +187,52 @@ describe('INV-35: no join outside the org’s verified domains', () => {
       expect((await db.ssoDomain.findUniqueOrThrow({ where: { id: d.id } })).verifiedAt).not.toBeNull();
     } finally {
       dns.resolveTxt = real;
+    }
+  });
+
+  it('the database holds one verified row per domain, whatever the application checked (v1.7.0)', async () => {
+    const other = await makeOrg('sso-b');
+    const d = await db.ssoDomain.create({ data: { orgId: other.id, domain: DOMAIN } }); // unverified: allowed beside A's
+    await expect(db.ssoDomain.update({ where: { id: d.id }, data: { verifiedAt: now() } })).rejects.toMatchObject({ code: 'P2002' });
+  });
+
+  it('a verified domain whose TXT record goes missing is unverified after the grace period, and audited (v1.7.0)', async () => {
+    const real = dns.resolveTxt;
+    const row = () => db.ssoDomain.findFirstOrThrow({ where: { orgId: org.id } });
+    let offset = 0; // advanceClock sets an absolute offset, so walk it forward by hand
+    const later = (ms: number) => advanceClock((offset += ms));
+    try {
+      dns.resolveTxt = async () => [[txtValue(org.id, DOMAIN)]];
+      expect(await recheckSsoDomains()).toEqual({ checked: 1, failing: 0, unverified: 0 });
+      expect(await recheckSsoDomains()).toEqual({ checked: 0, failing: 0, unverified: 0 }); // not due again for RECHECK_MS
+
+      dns.resolveTxt = async () => {
+        throw Object.assign(new Error('queryTxt ENOTFOUND'), { code: 'ENOTFOUND' });
+      };
+      later(RECHECK_MS + 60_000);
+      expect(await recheckSsoDomains()).toEqual({ checked: 1, failing: 1, unverified: 0 });
+      const missingSince = (await row()).checkFailedAt!;
+      later(RECHECK_MS + 60_000);
+      expect(await recheckSsoDomains()).toEqual({ checked: 1, failing: 1, unverified: 0 }); // still inside the grace
+      expect((await row()).checkFailedAt).toEqual(missingSince); // the first miss is kept, not reset
+
+      dns.resolveTxt = async () => [[txtValue(org.id, DOMAIN)]]; // put back in time: cleared
+      later(RECHECK_MS + 60_000);
+      expect(await recheckSsoDomains()).toEqual({ checked: 1, failing: 0, unverified: 0 });
+      expect((await row()).checkFailedAt).toBeNull();
+
+      dns.resolveTxt = async () => [['unrelated']];
+      later(RECHECK_MS + 60_000);
+      await recheckSsoDomains();
+      later(RECHECK_GRACE_MS);
+      expect(await recheckSsoDomains()).toEqual({ checked: 1, failing: 0, unverified: 1 });
+      expect((await row()).verifiedAt).toBeNull();
+      expect(await resolveSso(ALICE.email)).toBeNull(); // sign-ins on the domain no longer route to the org
+      const ev = await db.auditEvent.findFirstOrThrow({ where: { action: 'sso.domain_unverified' } });
+      expect(ev).toMatchObject({ orgId: org.id, actorUserId: null, data: { domain: DOMAIN } });
+    } finally {
+      dns.resolveTxt = real;
+      advanceClock(0);
     }
   });
 });

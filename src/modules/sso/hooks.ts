@@ -1,6 +1,8 @@
+import { audit } from '@/core/audit';
 import type { SsoHooks } from '@/core/auth/sso-hook';
 import { now } from '@/core/clock';
 import { asSystem } from '@/core/db/rls';
+import { txtPresent } from './txt';
 
 // Cross-org (cross-org.ts): /login, the link checks and the cron sweep all run before an org is known, or across orgs.
 const EXEMPT_MS = 24 * 3600_000; // the owner who turned "Require SSO" on keeps magic links this long (INV-36)
@@ -57,3 +59,40 @@ export const domainVerifiedElsewhere = (domain: string, orgId: string) =>
 
 /** Cron: expired sign-in states (10-minute TTL) across every org. */
 export const sweepSsoStates = () => asSystem(async (sys) => (await sys.ssoState.deleteMany({ where: { expiresAt: { lt: now() } } })).count);
+
+/** A verified domain's TXT record is re-read about this often (v1.7.0). */
+export const RECHECK_MS = 24 * 3600_000;
+/** How long the record may stay missing before the domain is unverified: DNS outages and edits get three days. */
+export const RECHECK_GRACE_MS = 72 * 3600_000;
+
+/**
+ * Cron (v1.7.0): verification used to be forever, so a domain sold or handed back kept routing its sign-ins to the old
+ * org. Each verified domain not re-read in RECHECK_MS is looked up again. Present: cleared. Missing: the first miss is
+ * recorded, and once it has been missing for RECHECK_GRACE_MS the domain is unverified and audited in its org. At most
+ * `limit` lookups per run, oldest check first.
+ */
+export const recheckSsoDomains = (limit = 25) =>
+  asSystem(async (sys) => {
+    const t = now();
+    const due = await sys.ssoDomain.findMany({
+      where: { verifiedAt: { not: null }, OR: [{ checkedAt: null }, { checkedAt: { lt: new Date(t.getTime() - RECHECK_MS) } }] },
+      orderBy: [{ checkedAt: { sort: 'asc', nulls: 'first' } }, { id: 'asc' }],
+      take: limit,
+    });
+    const out = { checked: due.length, failing: 0, unverified: 0 };
+    for (const d of due) {
+      if (await txtPresent(d.orgId, d.domain)) {
+        await sys.ssoDomain.update({ where: { id: d.id }, data: { checkedAt: t, checkFailedAt: null } });
+      } else if (d.checkFailedAt && t.getTime() - d.checkFailedAt.getTime() >= RECHECK_GRACE_MS) {
+        await sys.$transaction(async (tx) => {
+          await tx.ssoDomain.update({ where: { id: d.id }, data: { verifiedAt: null, checkedAt: t, checkFailedAt: null } });
+          await audit({ orgId: d.orgId, userId: null }, 'sso.domain_unverified', { data: { domain: d.domain, missingSince: d.checkFailedAt!.toISOString() } }, tx);
+        });
+        out.unverified++;
+      } else {
+        await sys.ssoDomain.update({ where: { id: d.id }, data: { checkedAt: t, checkFailedAt: d.checkFailedAt ?? t } });
+        out.failing++;
+      }
+    }
+    return out;
+  });

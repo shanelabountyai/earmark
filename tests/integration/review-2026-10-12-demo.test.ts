@@ -1,7 +1,7 @@
 // 2026-10-12 review, demo finding: what a /demo session may do, and what happens to demo accounts once
 // DEMO_MODE is off. INV-27 (tests/invariants/inv-27-demo.test.ts) covers who may sign in at /demo.
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { onMembershipEnded } from '@/app/org-hooks';
+import { onMembershipEnded, onRoleChanged } from '@/app/org-hooks';
 
 // env.ts parses process.env at import; this file runs with the flag on, as a demo deployment does.
 vi.hoisted(() => { process.env.DEMO_MODE = '1'; });
@@ -86,7 +86,7 @@ describe('a demo session cannot destroy the demo or change who owns it', () => {
     await viaDemo(d.owner);
     const ctx = await requireOrg(d.slug);
     await expect(createInvite(ctx, 'mine@example.test', 'owner')).rejects.toThrow(DEMO);
-    await expect(changeRole(ctx, member.id, 'owner')).rejects.toThrow(DEMO);
+    await expect(changeRole(ctx, member.id, 'owner', onRoleChanged)).rejects.toThrow(DEMO);
     await expect(removeMember(ctx, member.id, onMembershipEnded)).rejects.toThrow(DEMO);
     await viaDemo(d.member);
     await expect(removeMember(await requireOrg(d.slug), member.id, onMembershipEnded)).rejects.toThrow(DEMO);
