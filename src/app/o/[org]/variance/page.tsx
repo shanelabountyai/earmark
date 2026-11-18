@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { inOrg, requireOrg } from '@/core/authz/guards';
 import { withOrg } from '@/core/db/rls';
 import { ledgerOf } from '@/earmark/core';
+import { orgName } from '@/earmark/ui/org-name';
 import { Card, day, Money, PageHead, Pill, TableWrap, VarianceState } from '@/earmark/ui/kit';
 import { variance } from '@/lib/earmark/variance';
 
@@ -23,7 +24,7 @@ export default async function VariancePage({ params }: { params: Promise<{ org: 
     lines: await tx.budgetLine.findMany({
       where: inOrg(ctx),
       select: { id: true, name: true, plannedEditedAt: true, periodId: true, campaign: { select: { name: true, program: { select: { name: true } } } }, period: { select: { index: true, startsOn: true, fiscalYear: { select: { label: true, startsOn: true } } } } },
-      orderBy: [{ period: { fiscalYear: { startsOn: 'desc' } } }, { period: { index: 'asc' } }],
+      orderBy: [{ period: { fiscalYear: { startsOn: 'desc' } } }, { period: { index: 'asc' } }, { campaign: { program: { name: 'asc' } } }, { campaign: { name: 'asc' } }, { name: 'asc' }],
     }),
     notes: await tx.varianceNote.findMany({ where: { ...inOrg(ctx), published: { not: null } }, orderBy: { publishedAt: 'asc' }, select: { budgetLineId: true, published: true } }),
   }), { atomic: false });
@@ -35,7 +36,7 @@ export default async function VariancePage({ params }: { params: Promise<{ org: 
   return (
     <main className="stack">
       <PageHead
-        eyebrow="Reports"
+        eyebrow={`${await orgName(ctx.orgId)} · Variance`}
         title="Variance"
         lede="Actual minus planned, per line and period. Actual is invoices matched to a PO and approved for payment. A line with nothing planned but money spent shows as unplanned, never as a percentage."
       />
@@ -84,6 +85,7 @@ export default async function VariancePage({ params }: { params: Promise<{ org: 
                 </tfoot>
               </table>
             </TableWrap>
+            <p className="note">Variance = actual − planned. The % is of planned. Notes are written on the line page; the newest published one shows here.</p>
           </Card>
         );
       })}

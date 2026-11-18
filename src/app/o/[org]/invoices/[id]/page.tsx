@@ -3,20 +3,29 @@ import { notFound } from 'next/navigation';
 import { actorEmails } from '@/core/audit';
 import { inOrg, requireOrg } from '@/core/authz/guards';
 import { withOrg } from '@/core/db/rls';
-import { ActionForm } from '@/core/ui/action-form';
+import { Form as ActionForm } from '@/earmark/ui/form';
 import { approveInvoiceForPayment, matchInvoice } from '@/earmark/actions';
 import { earmarkCan, isUuid } from '@/earmark/core';
+import { orgName } from '@/earmark/ui/org-name';
 import { Card, day, InvoiceState, Money, PageHead, Pill, TableWrap } from '@/earmark/ui/kit';
 import { suggestMatches } from '@/lib/earmark/match';
 import { formatUsd, min } from '@/lib/earmark/money';
 
-export const metadata = { title: 'Invoice' };
+type P = { params: Promise<{ org: string; id: string }> };
+export async function generateMetadata({ params }: P) {
+  const { org, id } = await params;
+  const ctx = await requireOrg(org);
+  if (ctx.role === 'guest' || !isUuid(id)) return { title: 'Invoice' };
+  const i = await withOrg(ctx, (tx) => tx.invoice.findFirst({ where: { id, ...inOrg(ctx) }, select: { number: true } }), { atomic: false });
+  return { title: i ? `Invoice ${i.number}` : 'Invoice' };
+}
 
 const TIER = { 1: 'PO number and agency', 2: 'PO number, other agency', 3: 'Agency, amount within 2 %', 4: 'Agency' } as const;
 const REASON: Record<string, string> = {
   'po-number': 'PO number on the invoice', agency: 'same agency', 'agency-mismatch': 'different agency',
   'amount-within-2pct': 'amount within 2 % of remaining', 'exact-remaining': 'exactly what is left', 'would-overage': 'would overage',
 };
+const STATUS: Record<string, string> = { submitted: 'unmatched', matched: 'matched, waiting on Finance', approved: 'approved for payment', disputed: 'disputed', voided: 'voided' };
 const QUEUE: Record<string, string> = { submitted: 'To match', matched: 'To approve for payment', approved: 'Approved for payment' };
 
 // Demo step 9 (PRD §4; design: docs/design/Invoice.dc.html): an invoice, the matches made, the engine's ranked
@@ -55,7 +64,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ org: s
   return (
     <main className="stack">
       <PageHead
-        eyebrow={<><Link href={`${base}/invoices`}>Invoices</Link>{QUEUE[inv.state] && <> · {QUEUE[inv.state]}</>}</>}
+        eyebrow={<>{await orgName(ctx.orgId)} · <Link href={`${base}/invoices`}>Invoices</Link>{QUEUE[inv.state] && <> · {QUEUE[inv.state]}</>}</>}
         title={<>{inv.number} · <Money cents={inv.amountCents} /></>}
         lede={<>{inv.agency.name} · submitted by {emails.get(inv.submittedById) ?? 'an API key'} · PO on the invoice: {inv.poNumber ?? 'none'}</>}
         aside={<p style={{ margin: 0 }}><span className="sr-only">Status: </span><InvoiceState state={inv.state} big /></p>}
@@ -67,7 +76,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ org: s
           <dt>Amount</dt><dd><Money cents={inv.amountCents} /></dd>
           <dt>Unmatched</dt><dd><Money cents={leftCents} /></dd>
           <dt>Invoiced</dt><dd>{day(inv.invoicedOn)} · due {day(inv.dueOn)}</dd>
-          <dt>Status</dt><dd>{inv.state}{inv.approvedForPaymentAt && ` ${day(inv.approvedForPaymentAt)}`}</dd>
+          <dt>Status</dt><dd>{STATUS[inv.state] ?? inv.state}{inv.approvedForPaymentAt && ` ${day(inv.approvedForPaymentAt)}`}</dd>
           {inv.fileRef && <><dt>File</dt><dd><a href={inv.fileRef} rel="noreferrer noopener" target="_blank">Open the invoice<span className="sr-only"> (opens in a new tab)</span></a></dd></>}
         </dl>
       </Card>
@@ -92,8 +101,8 @@ export default async function InvoicePage({ params }: { params: Promise<{ org: s
                           <ActionForm action={matchInvoice.bind(null, ctx.slug)}>
                             <input type="hidden" name="invoiceId" value={inv.id} />
                             <input type="hidden" name="commitmentId" value={c.id} />
-                            <label>Amount<span className="sr-only"> to match to {c.poNumber}</span> (USD) <input name="amount" inputMode="decimal" required maxLength={32} defaultValue={formatUsd(amount)} size={10} autoComplete="off" /></label>
-                            <label>Note<span className="sr-only"> for {c.poNumber}</span> <input name="note" maxLength={2000} placeholder={s.wouldOverage ? 'Required for an overage' : 'Optional'} size={14} /></label>
+                            <label>Amount (USD)<span className="sr-only"> to match to {c.poNumber}</span> <input name="amount" inputMode="decimal" required maxLength={32} defaultValue={formatUsd(amount)} size={10} autoComplete="off" /></label>
+                            <label>Note<span className="sr-only"> for {c.poNumber}</span> <input name="note" maxLength={2000} placeholder={s.wouldOverage ? '' : 'Optional'} size={14} required={s.wouldOverage} aria-describedby={s.wouldOverage ? `over-${c.id}` : undefined} />{s.wouldOverage && <span className="note" id={`over-${c.id}`}>Required: this match would overage.</span>}</label>
                             <button type="submit" className={k === 0 ? undefined : 'btn-secondary'}>Match to {c.poNumber}</button>
                           </ActionForm>
                         </td>

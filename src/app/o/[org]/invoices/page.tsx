@@ -4,6 +4,7 @@ import { inOrg, requireOrg } from '@/core/authz/guards';
 import { now } from '@/core/clock';
 import { withOrg } from '@/core/db/rls';
 import { alertRules } from '@/earmark/alerts';
+import { orgName } from '@/earmark/ui/org-name';
 import { Card, day, Money, PageHead, TableWrap } from '@/earmark/ui/kit';
 import { ageDays } from '@/lib/earmark/rollup';
 
@@ -20,10 +21,11 @@ export default async function Invoices({ params }: { params: Promise<{ org: stri
   const base = `/o/${ctx.slug}`;
 
   const select = { id: true, number: true, poNumber: true, amountCents: true, dueOn: true, createdAt: true, approvedForPaymentAt: true, agency: { select: { name: true } }, matches: { select: { amountCents: true } } } as const;
-  const { toMatch, toApprove, approved } = await withOrg(ctx, async (tx) => ({
+  const { toMatch, toApprove, approved, approvedCount } = await withOrg(ctx, async (tx) => ({
     toMatch: await tx.invoice.findMany({ where: { ...inOrg(ctx), state: 'submitted' }, orderBy: { createdAt: 'asc' }, take: 200, select }),
     toApprove: await tx.invoice.findMany({ where: { ...inOrg(ctx), state: 'matched' }, orderBy: { dueOn: 'asc' }, take: 200, select }),
     approved: await tx.invoice.findMany({ where: { ...inOrg(ctx), state: 'approved' }, orderBy: { approvedForPaymentAt: 'desc' }, take: 20, select }),
+    approvedCount: await tx.invoice.count({ where: { ...inOrg(ctx), state: 'approved' } }),
   }), { atomic: false });
   const t = now().toISOString();
   const { unmatchedDays } = alertRules();
@@ -57,14 +59,14 @@ export default async function Invoices({ params }: { params: Promise<{ org: stri
   return (
     <main className="stack">
       <PageHead
-        eyebrow="Invoices"
+        eyebrow={`${await orgName(ctx.orgId)} · Invoices`}
         title="Invoices"
         lede="Agencies bill against POs. Someone matches each invoice to a PO, then a Finance seat holder approves it for payment. Approved invoices count as actual."
       />
       <div className="queues" role="group" aria-label="Queues">
         <a href="#to-match"><span aria-hidden="true">◆</span> To match <span className="money">{toMatch.length}</span></a>
         <a href="#to-approve"><span aria-hidden="true">●</span> To approve <span className="money">{toApprove.length}</span></a>
-        <a href="#approved"><span aria-hidden="true">✓</span> Approved <span className="money">{approved.length}</span></a>
+        <a href="#approved"><span aria-hidden="true">✓</span> Approved <span className="money">{approvedCount}</span></a>
       </div>
       <Card id="to-match" title={`To match (${toMatch.length})`}>
         {toMatch.length ? table('To match', toMatch, true) : <p className="note">None. Every submitted invoice is matched.</p>}
@@ -74,7 +76,7 @@ export default async function Invoices({ params }: { params: Promise<{ org: stri
         {toApprove.length ? table('To approve for payment', toApprove, false) : <p className="note">None.</p>}
         <p className="note">Fully matched. Only a Finance seat holder can approve one for payment.</p>
       </Card>
-      <Card id="approved" title={`Approved for payment (${approved.length < 20 ? approved.length : 'latest 20'})`}>
+      <Card id="approved" title={`Approved for payment (${approvedCount})`}>
         {approved.length === 0 ? <p className="note">None yet.</p> : (
           <TableWrap label="Approved for payment">
             <table aria-label="Approved for payment">

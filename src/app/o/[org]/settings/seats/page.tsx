@@ -2,9 +2,10 @@ import { notFound } from 'next/navigation';
 import { inOrg, requireOrg } from '@/core/authz/guards';
 import { now } from '@/core/clock';
 import { withOrg } from '@/core/db/rls';
-import { ActionForm } from '@/core/ui/action-form';
+import { Form as ActionForm } from '@/earmark/ui/form';
 import { assignSeat, clearDelegation, createSeat, delegateSeat, endSeat } from '@/earmark/actions';
 import { earmarkCan } from '@/earmark/core';
+import { orgName } from '@/earmark/ui/org-name';
 import { Card, day, PageHead, Pill, TableWrap } from '@/earmark/ui/kit';
 
 export const metadata = { title: 'Seats' };
@@ -27,7 +28,7 @@ export default async function SeatsPage({ params }: { params: Promise<{ org: str
   return (
     <main className="stack">
       <PageHead
-        eyebrow="Settings · Seats"
+        eyebrow={`${await orgName(ctx.orgId)} · Settings · Seats`}
         title="Seats"
         lede="A seat is a named approver position. Chain steps name seats; whoever holds the seat when a request is submitted is frozen into its chain. Only the owner hands seats out."
       />
@@ -77,8 +78,8 @@ export default async function SeatsPage({ params }: { params: Promise<{ org: str
                                       <ActionForm action={delegateSeat.bind(null, ctx.slug)}>
                                         <input type="hidden" name="seatId" value={s.id} />
                                         <input type="hidden" name="userId" value={h.userId} />
-                                        <label><span className="sr-only">Delegate {name}’s {s.name} seat to</span><span aria-hidden="true">Delegate to</span> <select name="delegateToId" required>{people}</select></label>
-                                        <button type="submit" className="btn-secondary">Delegate</button>
+                                        <label>Delegate to<span className="sr-only"> (for {name}’s {s.name} seat)</span> <select name="delegateToId" required>{people}</select></label>
+                                        <button type="submit" className="btn-secondary" aria-label={`Delegate ${name}’s ${s.name} seat`}>Delegate</button>
                                       </ActionForm>
                                     </div>
                                     {h.delegateToId && (

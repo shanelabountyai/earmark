@@ -4,9 +4,18 @@ import { inOrg, requireOrg } from '@/core/authz/guards';
 import { withOrg } from '@/core/db/rls';
 import { earmarkCan, findCommitment, isUuid, scopeOf, toGuestCommitment } from '@/earmark/core';
 import { InvoiceForm } from '@/earmark/ui/invoice-form';
+import { orgName } from '@/earmark/ui/org-name';
 import { Card, day, InvoiceState, Metrics, Money, PageHead, PoState, TableWrap } from '@/earmark/ui/kit';
 
-export const metadata = { title: 'Purchase order' };
+type P = { params: Promise<{ org: string; id: string }> };
+// A foreign or other-agency id gets the same generic title as a missing one (E-INV-03).
+export async function generateMetadata({ params }: P) {
+  const { org, id } = await params;
+  const ctx = await requireOrg(org);
+  if (!isUuid(id)) return { title: 'Purchase order' };
+  const c = await withOrg(ctx, async (tx) => tx.commitment.findFirst({ where: { id, ...inOrg(ctx), ...(await scopeOf(tx, ctx)) }, select: { poNumber: true } }), { atomic: false });
+  return { title: c ? c.poNumber : 'Purchase order' };
+}
 
 // Demo steps 6–8 (design: docs/design/Guest.dc.html): the PO an approval issued; a guest submits an invoice against
 // it (step 7); the same id under another client's slug is the notFound of a missing row (step 8, E-INV-03), so the
@@ -39,14 +48,14 @@ export default async function CommitmentPage({ params }: { params: Promise<{ org
   return (
     <main className="stack">
       <PageHead
-        eyebrow={<><Link href={`${base}/commitments`}>Purchase orders</Link>{staff && <> · {staff.agency.name}</>}</>}
+        eyebrow={<>{await orgName(ctx.orgId)} · <Link href={`${base}/commitments`}>Purchase orders</Link>{staff && <> · {staff.agency.name}</>}</>}
         title={po.poNumber}
         lede={<>Issued {po.issuedAt.slice(0, 10)}{po.closedAt && <> · closed {po.closedAt.slice(0, 10)}{staff?.closeReason ? ` (${staff.closeReason})` : ''}</>}</>}
         aside={<p style={{ margin: 0 }}><span className="sr-only">Status: </span><PoState closed={!!po.closedAt} matchStatus={po.matchStatus} /></p>}
       />
       <Metrics label="Purchase order" items={[
         { label: 'PO amount', cents: BigInt(po.amountCents) },
-        { label: 'Left to bill', cents: BigInt(po.remainingCents), earmarked: true },
+        { label: 'Left to bill', cents: BigInt(po.remainingCents) },
       ]} />
 
       {staff && (

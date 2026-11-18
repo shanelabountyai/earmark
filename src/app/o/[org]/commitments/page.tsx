@@ -39,7 +39,7 @@ export default async function Commitments({ params }: { params: Promise<{ org: s
   return (
     <main className="stack">
       <PageHead
-        eyebrow={guest ? `${agency?.name ?? 'Your agency'} in ${org.name}` : 'Purchase orders'}
+        eyebrow={guest ? `${agency?.name ?? 'Your agency'} in ${org.name}` : `${org.name} · Purchase orders`}
         title="Purchase orders"
         lede={guest
           ? `The POs ${org.name} has issued to ${agency?.name ?? 'your agency'}. Bill against a PO, and ${org.name}’s team matches your invoice to it.`

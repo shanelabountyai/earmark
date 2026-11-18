@@ -3,13 +3,22 @@ import { notFound } from 'next/navigation';
 import { actorEmails } from '@/core/audit';
 import { inOrg, requireOrg } from '@/core/authz/guards';
 import { withOrg } from '@/core/db/rls';
-import { ActionForm } from '@/core/ui/action-form';
+import { Form as ActionForm } from '@/earmark/ui/form';
 import { decideStep, withdrawRequest } from '@/earmark/actions';
 import { isUuid } from '@/earmark/core';
+import { orgName } from '@/earmark/ui/org-name';
 import { Card, Money, PageHead, Pill, RequestState, TableWrap } from '@/earmark/ui/kit';
 import { formatUsd } from '@/lib/earmark/money';
 
-export const metadata = { title: 'Request' };
+type P = { params: Promise<{ org: string; id: string }> };
+// The tab names the request (2.4.2); a missing or foreign id gets the generic title, like its 404.
+export async function generateMetadata({ params }: P) {
+  const { org, id } = await params;
+  const ctx = await requireOrg(org);
+  if (ctx.role === 'guest' || !isUuid(id)) return { title: 'Request' };
+  const r = await withOrg(ctx, (tx) => tx.spendRequest.findFirst({ where: { id, ...inOrg(ctx) }, select: { description: true } }), { atomic: false });
+  return { title: r ? `Request: ${r.description}` : 'Request' };
+}
 
 const when = (d: Date) => d.toISOString().slice(0, 16).replace('T', ' ');
 type Skipped = { seat: string; fromCents: string | number };
@@ -31,7 +40,7 @@ export default async function RequestPage({ params }: { params: Promise<{ org: s
         agency: { select: { name: true } },
         commitment: { select: { id: true, poNumber: true, amountCents: true } },
         reallocation: { select: { toLine: { select: { id: true, name: true } } } },
-        budgetLine: { select: { id: true, name: true, campaign: { select: { name: true, program: { select: { name: true } } } } } },
+        budgetLine: { select: { id: true, name: true, ownerSeat: true, campaign: { select: { name: true, program: { select: { name: true } } } } } },
       },
     });
     if (!r) notFound();
@@ -44,7 +53,11 @@ export default async function RequestPage({ params }: { params: Promise<{ org: s
   const current = r.state === 'submitted' ? r.steps.find((s) => !s.decision) : undefined;
   const rejectedAt = r.steps.find((s) => s.decision === 'reject')?.index;
   const l = r.budgetLine;
-  const skipped = ((r.chainSnapshot as { skipped?: Skipped[] } | null)?.skipped ?? []);
+  const inChain = new Set(r.steps.map((s) => s.seat));
+  const skipped = ((r.chainSnapshot as { skipped?: Skipped[] } | null)?.skipped ?? []).filter((s) => !inChain.has(s.seat));
+  // D-53: the decide form shows to the current step's frozen approvers (the requester among them is refused by the
+  // action, demo step 4); everyone else sees who the step waits on.
+  const mayDecide = !!current && (current.approverIds.includes(ctx.userId) || r.requestedById === ctx.userId);
   const title = r.reallocation
     ? <><Money cents={r.amountCents} /> from {l.name} to {r.reallocation.toLine.name}</>
     : <><Money cents={r.amountCents} /> to {r.agency?.name ?? 'no agency'}</>;
@@ -52,7 +65,7 @@ export default async function RequestPage({ params }: { params: Promise<{ org: s
   return (
     <main className="stack">
       <PageHead
-        eyebrow={<><Link href={`${base}/requests`}>Requests</Link> · {l.campaign.program.name} / {l.campaign.name} / <Link href={`${base}/lines/${l.id}`}>{l.name}</Link></>}
+        eyebrow={<>{await orgName(ctx.orgId)} · <Link href={`${base}/requests`}>Requests</Link> · {l.campaign.program.name} / {l.campaign.name} / <Link href={`${base}/lines/${l.id}`}>{l.name}</Link></>}
         title={title}
         lede={<>Submitted by {who(r.requestedById)} on {when(r.submittedAt)} UTC · {r.description}</>}
         aside={<p className="pills" style={{ margin: 0 }}><span className="sr-only">State: </span><RequestState state={r.state} big />{r.overBudget && <Pill tone="bad" glyph="▲" big>Over budget</Pill>}</p>}
@@ -86,7 +99,7 @@ export default async function RequestPage({ params }: { params: Promise<{ org: s
                 <li key={s.id} aria-current={now ? 'step' : undefined}>
                   <span aria-hidden="true" className={`dot ${dot}`}>{s.decision === 'approve' ? '✓' : s.decision === 'reject' ? '✕' : s.index + 1}</span>
                   <div className="body">
-                    <strong>Step {s.index + 1}: <span className="seat">{s.seat}</span>{' '}
+                    <strong>Step {s.index + 1}: <span className="seat">{s.seat}</span>{s.seat === 'Budget Owner' && <span className="from"> ({l.ownerSeat}, the line’s owner seat)</span>}{' '}
                       <span className="from">· {s.source === 'over-budget' ? 'over budget, note required' : s.thresholdCents === null ? 'always' : `applies from ${formatUsd(s.thresholdCents)}`}{s.source === 'override' && ' (override)'}</span>
                     </strong>
                     <span className="why">
@@ -105,7 +118,10 @@ export default async function RequestPage({ params }: { params: Promise<{ org: s
         )}
       </Card>
 
-      {current && (
+      {current && !mayDecide && (
+        <p className="note"><span aria-hidden="true">◆ </span>Step {current.index + 1} is waiting on {current.seat === 'Budget Owner' ? l.ownerSeat : current.seat}: {current.approverIds.map(who).join(', ') || 'no one holds that seat yet'}.</p>
+      )}
+      {current && mayDecide && (
         <Card id="dec-h" title={`Decide step ${current.index + 1}: ${current.seat}`} className="form-stack">
           <ActionForm action={decideStep.bind(null, ctx.slug)}>
             <input type="hidden" name="requestId" value={r.id} />

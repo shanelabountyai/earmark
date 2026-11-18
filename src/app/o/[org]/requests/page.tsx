@@ -2,9 +2,10 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { inOrg, requireOrg } from '@/core/authz/guards';
 import { withOrg } from '@/core/db/rls';
-import { ActionForm } from '@/core/ui/action-form';
+import { Form as ActionForm } from '@/earmark/ui/form';
 import { earmarkCan } from '@/earmark/core';
 import { submitRequest } from '@/earmark/actions';
+import { orgName } from '@/earmark/ui/org-name';
 import { Card, day, Money, PageHead, Pill, RequestState, TableWrap } from '@/earmark/ui/kit';
 
 export const metadata = { title: 'Requests' };
@@ -40,13 +41,13 @@ export default async function Requests({ params, searchParams }: { params: Promi
   return (
     <main className="stack">
       <PageHead
-        eyebrow="Requests"
+        eyebrow={`${await orgName(ctx.orgId)} · Requests`}
         title="Requests"
         lede="Ask to commit money against one budget line. The approval chain is worked out from the rules and frozen the moment you submit."
       />
-      <div className="row">
+      <div className="stack">
         {canCreate && (
-          <Card id="new-h" title="New request" className="narrow form-stack">
+          <Card id="new-h" title="New request" className="form-stack new-request">
             {lines.length === 0 || agencies.length === 0 ? (
               <p className="note">{lines.length === 0 ? 'There is no budget line to request against yet. An owner or admin adds lines on the Plan page.' : 'There is no active agency to request for. An admin adds one under Settings, Agencies.'}</p>
             ) : (
@@ -75,7 +76,7 @@ export default async function Requests({ params, searchParams }: { params: Promi
           </Card>
         )}
 
-        <Card id="list-h" title="Recent requests" className="wide">
+        <Card id="list-h" title="Recent requests">
           {requests.length === 0 ? <p className="note">No requests yet.</p> : (
             <TableWrap label="Recent requests">
               <table aria-label="Recent requests">

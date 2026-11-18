@@ -2,9 +2,10 @@ import { notFound } from 'next/navigation';
 import { actorEmails } from '@/core/audit';
 import { inOrg, requireOrg } from '@/core/authz/guards';
 import { withOrg } from '@/core/db/rls';
-import { ActionForm } from '@/core/ui/action-form';
+import { Form as ActionForm } from '@/earmark/ui/form';
 import { editRules } from '@/earmark/actions';
 import { earmarkCan, rulesOf } from '@/earmark/core';
+import { orgName } from '@/earmark/ui/org-name';
 import { Card, PageHead, TableWrap } from '@/earmark/ui/kit';
 import { formatUsd } from '@/lib/earmark/money';
 
@@ -34,7 +35,7 @@ export default async function Rules({ params }: { params: Promise<{ org: string 
   return (
     <main className="stack">
       <PageHead
-        eyebrow="Settings · Rules"
+        eyebrow={`${await orgName(ctx.orgId)} · Settings · Rules`}
         title="Approval rules"
         lede="A threshold change is a data edit with an audit entry, never a deploy. Requests already submitted keep the chain they were given."
       />
@@ -42,17 +43,18 @@ export default async function Rules({ params }: { params: Promise<{ org: string 
         <Card id="chain-h" title={<>Default chain <span className="note" style={{ fontWeight: 500 }}>read from the JSON</span></>} className="narrow">
           <ol className="rules-chain" aria-label="Default chain">
             {(json.default ?? []).map((s, i) => (
-              <li key={`${s.seat}-${i}`}><span aria-hidden="true" className="n">{i + 1}</span><strong>{s.seat}</strong><span className="money">from {usd(s.fromCents)}</span></li>
+              <li key={`${s.seat}-${i}`}><span aria-hidden="true" className="n">{i + 1}</span><strong>{s.seat}</strong><span className="from">from {usd(s.fromCents)}</span></li>
             ))}
           </ol>
           <p className="note">A request goes through every step whose threshold it reaches, in order.
             {(json.overrides ?? []).map((o, i) => <span key={i}> {Object.entries(o.when ?? {}).map(([k, v]) => `${k === 'costCenter' ? 'Cost center' : k} ${v}`).join(', ')} also adds {chain(o.append)}.</span>)}
             {json.reallocation && <> Reallocations use their own chain: {chain(json.reallocation)}.</>}
           </p>
-          <p className="note">Admins edit thresholds below the top step. Only an owner edits the top step or adds and removes seats.</p>
+          <p className="note"><em>Budget Owner</em> means the owner seat named on the request’s budget line. Admins edit thresholds below the top step. Only an owner edits the top step or adds and removes seats.</p>
         </Card>
 
-        <Card id="json-h" title="The rules, as data" className="wide form-stack">
+        <section className="card wide form-stack">
+          <h2>Rules JSON</h2>
           <p className="note">Thresholds are in cents: <code>1500000</code> is $15,000. A change applies to requests submitted after it.</p>
           {editable ? (
             <ActionForm action={editRules.bind(null, ctx.slug)}>
@@ -61,7 +63,7 @@ export default async function Rules({ params }: { params: Promise<{ org: string 
               <p className="note">Rules that don’t parse are refused, and nothing is saved.</p>
             </ActionForm>
           ) : <pre aria-label="Rules JSON">{text}</pre>}
-        </Card>
+        </section>
       </div>
 
       <Card id="ed-h" title="Rule edits">

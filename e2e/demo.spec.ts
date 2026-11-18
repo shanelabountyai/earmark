@@ -54,7 +54,9 @@ test('steps 3–5: frozen chain, self-approval refused, rule edit applies only t
   await owner.getByRole('link', { name: 'Approvals' }).click();
   await owner.getByRole('link', { name: `Launch ads ${stamp}` }).click();
   await owner.getByRole('button', { name: 'Approve' }).click();
-  await expect(owner.getByRole('heading', { name: 'Decide step 2: Marketing Ops' })).toBeVisible();
+  // D-53: the step moved on to Marketing Ops, which demandgen does not hold, so she sees who it waits on, not a form.
+  await expect(owner.locator('main')).toContainText('Step 2 is waiting on Marketing Ops');
+  await expect(owner.getByRole('button', { name: 'Approve' })).toHaveCount(0);
   await expect(owner.getByRole('table', { name: 'Request audit' })).toContainText('request.step.approved');
 
   const admin = await as(browser, 'admin@northwind.demo.test');

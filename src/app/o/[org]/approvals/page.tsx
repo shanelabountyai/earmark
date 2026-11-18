@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { inOrg, requireOrg } from '@/core/authz/guards';
 import { withOrg } from '@/core/db/rls';
 import { heldSeats } from '@/earmark/core';
+import { orgName } from '@/earmark/ui/org-name';
 import { Card, day, Money, PageHead, Pill, TableWrap } from '@/earmark/ui/kit';
 
 export const metadata = { title: 'Approvals' };
@@ -17,7 +18,7 @@ export default async function Approvals({ params }: { params: Promise<{ org: str
     open: await tx.spendRequest.findMany({
       where: { ...inOrg(ctx), state: 'submitted', steps: { some: { approverIds: { has: ctx.userId }, decision: null } } },
       orderBy: { submittedAt: 'asc' },
-      include: { budgetLine: { select: { id: true, name: true } }, steps: { where: { decision: null }, orderBy: { index: 'asc' } } },
+      include: { budgetLine: { select: { id: true, name: true, ownerSeat: true } }, steps: { where: { decision: null }, orderBy: { index: 'asc' } } },
     }),
     held: new Set(await heldSeats(tx, ctx)),
   }), { atomic: false });
@@ -28,7 +29,7 @@ export default async function Approvals({ params }: { params: Promise<{ org: str
   return (
     <main className="stack">
       <PageHead
-        eyebrow="Approvals"
+        eyebrow={`${await orgName(ctx.orgId)} · Approvals`}
         title="Waiting on you"
         lede="Requests whose current step names you, through a seat you hold or one delegated to you. Oldest first. Each request’s chain was frozen when it was submitted."
       />
@@ -40,6 +41,7 @@ export default async function Approvals({ params }: { params: Promise<{ org: str
               <tbody>
                 {mine.map((r) => {
                   const step = r.steps[0]!;
+                  const seat = step.seat === 'Budget Owner' ? r.budgetLine.ownerSeat : step.seat; // D-18: the line's owner seat
                   return (
                     <tr key={r.id}>
                       <td className="nowrap">{day(r.submittedAt)}</td>
@@ -52,7 +54,7 @@ export default async function Approvals({ params }: { params: Promise<{ org: str
                       </td>
                       <td><Link href={`${base}/lines/${r.budgetLine.id}`}>{r.budgetLine.name}</Link></td>
                       <td className="num"><Money cents={r.amountCents} /></td>
-                      <td>{step.seat}{!held.has(step.seat) && <> <Pill tone="info">Delegated to you</Pill></>}{step.blocked && <> <Pill tone="bad" glyph="▲">Blocked</Pill></>}</td>
+                      <td>{seat}{!held.has(seat) && <> <Pill tone="info">Delegated to you</Pill></>}{step.blocked && <> <Pill tone="bad" glyph="▲">Blocked</Pill></>}</td>
                     </tr>
                   );
                 })}

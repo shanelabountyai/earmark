@@ -1,4 +1,4 @@
-import { ActionForm } from '@/core/ui/action-form';
+import { Form as ActionForm } from '@/earmark/ui/form';
 import { submitInvoice } from '@/earmark/actions';
 import { formatUsd } from '@/lib/earmark/money';
 

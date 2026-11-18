@@ -2,14 +2,22 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { inOrg, requireOrg } from '@/core/authz/guards';
 import { withOrg } from '@/core/db/rls';
-import { ActionForm } from '@/core/ui/action-form';
+import { Form as ActionForm } from '@/earmark/ui/form';
 import { explainVariance, publishVarianceNote, setPlanned, submitReallocation } from '@/earmark/actions';
 import { earmarkCan, ledgerOf } from '@/earmark/core';
+import { orgName } from '@/earmark/ui/org-name';
 import { Card, day, InvoiceState, Metrics, Money, PageHead, Pill, PoState, RequestState, TableWrap, VarianceState } from '@/earmark/ui/kit';
 import { formatUsd } from '@/lib/earmark/money';
 import { variance } from '@/lib/earmark/variance';
 
-export const metadata = { title: 'Budget line' };
+type P = { params: Promise<{ org: string; id: string }> };
+export async function generateMetadata({ params }: P) {
+  const { org, id } = await params;
+  const ctx = await requireOrg(org);
+  if (ctx.role === 'guest' || !UUID.test(id)) return { title: 'Budget line' };
+  const l = await withOrg(ctx, (tx) => tx.budgetLine.findFirst({ where: { id, ...inOrg(ctx) }, select: { name: true } }), { atomic: false });
+  return { title: l ? `${l.name} · line` : 'Budget line' };
+}
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -75,7 +83,7 @@ export default async function LinePage({ params }: { params: Promise<{ org: stri
   return (
     <main className="stack">
       <PageHead
-        eyebrow={<><Link href={base}>Budget</Link> · {line.campaign.program.name} / {line.campaign.name} · owner seat {line.ownerSeat}{line.glCode && <> · GL {line.glCode}</>}</>}
+        eyebrow={<>{await orgName(ctx.orgId)} · <Link href={base}>Dashboard</Link> · {line.campaign.program.name} / {line.campaign.name} · owner seat {line.ownerSeat}{line.glCode && <> · GL {line.glCode}</>}</>}
         title={<>{line.name}{replan && <> <Pill tone="hold" big>Replan</Pill></>}</>}
         lede={<>{line.period.fiscalYear.label}, period {line.period.index} (from {day(line.period.startsOn)}) · cost center {line.costCenter || '—'}{replan && <>. The plan was edited after money was committed against it. Flagged, not hidden.</>}</>}
         aside={earmarkCan(ctx.role, 'request.create') && !line.carryForward ? <Link className="btn" href={`${base}/requests?line=${line.id}`}>New request on this line</Link> : undefined}

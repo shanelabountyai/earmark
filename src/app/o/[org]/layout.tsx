@@ -1,3 +1,4 @@
+import { signOutHere } from '@/app/account/security/actions';
 import { can } from '@/core/authz/permissions';
 import { inOrg, requireOrg } from '@/core/authz/guards';
 import { db } from '@/core/db';
@@ -35,13 +36,14 @@ export default async function OrgLayout({ children, params }: { children: React.
     ...(ctx.role === 'owner' ? [L('/settings/sso', 'SSO')] : []), // sso
     ...(can(ctx.role, 'apikeys.manage') ? [L('/settings/apikeys', 'API keys')] : []), // apikeys
     ...(can(ctx.role, 'org.delete') ? [L('/settings/danger', 'Export or delete')] : []),
-    L('/projects', 'Projects'),
   ];
   const who = [ctx.session.email, guest ? `Guest${agency ? ` · ${agency.agency.name}` : ''}` : (ROLE[ctx.role] ?? ctx.role)];
 
   return (
     <div className="shell">
+      <a href="#content" className="skip">Skip to content</a>
       <SideNav
+        signOut={signOutHere}
         home={base}
         org={fy ? `${org.name} · ${fy.label}` : org.name}
         main={main}
@@ -50,7 +52,7 @@ export default async function OrgLayout({ children, params }: { children: React.
         clients={guest ? await myOrgs(ctx.userId) : undefined}
         current={ctx.slug}
       />
-      <div className="content">{children}</div>
+      <div className="content" id="content" tabIndex={-1}>{children}</div>
     </div>
   );
 }

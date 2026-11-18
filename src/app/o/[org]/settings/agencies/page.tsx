@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import { inOrg, requireOrg } from '@/core/authz/guards';
 import { db } from '@/core/db';
 import { withOrg } from '@/core/db/rls';
-import { ActionForm } from '@/core/ui/action-form';
+import { Form as ActionForm } from '@/earmark/ui/form';
 import { assignGuestAgency, createAgency, offboardAgency } from '@/earmark/actions';
 import { earmarkCan } from '@/earmark/core';
 import { Card, day, PageHead, Pill, TableWrap } from '@/earmark/ui/kit';
@@ -35,7 +35,7 @@ export default async function AgenciesPage({ params }: { params: Promise<{ org: 
   return (
     <main className="stack">
       <PageHead
-        eyebrow="Settings · Agencies"
+        eyebrow={`${org.name} · Settings · Agencies`}
         title="Agencies"
         lede={`Vendors ${org.name} works with, and the agency guests tied to each. A guest sees only their own agency’s POs, and nothing until they are tied.`}
       />
@@ -71,8 +71,8 @@ export default async function AgenciesPage({ params }: { params: Promise<{ org: 
         <p className="note">The agency whose domain matches a guest’s email is picked for you; nothing is tied automatically.</p>
       </Card>
 
-      <div className="row">
-        <Card id="all-h" title="All agencies" className="wide">
+      <div className="stack">
+        <Card id="all-h" title="All agencies">
           {agencies.length === 0 ? <p className="note">No agencies yet.</p> : (
             <TableWrap label="Agencies">
               <table aria-label="Agencies">
@@ -106,7 +106,7 @@ export default async function AgenciesPage({ params }: { params: Promise<{ org: 
           )}
         </Card>
 
-        <Card id="new-ag-h" title="New agency" className="narrow form-stack">
+        <Card id="new-ag-h" title="New agency" className="form-stack" >
           <ActionForm action={createAgency.bind(null, ctx.slug)}>
             <label>Name <input name="name" required maxLength={120} /></label>
             <label>Email domains <input name="domains" maxLength={500} placeholder="meridian.example" aria-describedby="dom-hint" /></label>

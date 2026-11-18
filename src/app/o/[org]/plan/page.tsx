@@ -2,9 +2,10 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { inOrg, requireOrg } from '@/core/authz/guards';
 import { withOrg } from '@/core/db/rls';
-import { ActionForm } from '@/core/ui/action-form';
+import { Form as ActionForm } from '@/earmark/ui/form';
 import { createCampaign, createFiscalYear, createLine, createProgram } from '@/earmark/actions';
 import { earmarkCan } from '@/earmark/core';
+import { orgName } from '@/earmark/ui/org-name';
 import { Card, day, Money, PageHead, Pill } from '@/earmark/ui/kit';
 
 export const metadata = { title: 'Plan' };
@@ -36,7 +37,7 @@ export default async function PlanPage({ params }: { params: Promise<{ org: stri
   return (
     <main className="stack">
       <PageHead
-        eyebrow="Plan"
+        eyebrow={`${await orgName(ctx.orgId)} · Plan`}
         title="Plan"
         lede="Fiscal years, then programs, campaigns and lines. Only lines hold money. Planned is edited on each line’s page, where an edit after the first PO shows as a replan."
       />

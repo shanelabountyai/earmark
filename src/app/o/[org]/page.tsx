@@ -4,10 +4,11 @@ import { inOrg, requireOrg } from '@/core/authz/guards';
 import { withOrg } from '@/core/db/rls';
 import { alertRules, reaches } from '@/earmark/alerts';
 import { earmarkCan, ledgerOf } from '@/earmark/core';
+import { orgName } from '@/earmark/ui/org-name';
 import { Card, Metrics, Money, PageHead, Pill, TableWrap } from '@/earmark/ui/kit';
 import type { Totals } from '@/lib/earmark/rollup';
 
-export const metadata = { title: 'Budget' };
+export const metadata = { title: 'Dashboard' };
 
 const MONTH = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const pct = (bps: bigint | null) => (bps === null ? null : Number(bps / 100n));
@@ -32,10 +33,11 @@ export default async function OrgHome({ params }: { params: Promise<{ org: strin
   }, { atomic: false });
 
   const newRequest = earmarkCan(ctx.role, 'request.create');
+  const org = await orgName(ctx.orgId);
   if (!data) {
     return (
       <main className="stack">
-        <PageHead eyebrow="Dashboard" title="No budget yet" lede="This org has no fiscal year planned. Budgets, requests and POs start from a plan." />
+        <PageHead eyebrow={`${org} · Dashboard`} title="No budget yet" lede="This org has no fiscal year planned. Budgets, requests and POs start from a plan." />
         {earmarkCan(ctx.role, 'budget.plan')
           ? <p><Link className="btn" href={`${base}/plan`}>Plan a fiscal year</Link></p>
           : <p className="note">An owner or admin plans the fiscal year.</p>}
@@ -67,7 +69,7 @@ export default async function OrgHome({ params }: { params: Promise<{ org: strin
   return (
     <main className="stack">
       <PageHead
-        eyebrow={`Fiscal year ${span}`}
+        eyebrow={`${org} · fiscal year ${span}`}
         title={`${fy.label} budget`}
         lede="Every number here is worked out from requests, POs and invoices when the page loads. Nothing is typed in that could disagree with its rows."
         aside={newRequest ? <Link className="btn" href={`${base}/requests`}>New request</Link> : undefined}
@@ -81,7 +83,7 @@ export default async function OrgHome({ params }: { params: Promise<{ org: strin
       ]} />
 
       <div className="row">
-        <Card id="risk-h" title={`Lines at risk (${risk.length})`}>
+        <Card id="risk-h" title={`Lines at risk (${risk.length})`} className="narrow">
           <p className="note">Flagged at {rules.committedPercent}% committed or {rules.actualPercent}% actual. The line’s owner seat gets one alert per period.</p>
           {risk.length === 0 ? <p><Pill tone="good">No line is at risk</Pill></p> : (
             <ul className="ruled" aria-label="Lines at risk">
@@ -91,7 +93,7 @@ export default async function OrgHome({ params }: { params: Promise<{ org: strin
           {risk.length > 6 && <Link href={`${base}/variance`}>{risk.length - 6} more at risk, in Variance</Link>}
         </Card>
 
-        <Card id="unm-h" title={`Unmatched invoices (${aged.length})`}>
+        <Card id="unm-h" title={`Unmatched invoices (${aged.length})`} className="wide">
           <p className="note">Spend with no PO match stays here until someone matches it. It counts against available, never silently against a line. Oldest first; Finance is alerted at {rules.unmatchedDays} days.</p>
           {aged.length === 0 ? <p><Pill tone="good">Every submitted invoice is matched to a PO</Pill></p> : (
             <TableWrap label="Unmatched invoices">

@@ -11,9 +11,10 @@ export type NavLink = { href: string; label: string; exact?: boolean };
  * (a <noscript> style keeps them shown when JavaScript is off). A guest with more than one client gets the
  * client switcher (owner call): switching is a plain navigation to that client's URL, which checks membership itself.
  */
-export function SideNav({ home, org, main, settings, foot, clients, current }: {
+export function SideNav({ home, org, main, settings, foot, clients, current, signOut }: {
   home: string; org: string; main: NavLink[]; settings: NavLink[];
   foot: { who: string[]; links: NavLink[] }; clients?: { slug: string; name: string }[]; current?: string;
+  signOut?: (form: FormData) => Promise<unknown>;
 }) {
   const path = usePathname();
   const router = useRouter();
@@ -28,11 +29,12 @@ export function SideNav({ home, org, main, settings, foot, clients, current }: {
   const item = (l: NavLink) => <li key={l.href}><Link href={l.href} aria-current={l === best ? 'page' : undefined}>{l.label}</Link></li>;
 
   return (
-    <nav aria-label="Earmark" className="side" data-collapsed={collapsed ? 'true' : 'false'}>
+    <nav aria-label="Earmark" className="side" data-collapsed={collapsed ? 'true' : 'false'} onKeyDown={(e) => { if (e.key === 'Escape' && !collapsed) { setOpenOn(null); document.getElementById(`${bodyId}-toggle`)?.focus(); } }}>
       <noscript><style>{'.side .side-body { display: flex !important } .side .menu-toggle { display: none !important }'}</style></noscript>
       <div className="side-top">
         <Link href={home} className="brand"><span aria-hidden="true" className="logo" />Earmark</Link>
-        <button type="button" className="menu-toggle" aria-expanded={!collapsed} aria-controls={bodyId} onClick={() => setOpenOn(collapsed ? path : null)}>
+        <span className="mobile-org">{clients?.find((c) => c.slug === current)?.name ?? org}</span>
+        <button type="button" id={`${bodyId}-toggle`} className="menu-toggle" aria-expanded={!collapsed} aria-controls={bodyId} onClick={() => setOpenOn(collapsed ? path : null)}>
           {collapsed ? 'Menu' : 'Close menu'}
         </button>
       </div>
@@ -54,9 +56,10 @@ export function SideNav({ home, org, main, settings, foot, clients, current }: {
           <ul className="sub" aria-labelledby={`${bodyId}-settings`}>{settings.map(item)}</ul>
         </>}
         <div className="who">
-          {foot.who.map((w) => <span key={w}>{w}</span>)}
+          {foot.who.map((w) => <span key={w}>{w.includes('@') ? <>{w.split('@')[0]}<wbr />@{w.split('@').slice(1).join('@')}</> : w}</span>)}
           <br />
           {foot.links.map((l) => <Link key={l.href} href={l.href}>{l.label}</Link>)}
+          {signOut && <form action={async (f) => { await signOut(f); }} className="signout"><button type="submit">Sign out</button></form>}
         </div>
       </div>
     </nav>
