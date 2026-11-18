@@ -15,6 +15,10 @@ import { ledgerOf } from './core';
 
 type AlertRules = { committedPercent: number; actualPercent: number; unmatchedDays: number; agencyInvoicesOverOpenCommitments: boolean };
 const RULES = () => JSON.parse(readFileSync(path.join(process.cwd(), 'rules/alerts.json'), 'utf8')) as AlertRules;
+/** The thresholds in rules/alerts.json; the dashboard's lines at risk use the same ones (D-46). */
+export const alertRules = (): AlertRules => RULES();
+/** `cents` has reached `pct` % of `planned`: the one comparison every line alert makes. */
+export const reaches = (cents: bigint, planned: bigint, pct: number) => cents * 100n >= planned * BigInt(pct);
 
 export type Alert = { key: string; seat: string; subject: string; body: string };
 
@@ -28,7 +32,7 @@ async function alertsIn(tx: Tx, orgId: string, rules: AlertRules): Promise<Alert
   for (const t of rollup.lines) {
     const l = lines.get(t.lineId)!;
     if (t.plannedCents <= 0n) continue;
-    const at = (cents: bigint, pct: number) => cents * 100n >= t.plannedCents * BigInt(pct);
+    const at = (cents: bigint, pct: number) => reaches(cents, t.plannedCents, pct);
     if (at(t.committedCents, rules.committedPercent))
       out.push({ key: `committed:${l.id}:${t.periodId}`, seat: l.ownerSeat, subject: `${l.name}: ${rules.committedPercent} % committed`, body: `${l.name} has ${formatUsd(t.committedCents)} committed of ${formatUsd(t.plannedCents)} planned.` });
     if (at(t.actualCents, rules.actualPercent))

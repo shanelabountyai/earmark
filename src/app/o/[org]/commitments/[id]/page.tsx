@@ -2,21 +2,20 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { inOrg, requireOrg } from '@/core/authz/guards';
 import { withOrg } from '@/core/db/rls';
-import { ActionForm } from '@/core/ui/action-form';
-import { submitInvoice } from '@/earmark/actions';
 import { earmarkCan, findCommitment, isUuid, scopeOf, toGuestCommitment } from '@/earmark/core';
-import { formatUsd } from '@/lib/earmark/money';
+import { InvoiceForm } from '@/earmark/ui/invoice-form';
+import { Card, day, InvoiceState, Metrics, Money, PageHead, PoState, TableWrap } from '@/earmark/ui/kit';
 
 export const metadata = { title: 'Purchase order' };
 
-const day = (d: Date) => d.toISOString().slice(0, 10);
-
-// Demo steps 6–8: the PO an approval issued; a guest submits an invoice against it (step 7); the same id under
-// another client's slug is the notFound of a missing row (step 8, E-INV-03). A guest's view is the projection only.
+// Demo steps 6–8 (design: docs/design/Guest.dc.html): the PO an approval issued; a guest submits an invoice against
+// it (step 7); the same id under another client's slug is the notFound of a missing row (step 8, E-INV-03), so the
+// page gives no hint that the PO exists. A guest's view is the projection only (E-INV-04).
 export default async function CommitmentPage({ params }: { params: Promise<{ org: string; id: string }> }) {
   const ctx = await requireOrg((await params).org);
   const { id } = await params;
   if (!isUuid(id)) notFound();
+  const base = `/o/${ctx.slug}`;
 
   const { po, agencyId, staff, invoices } = await withOrg(ctx, async (tx) => {
     const c = await findCommitment(tx, ctx, id);
@@ -35,49 +34,52 @@ export default async function CommitmentPage({ params }: { params: Promise<{ org
       }),
     };
   }, { atomic: false });
+  const canBill = !po.closedAt && earmarkCan(ctx.role, 'invoice.submit');
 
   return (
-    <main>
-      <p><Link href={`/o/${ctx.slug}/commitments`}>Purchase orders</Link></p>
-      <h1>{po.poNumber}</h1>
-      <dl aria-label="Purchase order">
-        <dt>Amount</dt><dd>{formatUsd(BigInt(po.amountCents))}</dd>
-        <dt>Remaining</dt><dd>{formatUsd(BigInt(po.remainingCents))}</dd>
-        <dt>Issued</dt><dd>{po.issuedAt.slice(0, 10)}</dd>
-        <dt>Status</dt><dd>{po.closedAt ? `closed ${po.closedAt.slice(0, 10)}${staff?.closeReason ? ` (${staff.closeReason})` : ''}` : 'open'} · {po.matchStatus}</dd>
-        {staff && <>
-          <dt>Agency</dt><dd>{staff.agency.name}</dd>
-          <dt>Request</dt><dd><Link href={`/o/${ctx.slug}/requests/${staff.request.id}`}>{staff.request.description}</Link></dd>
-          <dt>Line</dt><dd><Link href={`/o/${ctx.slug}/lines/${staff.request.budgetLine.id}`}>{staff.request.budgetLine.name}</Link></dd>
-        </>}
-      </dl>
+    <main className="stack">
+      <PageHead
+        eyebrow={<><Link href={`${base}/commitments`}>Purchase orders</Link>{staff && <> · {staff.agency.name}</>}</>}
+        title={po.poNumber}
+        lede={<>Issued {po.issuedAt.slice(0, 10)}{po.closedAt && <> · closed {po.closedAt.slice(0, 10)}{staff?.closeReason ? ` (${staff.closeReason})` : ''}</>}</>}
+        aside={<p style={{ margin: 0 }}><span className="sr-only">Status: </span><PoState closed={!!po.closedAt} matchStatus={po.matchStatus} /></p>}
+      />
+      <Metrics label="Purchase order" items={[
+        { label: 'PO amount', cents: BigInt(po.amountCents) },
+        { label: 'Left to bill', cents: BigInt(po.remainingCents), earmarked: true },
+      ]} />
 
-      {!po.closedAt && earmarkCan(ctx.role, 'invoice.submit') && (
-        <>
-          <h2>Submit an invoice</h2>
-          <ActionForm action={submitInvoice.bind(null, ctx.slug)}>
-            <input type="hidden" name="agencyId" value={agencyId} />
-            <input type="hidden" name="poNumber" value={po.poNumber} />
-            <label>Invoice number <input name="number" required maxLength={64} /></label>{' '}
-            <label>Amount (USD) <input name="amount" inputMode="decimal" required maxLength={32} placeholder="4,000.00" /></label>{' '}
-            <label>Invoice date <input name="invoicedOn" type="date" required /></label>{' '}
-            <label>Due date <input name="dueOn" type="date" required /></label>{' '}
-            <label>Link to the invoice file <input name="fileRef" type="url" maxLength={2000} /></label>{' '}
-            <button type="submit">Submit invoice</button>
-          </ActionForm>
-        </>
+      {staff && (
+        <Card id="from-h" title="Where it came from">
+          <dl className="facts">
+            <dt>Agency</dt><dd>{staff.agency.name}</dd>
+            <dt>Request</dt><dd><Link href={`${base}/requests/${staff.request.id}`}>{staff.request.description}</Link></dd>
+            <dt>Line</dt><dd><Link href={`${base}/lines/${staff.request.budgetLine.id}`}>{staff.request.budgetLine.name}</Link></dd>
+          </dl>
+        </Card>
       )}
 
-      <h2>Invoices on this PO</h2>
-      <table aria-label="Invoices on this PO">
-        <thead><tr><th>Invoice</th><th>Amount</th><th>Invoiced</th><th>Due</th><th>Status</th></tr></thead>
-        <tbody>
-          {invoices.map((i) => (
-            <tr key={i.id}><td>{staff ? <Link href={`/o/${ctx.slug}/invoices/${i.id}`}>{i.number}</Link> : i.number}</td><td>{formatUsd(i.amountCents)}</td><td>{day(i.invoicedOn)}</td><td>{day(i.dueOn)}</td><td>{i.state}</td></tr>
-          ))}
-        </tbody>
-      </table>
-      {invoices.length === 0 && <p>None yet.</p>}
+      <div className="row">
+        <Card id="inv-list-h" title="Invoices on this PO" className="wide">
+          {invoices.length === 0 ? <p className="note">None yet.</p> : (
+            <TableWrap label="Invoices on this PO">
+              <table aria-label="Invoices on this PO">
+                <thead><tr><th scope="col">Invoice</th><th scope="col" className="num">Amount</th><th scope="col">Invoiced</th><th scope="col">Due</th><th scope="col">Status</th></tr></thead>
+                <tbody>
+                  {invoices.map((i) => (
+                    <tr key={i.id}><td>{staff ? <Link href={`${base}/invoices/${i.id}`}>{i.number}</Link> : i.number}</td><td className="num"><Money cents={i.amountCents} /></td><td className="nowrap">{day(i.invoicedOn)}</td><td className="nowrap">{day(i.dueOn)}</td><td><InvoiceState state={i.state} /></td></tr>
+                  ))}
+                </tbody>
+              </table>
+            </TableWrap>
+          )}
+        </Card>
+        {canBill && (
+          <Card id="bill-h" title="Submit an invoice" className="narrow form-stack">
+            <InvoiceForm slug={ctx.slug} agencyId={agencyId} pos={[{ poNumber: po.poNumber, remainingCents: po.remainingCents }]} />
+          </Card>
+        )}
+      </div>
     </main>
   );
 }
