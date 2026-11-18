@@ -1,5 +1,7 @@
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { describe, expect, it } from 'vitest';
-import { checkOutboundUrl, isPrivateAddress } from '@/core/net';
+import { checkOutboundUrl, fetchPinned, isPrivateAddress, resolveOutbound } from '@/core/net';
 import { Refused } from '@/core/errors';
 
 // src/core/net.ts (v1.6.4, audit A-01/A-02): an address is private by its bytes, however it is spelled.
@@ -59,5 +61,54 @@ describe('checkOutboundUrl', () => {
   it('allowPrivate and allowHttp lift only what they say', async () => {
     await expect(checkOutboundUrl('http://localhost:4010/in', { lookup: publicDns, allowPrivate: true, allowHttp: true })).resolves.toBe('http://localhost:4010/in');
     await expect(checkOutboundUrl('http://localhost:4010/in', { lookup: publicDns, allowPrivate: true })).rejects.toBeInstanceOf(Refused);
+  });
+});
+
+// v1.7.0: the address the check judged is the address that is dialled (DNS rebinding).
+describe('resolveOutbound and fetchPinned', () => {
+  it('pins the first checked address of a name, and nothing for a literal or an allowPrivate URL', async () => {
+    const lookup = async () => [{ address: '2606:4700::1111' }, { address: '93.184.216.34' }];
+    expect(await resolveOutbound('https://hooks.example.test/in', { lookup })).toEqual({ url: 'https://hooks.example.test/in', pin: { address: '2606:4700::1111', family: 6 } });
+    expect((await resolveOutbound('https://93.184.216.34/in', { lookup })).pin).toBeNull();
+    expect((await resolveOutbound('http://localhost:4010/in', { lookup, allowPrivate: true, allowHttp: true })).pin).toBeNull();
+  });
+
+  it('connects to the pinned address whatever the name resolves to, keeping the name as Host', async () => {
+    const seen: { host?: string; body: string; method?: string }[] = [];
+    const server = createServer((req, res) => {
+      let body = '';
+      req.on('data', (c) => (body += c));
+      req.on('end', () => {
+        seen.push({ host: req.headers.host, body, method: req.method });
+        if (req.url === '/empty') return void res.writeHead(204).end();
+        res.writeHead(200, { 'content-type': 'text/plain', 'set-cookie': ['a=1', 'b=2'] }).end('pong');
+      });
+    });
+    await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
+    const port = (server.address() as AddressInfo).port;
+    try {
+      // .invalid never resolves (RFC 2606): reaching the server proves the pin, not DNS, chose the address.
+      const res = await fetchPinned(`http://rebind.invalid:${port}/in`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{"x":1}' }, { address: '127.0.0.1', family: 4 });
+      expect(res.status).toBe(200);
+      expect(await res.text()).toBe('pong');
+      expect(res.headers.get('set-cookie')).toBe('a=1, b=2');
+      expect(seen[0]).toEqual({ host: `rebind.invalid:${port}`, body: '{"x":1}', method: 'POST' });
+      const empty = await fetchPinned(`http://rebind.invalid:${port}/empty`, {}, { address: '127.0.0.1', family: 4 });
+      expect([empty.status, empty.body]).toEqual([204, null]);
+    } finally {
+      await new Promise((r) => server.close(r));
+    }
+  });
+
+  it('honours the abort signal', async () => {
+    const server = createServer(() => {}); // never answers
+    await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
+    const port = (server.address() as AddressInfo).port;
+    try {
+      await expect(fetchPinned(`http://rebind.invalid:${port}/`, { signal: AbortSignal.timeout(100) }, { address: '127.0.0.1', family: 4 })).rejects.toThrow();
+    } finally {
+      server.closeAllConnections();
+      await new Promise((r) => server.close(r));
+    }
   });
 });

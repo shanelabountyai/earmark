@@ -54,6 +54,7 @@ model WebhookEndpoint {
   disabledAt              DateTime? @db.Timestamptz(6)
   disabledReason          String?
   cursorSeq               Int       @default(0) // the last OrgEvent.seq fanned out to this endpoint
+  createdById             String?   @db.Uuid // no FK, like ApiKey.createdById. Disabled with their membership or role (A-04); whoever resumes it takes it over. Null only for a pre-1.7.0 row the audit log could not name
   createdAt               DateTime  @default(now()) @db.Timestamptz(6)
   updatedAt               DateTime  @updatedAt @db.Timestamptz(6)
 

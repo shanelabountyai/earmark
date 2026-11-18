@@ -2,11 +2,14 @@ import { notFound } from 'next/navigation';
 import { audit } from '@/core/audit';
 import { assertNotDemo } from '@/core/auth/session';
 import { inOrg, type OrgCtx } from '@/core/authz/guards';
+import { can } from '@/core/authz/permissions';
 import { now } from '@/core/clock';
 import { asSystem, withOrg, type Tx } from '@/core/db/rls';
 import { Refused } from '@/core/errors';
 import { hashToken, newToken } from '@/core/tokens';
+import type { Role } from '@/generated/prisma/enums';
 import { API_SCOPES } from '@/app/api-scopes';
+import { disableEndpointsCreatedBy } from './webhooks';
 
 // API keys (addendum §7, ported from Bookable W-001): one per integration, shown once, stored as its sha256 (INV-07),
 // scoped, revocable. The key alone names its org: no endpoint takes an org id, so a key cannot reach another org (INV-40).
@@ -46,10 +49,25 @@ export async function revokeKey(ctx: OrgCtx, id: string) {
   });
 }
 
-/** A member's keys die with their membership (org-hooks.ts onMembershipEnded): a copied key must not outlive access. */
-export async function revokeKeysCreatedBy(tx: Tx, orgId: string, userId: string) {
+/**
+ * A member's keys die with their membership (org-hooks.ts onMembershipEnded): a copied key must not outlive access.
+ * `why: 'role'` is a demotion below apikeys.manage (onRoleChanged, audit A-08), audited as `apikey.revoked_with_role`.
+ */
+export async function revokeKeysCreatedBy(tx: Tx, orgId: string, userId: string, why: 'member' | 'role' = 'member') {
   const { count } = await tx.apiKey.updateMany({ where: { orgId, createdById: userId, revokedAt: null }, data: { revokedAt: now() } });
-  if (count) await audit({ orgId, userId: null }, 'apikey.revoked_with_member', { targetType: 'user', targetId: userId, data: { count } }, tx);
+  if (count) await audit({ orgId, userId: null }, `apikey.revoked_with_${why}`, { targetType: 'user', targetId: userId, data: { count } }, tx);
+}
+
+/**
+ * The org hooks' one call (A-04, A-08; owner decisions 2026-11-17). `role` null: the membership ended. Otherwise the new role;
+ * one that can still manage keys and webhooks keeps everything. What ends: the keys the person created are revoked, and the
+ * webhook endpoints they created are disabled (an owner or admin can check the URL and switch one back on).
+ */
+export async function endCredentialsOf(tx: Tx, orgId: string, userId: string, role: Role | null) {
+  if (role && can(role, 'apikeys.manage')) return;
+  const why = role ? 'role' : 'member';
+  await revokeKeysCreatedBy(tx, orgId, userId, why);
+  await disableEndpointsCreatedBy(tx, orgId, userId, why);
 }
 
 export const listKeys = (ctx: OrgCtx) =>

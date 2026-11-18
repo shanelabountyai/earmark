@@ -9,6 +9,7 @@ import { BudgetExceeded } from '@/core/ai/budget';
 import { requireOrg } from '@/core/authz/guards';
 import { withOrg } from '@/core/db/rls';
 import { changeRole } from '@/core/tenancy/orgs';
+import { onRoleChanged } from '@/app/org-hooks';
 import { dbSystem as db } from '@/core/db/system';
 import { decideStep, editRules, matchInvoice, offboardAgency, submitInvoice, submitRequest } from '@/earmark/actions';
 import { findCommitment, toGuestCommitment } from '@/earmark/core';
@@ -257,7 +258,7 @@ describe('E-INV-07: offboarding an agency revokes its guests in that client only
     const sam = await db.user.create({ data: { email: 'sam@meridian.test' } });
     await addGuest(n.orgId, n.agency.id, dana.id);
     await addGuest(n.orgId, n.agency.id, sam.id);
-    await changeRole(await actAs(n.owner.id, n.slug), sam.id, 'member'); // Sam joined the client's staff; the GuestMembership row stays
+    await changeRole(await actAs(n.owner.id, n.slug), sam.id, 'member', onRoleChanged); // Sam joined the client's staff; the GuestMembership row stays
 
     expect(await as(n.owner.id, () => offboardAgency(n.slug, { agencyId: n.agency.id }))).toMatchObject({ guestsRemoved: 1 });
     expect(await db.membership.findMany({ where: { orgId: n.orgId, userId: { in: [dana.id, sam.id] } }, select: { userId: true, role: true } })).toEqual([{ userId: sam.id, role: 'member' }]);

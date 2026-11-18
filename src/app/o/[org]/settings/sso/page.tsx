@@ -5,6 +5,7 @@ import { withOrg } from '@/core/db/rls';
 import { ActionForm } from '@/core/ui/action-form';
 import { Role } from '@/generated/prisma/enums';
 import { callbackUrl } from '@/modules/sso/flow';
+import { RECHECK_GRACE_MS } from '@/modules/sso/hooks';
 import { txtName, txtValue } from '@/modules/sso/settings';
 import { addSsoDomain, removeSsoDomain, saveSsoConnection, setSsoEnabled, verifySsoDomain } from './actions';
 
@@ -87,6 +88,13 @@ export default async function Sso({ params, searchParams }: { params: Promise<{ 
         {domains.map((d) => (
           <li key={d.id}>
             <strong>{d.domain}</strong> {d.verifiedAt ? '(verified)' : '(not verified)'}
+            {d.verifiedAt && d.checkFailedAt && (
+              <p role="alert">
+                The TXT record <code>{txtName(d.domain)}</code> has been missing since {d.checkFailedAt.toISOString().slice(0, 10)} (UTC). Put back the value{' '}
+                <code>{txtValue(ctx.orgId, d.domain)}</code> before {new Date(d.checkFailedAt.getTime() + RECHECK_GRACE_MS).toISOString().slice(0, 16).replace('T', ' ')} UTC, or this
+                domain stops being verified.
+              </p>
+            )}
             {!d.verifiedAt && (
               <>
                 <p>

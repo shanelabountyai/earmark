@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { onMembershipEnded } from '@/app/org-hooks';
+import { onMembershipEnded, onRoleChanged } from '@/app/org-hooks';
 import { AuthzError } from '@/core/authz/guards';
 import { dbSystem as db } from '@/core/db/system'; // fixtures run as the owner role (RLS enforce leg)
 import { createInvite } from '@/core/tenancy/invites';
@@ -26,10 +26,10 @@ describe('INV-28 only an owner grants, changes or removes the owner role (D-11)'
     const ctx = await actAs(admin.id, org.slug);
     const before = await rows();
     for (const attempt of [
-      () => changeRole(ctx, admin.id, 'owner'), // promote self
-      () => changeRole(ctx, member.id, 'owner'), // promote another
+      () => changeRole(ctx, admin.id, 'owner', onRoleChanged), // promote self
+      () => changeRole(ctx, member.id, 'owner', onRoleChanged), // promote another
       () => createInvite(ctx, 'new@example.test', 'owner'), // invite an owner
-      () => changeRole(ctx, owner.id, 'member'), // demote an owner
+      () => changeRole(ctx, owner.id, 'member', onRoleChanged), // demote an owner
       () => removeMember(ctx, owner.id, onMembershipEnded), // remove an owner
     ]) {
       await expect(attempt()).rejects.toBeInstanceOf(AuthzError);
@@ -40,7 +40,7 @@ describe('INV-28 only an owner grants, changes or removes the owner role (D-11)'
   it('an admin still manages admins and members', async () => {
     const { org, admin, member } = await fixture();
     const ctx = await actAs(admin.id, org.slug);
-    await changeRole(ctx, member.id, 'admin');
+    await changeRole(ctx, member.id, 'admin', onRoleChanged);
     expect(await roleOf(org.id, member.id)).toBe('admin');
     await removeMember(ctx, member.id, onMembershipEnded);
     expect(await roleOf(org.id, member.id)).toBeNull();
@@ -49,10 +49,10 @@ describe('INV-28 only an owner grants, changes or removes the owner role (D-11)'
   it('an owner can do each of them', async () => {
     const { org, owner, admin, member } = await fixture();
     const ctx = await actAs(owner.id, org.slug);
-    await changeRole(ctx, member.id, 'owner');
+    await changeRole(ctx, member.id, 'owner', onRoleChanged);
     await createInvite(ctx, 'new@example.test', 'owner');
-    await changeRole(ctx, member.id, 'admin');
-    await changeRole(ctx, admin.id, 'owner');
+    await changeRole(ctx, member.id, 'admin', onRoleChanged);
+    await changeRole(ctx, admin.id, 'owner', onRoleChanged);
     await removeMember(ctx, admin.id, onMembershipEnded);
     expect(await db.invite.count({ where: { role: 'owner' } })).toBe(1);
     expect(await roleOf(org.id, admin.id)).toBeNull();

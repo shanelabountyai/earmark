@@ -12,4 +12,16 @@ describe('INV-19 AuditEvent is append-only', () => {
     await expect(db.auditEvent.deleteMany()).rejects.toThrow(/append-only/);
     expect((await db.auditEvent.findFirstOrThrow()).action).toBe('test.event');
   });
+
+  // v1.7.0 (audit A-12): row triggers do not fire on TRUNCATE, so a statement trigger refuses it. A *_test database is
+  // exempt (resetAuthTables); app.truncate_guard = 'strict' lifts that exemption here to prove the refusal.
+  it('rejects TRUNCATE outside a test database unless the session opts in', async () => {
+    await audit({ userId: null }, 'test.event');
+    const truncate = (...settings: string[]) =>
+      db.$transaction([...settings.map((s) => db.$executeRawUnsafe(`SET LOCAL ${s}`)), db.$executeRawUnsafe(`TRUNCATE "AuditEvent"`)]);
+    await expect(truncate(`app.truncate_guard = 'strict'`)).rejects.toThrow(/TRUNCATE refused/);
+    expect(await db.auditEvent.count()).toBe(1);
+    await truncate(`app.truncate_guard = 'strict'`, `app.allow_truncate = 'on'`);
+    expect(await db.auditEvent.count()).toBe(0);
+  });
 });

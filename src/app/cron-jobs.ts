@@ -1,4 +1,4 @@
-import { sweepSsoStates } from '@/modules/sso/hooks'; // sso
+import { recheckSsoDomains, sweepSsoStates } from '@/modules/sso/hooks'; // sso
 import { cronWebhooks } from '@/modules/apikeys/webhooks'; // apikeys
 import { cronAlerts } from '@/earmark/alerts';
 
@@ -7,6 +7,7 @@ import { cronAlerts } from '@/earmark/alerts';
 export async function cronJobs(): Promise<Record<string, unknown>> {
   const jobs: Record<string, unknown> = {};
   jobs.ssoStates = await sweepSsoStates(); // sso
+  jobs.ssoDomains = await recheckSsoDomains(); // sso
   jobs.webhooks = await cronWebhooks(); // apikeys
   jobs.alerts = await cronAlerts(); // Earmark (PRD §4, D-30)
   return jobs;
