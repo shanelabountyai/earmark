@@ -1,5 +1,18 @@
 # NEXT — Earmark
 
+## ▶ Now: design pass on branch `design/impl` (scheduled run, 2026-11-18; instructions `docs/design/RUN.md`)
+
+**Built:** the Claude Design look (HANDOFF.md owner calls) on every Earmark page: `src/app/globals.css` (tokens, light + dark), `src/earmark/ui/` (page kit, sidebar shell with phone menu, guest client switcher, `Form`, invoice form), and the 14 org pages rewritten on it. Eight gap artboards added in `docs/design/` (Plan, Variance, Approvals, Requests, Commitments, Invoices, Seats, Agencies) before building them. Decisions D-44 to D-55 and requirements DX-01 to DX-09 (§11) in `prd-earmark.md`.
+
+**Reviewed:** three independent reviewers (design fidelity, UX, accessibility) on the running app; must-fix and most should-fix findings fixed in `9bc00f0` and after; the table is in the PR body. `e2e/design.spec.ts` runs axe on every Earmark page (light/dark × 1280/390): 0 violations.
+
+**Left open (§11, end):** invoice due-before-issued accepted; no redirect to a new request; template pages (members, audit, API keys, export) not restyled and 500 for members; `/demo` lands on Your orgs; seed keeps old `rules.edited` rows.
+
+**Shane's hand steps:** open the Design canvas (https://claude.ai/artifact/Mg1iqfuNLVesgVUYxk8d9E) and add the eight gap artboards if wanted; look at the PR's screens on a phone and in dark mode; decide on the open items; merge or not. `foundation:drift` was already red on main before this branch (stale hashes for `src/modules/sso/hooks.ts` and `src/proxy.ts` against `v1.7.0`); this branch updates only the `cross-org.ts` line it touched.
+
+**Local notes from the cloud run:** Prisma engines could not be downloaded (`binaries.prisma.sh` blocked), so migrations were applied with `psql` and a stub schema engine; Postgres here was 16, CI uses 17.
+
+
 ## Phase 4 (enterprise wiring, PRD §8): done, PR #5
 
 Five commits (D-31 in `prd-earmark.md`).
