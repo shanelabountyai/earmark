@@ -38,7 +38,8 @@ async function submit(page: Page, what: string) {
   return page.url();
 }
 
-const seats = (page: Page) => page.getByRole('table', { name: 'Approval chain' }).locator('tbody tr td:nth-child(2)').allInnerTexts();
+// The chain is a list of steps since the design pass (D-44); each step names its seat in a .seat span.
+const seats = (page: Page) => page.getByRole('list', { name: 'Approval chain' }).getByRole('listitem').locator('.seat').allInnerTexts();
 
 test('steps 3–5: frozen chain, self-approval refused, rule edit applies only to the next request', async ({ browser }) => {
   const stamp = Date.now();
@@ -77,7 +78,7 @@ test('steps 7–8: a guest invoices her PO; the same id under another client is 
   const dana = await as(browser, 'dana@meridian.demo.test');
   await expect(dana.getByRole('heading', { name: 'Purchase orders' })).toBeVisible(); // a guest's home is her POs
   await expect(dana.getByRole('navigation')).not.toContainText('Requests');
-  await dana.getByRole('table', { name: 'Purchase orders' }).getByRole('row').filter({ hasText: /open ·/ }).first().getByRole('link').click();
+  await dana.getByRole('table', { name: 'Purchase orders' }).getByRole('row').filter({ hasText: /Open ·/ }).first().getByRole('link').click();
   await dana.waitForURL(/\/o\/northwind\/commitments\/[0-9a-f-]{36}$/);
 
   await dana.getByLabel('Invoice number').fill(number);
@@ -97,7 +98,7 @@ test('steps 7–8: a guest invoices her PO; the same id under another client is 
 test('step 9: match to the ranked suggestion, approve for payment, variance view', async ({ browser }) => {
   const number = `MER-M-${Date.now()}`;
   const dana = await as(browser, 'dana@meridian.demo.test');
-  await dana.getByRole('table', { name: 'Purchase orders' }).getByRole('row').filter({ hasText: /open ·/ }).first().getByRole('link').click();
+  await dana.getByRole('table', { name: 'Purchase orders' }).getByRole('row').filter({ hasText: /Open ·/ }).first().getByRole('link').click();
   await dana.waitForURL(/\/commitments\/[0-9a-f-]{36}$/);
   const po = await dana.getByRole('heading', { level: 1 }).innerText();
   await dana.getByLabel('Invoice number').fill(number);
@@ -115,7 +116,7 @@ test('step 9: match to the ranked suggestion, approve for payment, variance view
   await expect(top).toContainText('PO number and agency');
   await top.getByRole('button', { name: `Match to ${po}` }).click();
   // Fully matched, the suggestions (and the form's notice) give way to the match row and the approve button.
-  await expect(admin.getByRole('table', { name: 'Matches' })).toContainText(`${po}$10.00under`);
+  await expect(admin.getByRole('table', { name: 'Matches' })).toContainText(new RegExp(`${po}\\$10\\.00\\W*Under`));
   await admin.getByRole('button', { name: 'Approve for payment' }).click();
   await expect(admin.locator('main').getByRole('alert')).toHaveText('Only a Finance seat holder can approve an invoice for payment.');
 
@@ -151,7 +152,7 @@ test('step 6: the last approval issues a PO, and commitment.issued reaches the d
   for (const email of ['demandgen@northwind.demo.test', 'admin@northwind.demo.test']) {
     const page = await as(browser, email);
     await page.goto(url);
-    if ((await page.locator('main').innerText()).includes('State: approved')) break;
+    if (/State:\s*\W*Approved/.test(await page.locator('main').innerText())) break;
     await page.getByRole('button', { name: 'Approve' }).click();
     await expect(page.getByRole('table', { name: 'Request audit' })).toContainText(`${email}request.step.approved`);
   }
@@ -186,6 +187,49 @@ test('step 10: the explainer drafts, a person publishes, and the fourth draft is
   expect(await dbSystem.aiUsage.count({ where: { org: { slug: 'northwind' }, feature: 'variance-explainer' } })).toBe(3);
 });
 
+// Design pass (D-44–D-48): the shell's sidebar marks the current page, folds behind a Menu button on a phone, and gives
+// a guest with two clients a switcher that only navigates (the other client checks membership itself). Before step 13,
+// which removes Dana from Contoso.
+test('design: the sidebar marks the current page and the dashboard leads with totals, then lines at risk', async ({ browser }) => {
+  const owner = await as(browser, 'owner@northwind.demo.test');
+  const nav = owner.getByRole('navigation');
+  await expect(nav.getByRole('link', { name: 'Dashboard' })).toHaveAttribute('aria-current', 'page');
+  await expect(owner.locator('dl[aria-label="Org totals"]')).toContainText('Available');
+  await expect(owner.getByRole('heading', { name: /^Lines at risk \(\d+\)$/ })).toBeVisible();
+  await nav.getByRole('link', { name: 'Rules' }).click();
+  await expect(nav.getByRole('link', { name: 'Rules' })).toHaveAttribute('aria-current', 'page');
+  await expect(nav.getByRole('link', { name: 'Dashboard' })).not.toHaveAttribute('aria-current', 'page');
+});
+
+test('design: on a phone the sidebar links fold behind a Menu button', async ({ browser }) => {
+  const page = await (await browser.newContext({ viewport: { width: 390, height: 844 } })).newPage();
+  await page.goto('/demo');
+  await page.getByRole('button', { name: 'owner@northwind.demo.test' }).click();
+  await page.getByRole('link', { name: 'Northwind' }).click();
+  const menu = page.getByRole('button', { name: 'Menu' });
+  await expect(menu).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.getByRole('navigation').getByRole('link', { name: 'Requests' })).toBeHidden();
+  await menu.click();
+  await expect(page.getByRole('button', { name: 'Close menu' })).toHaveAttribute('aria-expanded', 'true');
+  await page.getByRole('navigation').getByRole('link', { name: 'Requests' }).click();
+  await page.waitForURL(/\/requests$/);
+  await expect(page.getByRole('navigation').getByRole('link', { name: 'Requests' })).toBeHidden(); // closed again
+});
+
+test('design: a guest in two clients switches between them; each is her own agency only', async ({ browser }) => {
+  const dana = await as(browser, 'dana@meridian.demo.test');
+  const client = dana.getByRole('navigation').getByLabel('Client');
+  await expect(client).toHaveValue('northwind');
+  await expect(client.locator('option')).toHaveCount(2);
+  await expect(client).toContainText('Contoso');
+  await client.selectOption('contoso');
+  await expect(dana).toHaveURL(/\/o\/northwind/); // choosing alone never navigates (WCAG 3.2.2)
+  await dana.getByRole('navigation').getByRole('button', { name: 'Switch' }).click();
+  await dana.waitForURL(/\/o\/contoso\/commitments$/);
+  await expect(dana.getByRole('heading', { level: 1 })).toHaveText('Purchase orders');
+  await expect(dana.locator('main')).toContainText('Meridian Creative in Contoso');
+});
+
 // Demo step 13 (E-INV-07), last in this file: it removes Dana from Contoso, which steps 7–8 above need. The seed
 // recreates the agency and her membership each sweep. Her Contoso access is gone on refresh; Northwind is intact.
 test('step 13: offboarding Meridian in Contoso ends Dana’s Contoso access and leaves Northwind', async ({ browser }) => {
@@ -196,10 +240,10 @@ test('step 13: offboarding Meridian in Contoso ends Dana’s Contoso access and 
   await owner.goto('/o/contoso/settings/agencies');
   const row = owner.getByRole('table', { name: 'Agencies' }).getByRole('row').filter({ hasText: 'Meridian Creative' });
   await row.getByRole('button', { name: 'Offboard' }).click();
-  await expect(row).toContainText('offboarded'); // the form leaves the page with its notice (NEXT.md UI pattern)
+  await expect(row).toContainText('Offboarded'); // the form leaves the page with its notice (NEXT.md UI pattern)
 
   expect((await dana.reload())?.status()).toBe(404);
   await dana.goto('/o/northwind');
   await expect(dana.getByRole('heading', { name: 'Purchase orders' })).toBeVisible();
-  await expect(dana.getByRole('table', { name: 'Purchase orders' })).toContainText('open ·');
+  await expect(dana.getByRole('table', { name: 'Purchase orders' })).toContainText('Open ·');
 });
