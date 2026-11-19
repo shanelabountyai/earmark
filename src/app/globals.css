@@ -113,6 +113,7 @@ footer { max-width: 68rem; margin: 0 auto; padding: 1rem; color: var(--muted); f
   .side[data-collapsed="true"] .side-body { display: none; }
   .side .who { margin-top: 12px; }
   main { padding: 20px 16px 48px; }
+  .shell { align-content: flex-start; } /* a short page must not stretch the folded sidebar's row (D-59) */
 }
 
 /* ---------- page parts ---------- */
@@ -267,3 +268,53 @@ dl.facts { border: 0; padding: 0; margin: 0; background: none; display: grid; gr
 .rules-chain li .from { margin-left: auto; }
 .diff > span { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
 .new-request fieldset > button { justify-self: start; }
+
+/* ---------- template-owned pages inside the shell (members, audit, security, SSO, API keys, export or delete), D-59 ----------
+   Their markup is the template's and is not edited (FOUNDATION_PATCHES.md). They are the only pages in the shell whose
+   <main> carries no .stack, so these rules reach them and nothing of Earmark's own. */
+.content > main:not(.stack) > h1 { padding-bottom: 16px; border-bottom: 1px solid var(--rule); margin-bottom: 20px; overflow-wrap: anywhere; }
+.content > main:not(.stack) > h1 ~ h1 { margin-top: 44px; }
+.content > main:not(.stack) > h2 { margin-top: 28px; }
+.content > main:not(.stack) > p { max-width: 46rem; }
+.content > main:not(.stack) code { overflow-wrap: anywhere; }
+/* the template's ActionForm is form > fieldset: its controls sit in one wrapping row, a nested group on its own row */
+.content > main:not(.stack) form > fieldset { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: flex-end; }
+.content > main:not(.stack) form > fieldset > fieldset { flex: 1 1 100%; display: flex; flex-wrap: wrap; gap: 4px 16px; padding: 8px 14px 10px; }
+.content > main:not(.stack) form > fieldset > label, .content > main:not(.stack) form > fieldset > fieldset > label { margin: 0; }
+.content > main:not(.stack) > form:has(label) { background: var(--card); border: 1px solid var(--rule); border-radius: 4px; padding: 16px 20px; margin: .5rem 0 1.25rem; }
+.content > main:not(.stack) > form[method="get"] { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: flex-end; }
+.content > main:not(.stack) > form[method="get"] > label { margin: 0; }
+.content > main:not(.stack) > form[method="get"] > a { min-height: 44px; display: inline-flex; align-items: center; }
+/* lists of keys, endpoints, exports and invites: ruled rows on a card */
+.content > main:not(.stack) > ul { list-style: none; margin: .5rem 0 1.25rem; padding: 0; background: var(--card); border: 1px solid var(--rule); border-radius: 4px; }
+.content > main:not(.stack) > ul:empty { display: none; }
+.content > main:not(.stack) > ul > li { padding: 12px 16px; border-bottom: 1px solid var(--rule); overflow-wrap: anywhere; }
+.content > main:not(.stack) > ul > li:last-child { border-bottom: 0; }
+.content > main:not(.stack) > ul > li > form { display: inline-block; margin: 8px 8px 0 0; vertical-align: middle; }
+.content > main:not(.stack) > ul > li > form:first-of-type { margin-left: 12px; }
+/* a headed table that holds a control (deliveries, audit) scrolls inside its own box when it is wider than the page; the control makes the box reachable from the keyboard */
+.content > main:not(.stack) > table:has(thead):has(a, button, summary, input, select) { display: block; overflow-x: auto; }
+.content > main:not(.stack) > table button { white-space: nowrap; }
+.content > main:not(.stack) > table td > code { overflow-wrap: normal; white-space: nowrap; }
+@media (min-width: 40.01rem) { .content > main:not(.stack) > table:has(thead) td:first-child { white-space: nowrap; } }
+.content > main:not(.stack) td > form { display: inline-block; margin: 0 8px 4px 0; vertical-align: middle; }
+@media (max-width: 40rem) {
+  /* a table with no header row (members): each row becomes a block, so the role and the row's controls are on screen */
+  .content > main:not(.stack) > table:not(:has(thead)) { display: block; overflow-x: visible; }
+  .content > main:not(.stack) > table:not(:has(thead)) > tbody, .content > main:not(.stack) > table:not(:has(thead)) > tbody > tr { display: block; }
+  .content > main:not(.stack) > table:not(:has(thead)) > tbody > tr { padding: 12px 16px; border-bottom: 1px solid var(--rule); }
+  .content > main:not(.stack) > table:not(:has(thead)) > tbody > tr:last-child { border-bottom: 0; }
+  .content > main:not(.stack) > table:not(:has(thead)) td { display: block; padding: 0; border: 0; overflow-wrap: anywhere; }
+  .content > main:not(.stack) > table:not(:has(thead)) td:first-child { font-weight: 600; }
+  .content > main:not(.stack) > table:not(:has(thead)) td:nth-child(2) { color: var(--muted); margin-bottom: 6px; }
+  .content > main:not(.stack) > table:not(:has(thead)) td:empty { display: none; }
+  .content > main:not(.stack) > ul > li > form:first-of-type { margin-left: 0; }
+  /* a headed table with nothing focusable in it (org security) cannot be scrolled from the keyboard, so it wraps to fit instead of scrolling */
+  .content > main:not(.stack) > table:has(thead):not(:has(a, button, summary, input, select)) { display: table; overflow-x: visible; font-size: 14px; }
+  .content > main:not(.stack) > table:has(thead):not(:has(a, button, summary, input, select)) :is(th, td) { padding: 8px 6px; }
+  .content > main:not(.stack) > table:has(thead):not(:has(a, button, summary, input, select)) th { letter-spacing: .04em; }
+  .content > main:not(.stack) > table:has(thead):not(:has(a, button, summary, input, select)) td:first-child { overflow-wrap: anywhere; }
+  .content > main:not(.stack) > form:has(label) { padding: 14px 16px; }
+  .content > main:not(.stack) form > fieldset > label:has(input:not([type="checkbox"])) { flex: 1 1 100%; display: flex; flex-direction: column; gap: 4px; }
+  .content > main:not(.stack) form > fieldset > label > input:not([type="checkbox"]) { width: 100%; }
+}
