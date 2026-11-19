@@ -11,7 +11,7 @@ async function signIn(browser: Browser, email: string, opts: { scheme?: 'light' 
   const page = await (await browser.newContext({ colorScheme: opts.scheme ?? 'light', viewport: { width: opts.width ?? 1280, height: 900 } })).newPage();
   await page.goto('/demo');
   await page.getByRole('button', { name: email }).click();
-  await page.waitForURL(/\/onboarding$/);
+  await page.waitForURL(/\/(onboarding|o\/[a-z]+(\/commitments)?)$/); // signed in: Your orgs, or the one org (D-58)
   return page;
 }
 

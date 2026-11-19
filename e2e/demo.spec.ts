@@ -5,10 +5,22 @@ import { asRealOwner } from './real-owner';
 // INV-27, flag-on half (the flag-off half is tests/invariants/inv-27-demo.test.ts). playwright.config.ts starts the
 // server with DEMO_MODE=1; e2e/global-setup.ts seeds the same database once per sweep.
 
+// D-58 (live gate): an account with one org lands in it; an account with several still picks on Your orgs.
 test('demo sign-in lands a seeded owner in their org', async ({ page }) => {
   await page.goto('/demo');
   await page.getByRole('button', { name: 'owner@northwind.demo.test' }).click();
+  await expect(page).toHaveURL(/\/o\/northwind$/);
+  await expect(page.getByRole('navigation')).toContainText('Northwind');
+  await expect(page.getByRole('heading', { name: 'Your orgs' })).toHaveCount(0);
+});
+
+test('demo sign-in leaves an account with two orgs on Your orgs to pick one', async ({ page }) => {
+  await page.goto('/demo');
+  await page.getByRole('button', { name: 'dana@meridian.demo.test' }).click();
+  await expect(page).toHaveURL(/\/onboarding$/);
   await expect(page.getByRole('heading', { name: 'Your orgs' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Northwind' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Contoso' })).toBeVisible();
   await page.getByRole('link', { name: 'Northwind' }).click();
   await expect(page.getByRole('navigation')).toContainText('Northwind');
 });
@@ -20,7 +32,9 @@ async function as(browser: Browser, email: string): Promise<Page> {
   const page = await (await browser.newContext()).newPage();
   await page.goto('/demo');
   await page.getByRole('button', { name: email }).click();
-  await page.getByRole('link', { name: 'Northwind' }).click();
+  // D-58: a one-org account is already in Northwind; Dana (two clients) picks it on Your orgs.
+  await page.waitForURL(/\/(onboarding|o\/northwind(\/commitments)?)$/);
+  if (page.url().endsWith('/onboarding')) await page.getByRole('link', { name: 'Northwind' }).click();
   await expect(page.getByRole('navigation')).toContainText('Northwind');
   return page;
 }
@@ -207,7 +221,7 @@ test('design: on a phone the sidebar links fold behind a Menu button', async ({ 
   const page = await (await browser.newContext({ viewport: { width: 390, height: 844 } })).newPage();
   await page.goto('/demo');
   await page.getByRole('button', { name: 'owner@northwind.demo.test' }).click();
-  await page.getByRole('link', { name: 'Northwind' }).click();
+  await page.waitForURL(/\/o\/northwind$/); // D-58: a one-org account lands in its org
   const menu = page.getByRole('button', { name: 'Menu' });
   await expect(menu).toHaveAttribute('aria-expanded', 'false');
   await expect(page.getByRole('navigation').getByRole('link', { name: 'Requests' })).toBeHidden();
