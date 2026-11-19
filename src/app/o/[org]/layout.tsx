@@ -1,25 +1,58 @@
-import Link from 'next/link';
+import { signOutHere } from '@/app/account/security/actions';
 import { can } from '@/core/authz/permissions';
-import { earmarkCan } from '@/earmark/core';
-import { requireOrg } from '@/core/authz/guards';
+import { inOrg, requireOrg } from '@/core/authz/guards';
 import { db } from '@/core/db';
+import { withOrg } from '@/core/db/rls';
+import { earmarkCan } from '@/earmark/core';
+import { myOrgs } from '@/earmark/ui/orgs';
+import { type NavLink, SideNav } from '@/earmark/ui/side-nav';
 
-// Navigation only. Layouts do not re-run on every navigation, so each page calls requireOrg itself.
+const ROLE: Record<string, string> = { owner: 'Owner', admin: 'Admin', member: 'Member', guest: 'Guest', scorekeeper: 'Scorekeeper' };
+
+// The shell (D-44): the sidebar and the page. Navigation only, so layouts not re-running on navigation is harmless;
+// each page calls requireOrg itself. A guest sees one item, her POs (PRD §1), and a client switcher.
 export default async function OrgLayout({ children, params }: { children: React.ReactNode; params: Promise<{ org: string }> }) {
   const ctx = await requireOrg((await params).org);
+  const guest = ctx.role === 'guest';
   const org = await db.org.findUniqueOrThrow({ where: { id: ctx.orgId }, select: { name: true } });
+  const { fy, agency } = await withOrg(ctx, async (tx) => ({
+    fy: guest ? null : await tx.fiscalYear.findFirst({ where: inOrg(ctx), orderBy: { startsOn: 'desc' }, select: { label: true } }),
+    agency: guest ? await tx.guestMembership.findFirst({ where: { ...inOrg(ctx), userId: ctx.userId }, select: { agency: { select: { name: true } } } }) : null,
+  }), { atomic: false });
   const base = `/o/${ctx.slug}`;
+  const L = (path: string, label: string, exact = false): NavLink => ({ href: `${base}${path}`, label, exact });
+
+  const main: NavLink[] = guest ? [L('/commitments', 'Purchase orders')] : [
+    L('', 'Dashboard', true),
+    ...(earmarkCan(ctx.role, 'budget.plan') ? [L('/plan', 'Plan')] : []),
+    L('/requests', 'Requests'), L('/approvals', 'Approvals'), L('/commitments', 'Purchase orders'), L('/invoices', 'Invoices'), L('/variance', 'Variance'),
+  ];
+  const settings: NavLink[] = guest ? [] : [
+    L('/settings/rules', 'Rules'),
+    ...(earmarkCan(ctx.role, 'seats.manage') ? [L('/settings/seats', 'Seats')] : []),
+    ...(earmarkCan(ctx.role, 'agency.manage') ? [L('/settings/agencies', 'Agencies')] : []),
+    L('/settings/members', 'Members'),
+    ...(can(ctx.role, 'audit.read') ? [L('/settings/audit', 'Audit log'), L('/settings/security', 'Security')] : []),
+    ...(ctx.role === 'owner' ? [L('/settings/sso', 'SSO')] : []), // sso
+    ...(can(ctx.role, 'apikeys.manage') ? [L('/settings/apikeys', 'API keys')] : []), // apikeys
+    ...(can(ctx.role, 'org.delete') ? [L('/settings/danger', 'Export or delete')] : []),
+  ];
+  const who = [ctx.session.email, guest ? `Guest${agency ? ` · ${agency.agency.name}` : ''}` : (ROLE[ctx.role] ?? ctx.role)];
+
   return (
-    <>
-      <nav>
-        <strong>{org.name}</strong><Link href={base}>Home</Link><Link href={`${base}/commitments`}>Purchase orders</Link> {ctx.role !== 'guest' && <><Link href={`${base}/requests`}>Requests</Link><Link href={`${base}/approvals`}>Approvals</Link><Link href={`${base}/invoices`}>Invoices</Link><Link href={`${base}/variance`}>Variance</Link> {earmarkCan(ctx.role, 'budget.plan') && <><Link href={`${base}/plan`}>Plan</Link></>}{earmarkCan(ctx.role, 'seats.manage') && <><Link href={`${base}/settings/seats`}>Seats</Link></>}{earmarkCan(ctx.role, 'agency.manage') && <><Link href={`${base}/settings/agencies`}>Agencies</Link></>}<Link href={`${base}/settings/rules`}>Rules</Link></>}<Link href={`${base}/projects`}>Projects</Link><Link href={`${base}/settings/members`}>Members</Link>
-        {can(ctx.role, 'audit.read') && <><Link href={`${base}/settings/audit`}>Audit log</Link><Link href={`${base}/settings/security`}>Security</Link></>}
-        {ctx.role === 'owner' && <><Link href={`${base}/settings/sso`}>SSO</Link></>} {/* sso */}
-        {can(ctx.role, 'apikeys.manage') && <><Link href={`${base}/settings/apikeys`}>API keys</Link></>} {/* apikeys */}
-        {can(ctx.role, 'org.delete') && <><Link href={`${base}/settings/danger`}>Export or delete</Link></>}
-        <Link href="/onboarding">Your orgs</Link><Link href="/account/security">Account</Link>
-      </nav>
-      {children}
-    </>
+    <div className="shell">
+      <a href="#content" className="skip">Skip to content</a>
+      <SideNav
+        signOut={signOutHere}
+        home={base}
+        org={fy ? `${org.name} · ${fy.label}` : org.name}
+        main={main}
+        settings={settings}
+        foot={{ who, links: [{ href: '/onboarding', label: 'Your orgs' }, { href: '/account/security', label: 'Account' }] }}
+        clients={guest ? await myOrgs(ctx.userId) : undefined}
+        current={ctx.slug}
+      />
+      <div className="content" id="content" tabIndex={-1}>{children}</div>
+    </div>
   );
 }

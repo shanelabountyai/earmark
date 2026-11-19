@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Earmark — Request</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+a{color:#1f5f4a}a:hover{color:#174a3a}
+</style>
+</helmet>
+<div style="min-height: 1240px; background: #f7f6f2; color: #1c1b18; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 16px; line-height: 1.55; display: flex; flex-wrap: wrap; align-items: stretch;">
+<nav aria-label="Earmark" style="flex: 1 1 220px; background: #173f33; color: #ffffff; padding: 20px 12px; display: flex; flex-direction: column; gap: 2px;">
+<a href="Main.dc.html" style="display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 10px; color: #ffffff; text-decoration: none; font: 700 20px/1 system-ui, -apple-system, 'Segoe UI', sans-serif; letter-spacing: -0.01em;"><span aria-hidden="true" style="width: 18px; height: 22px; border-radius: 2px; background: linear-gradient(225deg, #173f33 0 7px, #9fc7b4 7px 8px, #e4f2ea 8px);"></span>Earmark</a>
+<span style="padding: 4px 12px 14px; font: 600 13px/1.4 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #b9d3c6;">Northwind · FY2026</span>
+<a href="Main.dc.html" style="display: flex; align-items: center; min-height: 44px; padding: 0 12px; border-radius: 3px; text-decoration: none; font: 15px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #d6e6dd; font-weight: 500;">Dashboard</a>
+<a href="#" style="display: flex; align-items: center; min-height: 44px; padding: 0 12px; border-radius: 3px; text-decoration: none; font: 15px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #d6e6dd; font-weight: 500;">Plan</a>
+<a href="#" aria-current="page" style="display: flex; align-items: center; min-height: 44px; padding: 0 12px; border-radius: 3px; text-decoration: none; font: 15px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #ffffff; font-weight: 700; background: #1f5f4a;">Requests</a>
+<a href="Request.dc.html" style="display: flex; align-items: center; min-height: 44px; padding: 0 12px; border-radius: 3px; text-decoration: none; font: 15px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #d6e6dd; font-weight: 500;">Approvals</a>
+<a href="Guest.dc.html" style="display: flex; align-items: center; min-height: 44px; padding: 0 12px; border-radius: 3px; text-decoration: none; font: 15px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #d6e6dd; font-weight: 500;">Purchase orders</a>
+<a href="Invoice.dc.html" style="display: flex; align-items: center; min-height: 44px; padding: 0 12px; border-radius: 3px; text-decoration: none; font: 15px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #d6e6dd; font-weight: 500;">Invoices</a>
+<a href="Line.dc.html" style="display: flex; align-items: center; min-height: 44px; padding: 0 12px; border-radius: 3px; text-decoration: none; font: 15px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #d6e6dd; font-weight: 500;">Variance</a>
+<a href="Rules.dc.html" style="display: flex; align-items: center; min-height: 44px; padding: 0 12px; border-radius: 3px; text-decoration: none; font: 15px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #d6e6dd; font-weight: 500;">Settings</a>
+</nav>
+<main style="flex: 999 1 640px; min-width: 0; max-width: 68rem; padding: 28px 32px 64px; box-sizing: border-box; display: flex; flex-direction: column; gap: 20px;">
+<header style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 24px; padding-bottom: 16px; border-bottom: 1px solid #e3e0d8;">
+<div style="display: flex; flex-direction: column; gap: 8px; min-width: 0;">
+<span style="font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: #5f5c55; font-weight: 600;">Request · Demand Gen / Paid Social / <a href="Line.dc.html">Q2 Paid Social</a></span>
+<h1 style="margin: 0; font: 700 30px/1.15 system-ui, -apple-system, 'Segoe UI', sans-serif; letter-spacing: -0.02em;">$12,000.00 to Meridian Creative</h1>
+<p style="margin: 0; font-size: 18px; color: #5f5c55;">Submitted by member@northwind.demo.test · [description]</p>
+</div>
+<span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; min-height: 30px; border-radius: 3px; font: 600 14px/1 system-ui, sans-serif; background: {{ st.bg }}; color: {{ st.fg }}; border: 1px solid {{ st.dot }};">{{ st.word }}</span>
+</header>
+
+<sc-if value="{{ showRefusal }}" hint-placeholder-val="{{ false }}">
+<div role="alert" style="background: #fde8e6; color: #a3271f; border: 1px solid #c4453c; border-radius: 4px; padding: 12px 16px; font-size: 16px;"><strong>▲ You cannot approve your own request.</strong> You hold the Demand Gen Owner seat, but you submitted this. Another holder of the seat has to decide step 1.</div>
+</sc-if>
+<sc-if value="{{ showPo }}" hint-placeholder-val="{{ false }}">
+<div role="status" style="background: #e4f2ea; color: #1f5f4a; border: 1px solid #2f7d62; border-radius: 4px; padding: 12px 16px; font-size: 16px;"><strong>● Approved. PO issued in the same step:</strong> <a href="Guest.dc.html" style="color: #1f5f4a; font-weight: 700;">PO-NO-[n]</a> for $12,000.00 to Meridian Creative. A <code style="font: 14px ui-monospace, Menlo, monospace;">commitment.issued</code> webhook is sent as this response finishes.</div>
+</sc-if>
+
+<section aria-labelledby="chain-h" style="background: #ffffff; border: 1px solid #e3e0d8; border-radius: 4px; padding: 20px; display: flex; flex-direction: column; gap: 14px;">
+<div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; align-items: baseline;">
+<h2 id="chain-h" style="margin: 0; font: 700 17px/1.3 system-ui, -apple-system, 'Segoe UI', sans-serif;">Approval chain</h2>
+<span style="font-size: 15px; color: #5f5c55;">Frozen at submit. A later rule change doesn't alter it.</span>
+</div>
+<ol style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px;">
+<sc-for list="{{ steps }}" as="s" hint-placeholder-count="2">
+<li style="display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 14px; align-items: center; border: 1px solid {{ s.line }}; border-radius: 4px; padding: 12px 16px; background: {{ s.fill }};">
+<span aria-hidden="true" style="width: 36px; height: 36px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font: 700 16px/1 system-ui, sans-serif; background: {{ s.dotBg }}; color: {{ s.dotFg }};">{{ s.glyph }}</span>
+<div style="display: flex; flex-direction: column; min-width: 0;">
+<strong>Step {{ s.n }}: {{ s.seat }} <span style="font-weight: 400; color: #5f5c55; font-size: 15px;">· applies from {{ s.from }}</span></strong>
+<span style="font-size: 15px; color: #5f5c55;">{{ s.who }}</span>
+</div>
+<span style="display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; min-height: 26px; border-radius: 3px; font: 600 13px/1 system-ui, sans-serif; white-space: nowrap; background: {{ s.bg }}; color: {{ s.fg }}; border: 1px solid {{ s.dot }};">{{ s.word }}</span>
+</li>
+</sc-for>
+</ol>
+<p style="margin: 0; font-size: 15px; color: #5f5c55;">Steps whose threshold is above $12,000.00 were skipped: Finance ($50,000+), CMO ($100,000+), CFO ($250,000+).</p>
+</section>
+
+<sc-if value="{{ open }}" hint-placeholder-val="{{ true }}">
+<section aria-labelledby="dec-h" style="background: #ffffff; border: 1px solid #e3e0d8; border-radius: 4px; padding: 20px; display: flex; flex-direction: column; gap: 12px;">
+<h2 id="dec-h" style="margin: 0; font: 700 17px/1.3 system-ui, -apple-system, 'Segoe UI', sans-serif;">Decide step {{ cur }}: {{ curSeat }}</h2>
+<label style="display: flex; flex-direction: column; gap: 4px; font-weight: 500; max-width: 36rem;">Note (optional)
+<textarea style="font: 15px/1.45 system-ui, sans-serif; min-height: 72px; padding: 10px 12px; border-radius: 4px; border: 1px solid #8f8b80; background: #ffffff; color: #1c1b18;"></textarea>
+</label>
+<div style="display: flex; flex-wrap: wrap; gap: 8px;">
+<button type="button" onClick="{{ approve }}" style="font: 600 15px/1.2 system-ui, sans-serif; min-height: 44px; padding: 0 20px; border-radius: 4px; background: #1f5f4a; color: #ffffff; border: 1px solid #1f5f4a; cursor: pointer;">Approve</button>
+<button type="button" style="font: 600 15px/1.2 system-ui, sans-serif; min-height: 44px; padding: 0 20px; border-radius: 4px; background: #ffffff; color: #1c1b18; border: 1px solid #8f8b80; cursor: pointer;">Reject</button>
+</div>
+<div style="border-top: 1px dashed #e3e0d8; padding-top: 10px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
+<span style="font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: #5f5c55; font-weight: 600;">Prototype · act as</span>
+<button type="button" onClick="{{ asMember }}" style="font: 600 14px/1.2 system-ui, sans-serif; min-height: 44px; padding: 0 14px; border-radius: 4px; background: {{ b1 }}; color: #1c1b18; border: 1px solid #8f8b80; cursor: pointer;">member (requester)</button>
+<button type="button" onClick="{{ asOwner }}" style="font: 600 14px/1.2 system-ui, sans-serif; min-height: 44px; padding: 0 14px; border-radius: 4px; background: {{ b2 }}; color: #1c1b18; border: 1px solid #8f8b80; cursor: pointer;">Marcus Lee (Demand Gen owner)</button>
+<button type="button" onClick="{{ asOps }}" style="font: 600 14px/1.2 system-ui, sans-serif; min-height: 44px; padding: 0 14px; border-radius: 4px; background: {{ b3 }}; color: #1c1b18; border: 1px solid #8f8b80; cursor: pointer;">admin (Marketing Ops)</button>
+</div>
+</section>
+</sc-if>
+
+<section aria-labelledby="aud-h" style="background: #ffffff; border: 1px solid #e3e0d8; border-radius: 4px; padding: 20px; display: flex; flex-direction: column; gap: 10px;">
+<h2 id="aud-h" style="margin: 0; font: 700 17px/1.3 system-ui, -apple-system, 'Segoe UI', sans-serif;">Request audit</h2>
+<ul style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; font-size: 15px;">
+<sc-for list="{{ audit }}" as="a" hint-placeholder-count="2">
+<li style="display: flex; gap: 12px; flex-wrap: wrap;"><code style="font: 14px ui-monospace, Menlo, monospace; background: #f1efe9; padding: 2px 6px; border-radius: 4px;">{{ a.ev }}</code><span>{{ a.who }}</span></li>
+</sc-for>
+</ul>
+</section>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1240}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { actor: 'member', done: 0, refused: false };
+  }
+  renderVals() {
+    const s = this.state;
+    const fam = {
+      good: ['#e4f2ea', '#1f5f4a', '#2f7d62'],
+      hold: ['#fff4d6', '#7a4f00', '#b07a12'],
+      info: ['#e8eef6', '#2c4f7c', '#5a7fae']
+    };
+    const pill = (f, word) => ({ bg: fam[f][0], fg: fam[f][1], dot: fam[f][2], word: word });
+    const stepView = (n, seat, from, who) => {
+      const decided = s.done >= n;
+      const current = s.done === n - 1;
+      const p = decided ? pill('good', '✓ Approved') : current ? pill('hold', '◆ Waiting') : pill('info', '● Not yet');
+      return Object.assign({ n: n, seat: seat, from: from, who: decided ? (n === 1 ? 'Approved by Marcus Lee' : 'Approved by admin@northwind.demo.test') : who,
+        glyph: decided ? '✓' : String(n), dotBg: decided ? '#2f7d62' : current ? '#b07a12' : '#e3e0d8', dotFg: decided || current ? '#ffffff' : '#1c1b18',
+        line: current ? '#b07a12' : '#e3e0d8', fill: current ? '#fffaeb' : '#ffffff' }, p);
+    };
+    const steps = [
+      stepView(1, 'Budget Owner', '$0', 'Holders: Marcus Lee, member@northwind.demo.test (the requester can’t decide)'),
+      stepView(2, 'Marketing Ops', '$10,000', 'Holder: admin@northwind.demo.test')
+    ];
+    const audit = [{ ev: 'request.submitted', who: 'member@northwind.demo.test' }];
+    if (s.done >= 1) audit.push({ ev: 'request.step.approved', who: 'Marcus Lee · step 1, Budget Owner' });
+    if (s.done >= 2) audit.push({ ev: 'request.step.approved', who: 'admin@northwind.demo.test · step 2, Marketing Ops' }, { ev: 'commitment.issued', who: 'PO-NO-[n] · $12,000.00' });
+    const approve = () => {
+      if (s.actor === 'member' && s.done === 0) { this.setState({ refused: true }); return; }
+      if (s.actor === 'owner' && s.done === 0) { this.setState({ done: 1, refused: false, actor: 'ops' }); return; }
+      if (s.actor === 'ops' && s.done === 1) { this.setState({ done: 2, refused: false }); return; }
+    };
+    const on = '#f1efe9', off = '#ffffff';
+    return {
+      steps: steps, audit: audit,
+      st: s.done >= 2 ? pill('good', '✓ Approved') : pill('hold', '◆ In review'),
+      showRefusal: s.refused, showPo: s.done >= 2, open: s.done < 2,
+      cur: s.done + 1, curSeat: s.done === 0 ? 'Budget Owner' : 'Marketing Ops',
+      approve: approve,
+      asMember: () => this.setState({ actor: 'member', refused: false }),
+      asOwner: () => this.setState({ actor: 'owner', refused: false }),
+      asOps: () => this.setState({ actor: 'ops', refused: false }),
+      b1: s.actor === 'member' ? on : off, b2: s.actor === 'owner' ? on : off, b3: s.actor === 'ops' ? on : off
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -17,4 +17,5 @@ export const CROSS_ORG_FILES: Readonly<Record<string, string>> = {
   'src/modules/apikeys/webhooks.ts': 'webhook fan-out and delivery: the cron sweep crosses every org', // apikeys
   // clone entries below
   'src/earmark/alerts.ts': 'the alerts cron reads every org with budget lines, then works inside each with withOrg (PRD §4, D-30)',
+  'src/earmark/ui/orgs.ts': "the sidebar's client switcher lists the user's own orgs, the read /onboarding makes (D-45)",
 };
