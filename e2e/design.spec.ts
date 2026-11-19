@@ -66,6 +66,27 @@ test('a guest gets the 404 for every staff page (PRD §1, D-51)', async ({ brows
   await expect(dana.getByRole('link', { name: 'Your orgs' })).toBeVisible();
 });
 
+// Live gate (D-57): a settings page the role may not open is the same 404 as a missing page, not the error page. The
+// template's pages throw on a missing permission, which a page renders as a 500; a layout beside each answers first.
+test('staff get the 404, not an error page, for a settings page their role may not open (D-57)', async ({ browser }) => {
+  const nowhere = 'settings/danger/export/00000000-0000-4000-8000-000000000000';
+  const member = await signIn(browser, 'member@northwind.demo.test');
+  for (const path of ['settings/audit', 'settings/apikeys', 'settings/danger', nowhere, 'settings/security', 'settings/sso']) {
+    expect((await member.goto(`/o/northwind/${path}`))?.status(), `member ${path}`).toBe(404);
+    await expect(member.getByRole('heading', { name: 'Page not found' }), `member ${path}`).toBeVisible();
+  }
+  expect((await member.goto('/o/northwind/settings/members'))?.status(), 'member settings/members').toBe(200);
+
+  const admin = await signIn(browser, 'admin@northwind.demo.test');
+  for (const path of ['settings/danger', nowhere, 'settings/sso']) expect((await admin.goto(`/o/northwind/${path}`))?.status(), `admin ${path}`).toBe(404);
+  for (const path of ['settings/audit', 'settings/apikeys', 'settings/security']) expect((await admin.goto(`/o/northwind/${path}`))?.status(), `admin ${path}`).toBe(200);
+
+  // Whoever holds the permission is let through exactly as before.
+  const owner = await signIn(browser, 'owner@northwind.demo.test');
+  for (const path of ['settings/audit', 'settings/apikeys', 'settings/danger', 'settings/security', 'settings/sso']) expect((await owner.goto(`/o/northwind/${path}`))?.status(), `owner ${path}`).toBe(200);
+  expect((await owner.goto(`/o/northwind/${nowhere}`))?.status(), 'owner, an export that does not exist').toBe(404);
+});
+
 test('a refused request keeps the line, agency and text the person entered (D-52)', async ({ browser }) => {
   const member = await signIn(browser, 'member@northwind.demo.test');
   await member.goto('/o/northwind/requests');
