@@ -121,6 +121,7 @@ export async function fileInvoice(tx: Tx, ctx: { orgId: string; userId: string |
   const amountCents = i.amountCents();
   const invoicedOn = isoDate(i.invoicedOn, 'Invoice date');
   const dueOn = isoDate(i.dueOn, 'Due date');
+  if (dueOn < invoicedOn) throw new Refused('Due date cannot be before the invoice date.'); // D-60; the same day (due on receipt) is allowed
   if (agency.offboardedAt) throw new Refused(`${agency.name} has been offboarded.`);
   if (await tx.invoice.findFirst({ where: { ...inOrg(ctx), agencyId: agency.id, number: i.number }, select: { id: true } })) throw new Refused(`Invoice ${i.number} is already in.`);
   const inv = await tx.invoice.create({
