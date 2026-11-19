@@ -7,7 +7,58 @@ with its own SSO; agency staff are `guest` members of each client they serve and
 inside that client. Approval chains are data (`rules/approval-chains.json`), money is integer cents (`BigInt`), and a
 commitment exists only for an approved request. The spec is `prd-earmark.md` (decisions D-01 to D-11 are fixed).
 
-Synthetic data only. Not deployed in v0.1.
+Synthetic data only. Deployed as a demo at <https://earmark.labintelligence.co> (D-42, D-43).
+
+## Try the live demo (about five minutes)
+
+Open **<https://earmark.labintelligence.co/demo>**. The site asks for a shared password first (HTTP Basic, any
+username; the owner gives it out). `/demo` then lists the seeded accounts: pick one to sign in, no email or password.
+To change account, go back to `/demo` and pick another. Everything is invented data; nothing is paid and no email is sent.
+
+| Account | Who | Used in |
+|---|---|---|
+| `owner@northwind.demo.test` | owner of Northwind, the client | steps 1, 2, 8 |
+| `member@northwind.demo.test` | campaign manager; also holds the Demand Gen Owner seat | step 3 |
+| `demandgen@northwind.demo.test` | the other Demand Gen Owner | step 4 |
+| `admin@northwind.demo.test` | marketing ops; holds the Marketing Ops seat | steps 4, 7 |
+| `finance@northwind.demo.test` | holds the Finance seat | step 7 |
+| `dana@meridian.demo.test` | agency staff, a guest in two clients | steps 5, 6 |
+
+1. **The client's dashboard.** Pick `owner@northwind.demo.test`. *You should see* the Northwind dashboard: Planned,
+   Committed, Actual and Available, then **Lines at risk** and **Unmatched invoices**. Every number is derived from rows on read.
+2. **A replanned line.** Click **Q2 Paid Social**. *You should see* a **Replan** marker in the heading and
+   `Planned edited to …` in *Line history*: a plan edited after money was committed is flagged, not hidden.
+3. **A request and its frozen chain.** Pick `member@northwind.demo.test`. **Requests** → Budget line
+   `Demand Gen / Paid Social / Q2 Paid Social`, Agency `Meridian Creative`, Amount `12,000.00`, any description →
+   **Submit request**, then open it from the list. *You should see* the **Approval chain**: `Budget Owner`, then
+   `Marketing Ops`. Press **Approve**: *You cannot approve your own request.* (she holds the seat; the rule still refuses her).
+4. **Two approvals, one PO.** Pick `demandgen@northwind.demo.test` → **Approvals** → your request → **Approve**.
+   *You should see* *Step 2 is waiting on Marketing Ops*. Pick `admin@northwind.demo.test` → **Approvals** → the
+   request → **Approve**. *You should see* the request **Approved** and a **PO-…** link: a purchase order exists only
+   for an approved request. Note the PO number.
+5. **The agency's view.** Pick `dana@meridian.demo.test`; she works for two clients, so choose **Northwind**.
+   *You should see* **Purchase orders** only: her agency's POs, no budgets, no Requests. Open your PO, fill in an
+   invoice number, Amount `1,250.00`, an invoice date and a later due date → **Submit invoice**. *You should see* it
+   under *Invoices on this PO*.
+6. **The tenant wall.** Still as Dana, on the PO page, change `/o/northwind/` to `/o/contoso/` in the address bar.
+   *You should see* **Page not found**, the same page as an id that does not exist: she is a guest in Contoso too,
+   and it still tells her nothing about another client's PO.
+7. **Match and approve for payment.** Pick `admin@northwind.demo.test` → **Invoices** → *To match* → Dana's invoice.
+   *You should see* your PO ranked first under *Suggested POs* with the reason `PO number and agency`. Press
+   **Match to PO-…**, then **Approve for payment**: *Only a Finance seat holder can approve an invoice for payment.*
+   Pick `finance@northwind.demo.test`, open the same invoice from **Invoices** → *To approve for payment*, **Approve for payment**.
+   *You should see* Status `approved`.
+8. **The audit trail.** Pick `owner@northwind.demo.test` → **Audit log**. *You should see* every act above with its
+   actor: `request.submitted`, `request.step.approved`, `commitment.issued`, `invoice.submitted`, `invoice.matched`,
+   `invoice.approved_for_payment`.
+
+**What was checked, and where.** All eight steps were run in one browser session against the test environment (a
+production build on the seeded test database, 2026-11-19), and steps 1 to 7 are also covered by `e2e/demo.spec.ts`.
+None of them has been run against the live site by the build agent: it could not reach it. The live database is
+shared and is not reset between visitors, so the lists you see include earlier visitors' requests and invoices; if a
+visitor has edited the approval rules, step 3's chain may differ. The shared accounts are deliberately refused API
+keys, exports, member removal and SSO setup. The presenter's full script, with the steps that need a real owner or a
+local setup (SSO sign-in, the API `curl`s, the AI spending cap, offboarding, export), is [`docs/DEMO.md`](docs/DEMO.md).
 
 ## Status
 

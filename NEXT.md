@@ -1,5 +1,25 @@
 # NEXT — Earmark
 
+## ▶ Live gate (scheduled run, 2026-11-19): branch `live-gate`, draft PR "Earmark live gate: demo-path fixes and README demo script"
+
+**Nothing was deployed. Merging the PR to `main` is a production deploy** (Vercel builds `main` and runs `prisma migrate deploy`; this PR has no migration and no schema change).
+
+**Did (D-57 to D-63 in `prd-earmark.md`):** of §11's six open items, four fixed: a settings page the role may not open is the 404, not a 500 (guard layouts; D-57); a one-org `/demo` account lands in its org (D-58); the members page is usable at 390 px and the template settings pages carry the Earmark look, CSS only (D-59); a due date before the invoice date is refused (D-60). README has *Try the live demo*: eight steps with the shared accounts.
+
+**Left for Shane (D-61):** open a submitted request directly (recommend: an *Open it* link in the notice); the seed keeps old `rules.edited` rows (recommend: leave; the log is append-only).
+
+**For a foundation release:** `requireOrg(org, perm)` in a page or GET route should answer 404, not throw (then the five guard layouts and their four `FOUNDATION_PATCHES.md` lines go); until then `settings/audit/csv` and `settings/danger/export/<id>/download` still answer a member 500. A clone hook for where a demo sign-in lands. A class on destructive buttons in template pages.
+
+**Not verified:** anything on https://earmark.labintelligence.co (the sandbox got a client error, consistent with the password gate; no page was read). `npm run foundation:drift` against the real `v1.7.0` tag (the tag is not in this repo; run with `--base 4938406`). Postgres 17 locally (16 here; CI runs 17).
+
+**Shane's hand steps, in order:**
+1. Read the PR; check CI is green on its head commit.
+2. Locally: `git fetch https://github.com/shanelabountyai/saas-foundation.git tag v1.7.0 --no-tags && npm run foundation:drift`. Expect the two entries that were already red on main (`src/modules/sso/hooks.ts` stale hash, `src/proxy.ts` unlisted) and none from this branch; update those two lines in `FOUNDATION_PATCHES.md` if you agree with them.
+3. Look at Members, Audit log, Security and API keys on a phone and in dark mode.
+4. Decide D-61's two calls.
+5. Merge (this deploys). Then open https://earmark.labintelligence.co/demo, pick `owner@northwind.demo.test` (it should land on the dashboard, not *Your orgs*), and walk the README's eight steps once.
+6. Decide how a hiring manager gets the shared password: the README says only that the owner gives it out.
+
 ## ▶ Now: design pass on branch `design/impl` (scheduled run, 2026-11-18; instructions `docs/design/RUN.md`)
 
 **Built:** the Claude Design look (HANDOFF.md owner calls) on every Earmark page: `src/app/globals.css` (tokens, light + dark), `src/earmark/ui/` (page kit, sidebar shell with phone menu, guest client switcher, `Form`, invoice form), and the 14 org pages rewritten on it. Eight gap artboards added in `docs/design/` (Plan, Variance, Approvals, Requests, Commitments, Invoices, Seats, Agencies) before building them. Decisions D-44 to D-55 and requirements DX-01 to DX-09 (§11) in `prd-earmark.md`.
