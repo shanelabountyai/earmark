@@ -46,9 +46,14 @@ async function submit(page: Page, what: string) {
   await page.getByLabel('Amount (USD)').fill('12,000.00');
   await page.getByLabel('What it is for').fill(what);
   await page.getByRole('button', { name: 'Submit request' }).click();
-  await expect(page.locator('main').getByRole('status')).toContainText('Request submitted');
+  const status = page.locator('main').getByRole('status');
+  await expect(status).toContainText('Request submitted');
+  // D-64: the notice carries a link to the request it just made.
+  const open = await status.getByRole('link', { name: 'Open it' }).getAttribute('href');
+  expect(open).toMatch(/^\/o\/northwind\/requests\/[0-9a-f-]{36}$/);
   await page.getByRole('link', { name: what }).click();
   await page.waitForURL(/\/requests\/[0-9a-f-]{36}$/);
+  expect(new URL(page.url()).pathname).toBe(open);
   return page.url();
 }
 
