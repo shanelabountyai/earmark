@@ -57,7 +57,7 @@ Rules these were written to: Earmark is a sample build on synthetic data, with n
 >
 > What stayed are eight steps that give the same result no matter who came before you.
 >
-> I ran shared platforms for large marketing teams, and this is the same lesson at small scale. A feature that is safe for one user can be a hazard in a shared environment. The question is not "does it work." It is "what does it do to the next person."
+> The lesson is bigger than a sample app. A feature that is safe for one user can be a hazard in a shared environment. The question is not "does it work." It is "what does it do to the next person."
 >
 > Before you put a pilot in front of other people: which step in your demo only works because you were alone?
 >
@@ -75,7 +75,7 @@ Rules these were written to: Earmark is a sample build on synthetic data, with n
 | Three AI drafts, then the refusal | `prd-earmark.md` D-35 and D-63 |
 | Sample build, synthetic data, no clients | `README.md`; `WRITEUP.md` |
 
-"I ran shared platforms for large marketing teams" is a statement about Shane's career with no number in it; it is not from this repo. Cut it if it does not sit right.
+Draft B makes no claim about Shane's career: an earlier version said "I ran shared platforms for large marketing teams", which no file in this repo supports, so it was taken out (D-67). If you want a career line, the only approved budget wording is the one in Draft A.
 
 ## Before posting
 
