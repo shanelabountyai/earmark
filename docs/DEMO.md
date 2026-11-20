@@ -112,7 +112,7 @@ unzip -p ~/Downloads/<the zip> manifest.json | python3 -m json.tool | head -30  
 
 ## Live site: https://earmark.labintelligence.co (D-43)
 
-Behind a shared password (HTTP Basic, any username; ask the owner). Sign in at `/demo` with the shared accounts. **The live site has email off and no SSO keys**, so these steps are **local-only**: step 1 (company sign-in), step 7's emailed link, steps 11, 13 and 14 as the real owner, and promoting your own SSO user. Everything else, including the webhook delivery (step 6) and step 8's two `curl`s (send the key as `Authorization: Bearer`; the gate lets `/api/v1` through), works live. Not yet run live by Claude: the click-through after the first deploy.
+Behind a shared password (HTTP Basic, any username; ask the owner). Sign in at `/demo` with the shared accounts. **The live site has email off and no SSO keys**, so these steps are **local-only**: step 1 (company sign-in), step 7's emailed link, steps 11, 13 and 14 as the real owner, and promoting your own SSO user. Everything else, including the webhook delivery (step 6) and step 8's two `curl`s (send the key as `Authorization: Bearer`; the gate lets `/api/v1` through), works live. Not yet run live by Claude: the click-through after the first deploy. The short, no-setup version for a visitor (eight steps with the shared accounts only) is *Try the live demo* in the [README](../README.md); since D-58 a `/demo` account with one org lands straight in it, and Dana still picks her client on *Your orgs*.
 
 ## Troubleshooting
 

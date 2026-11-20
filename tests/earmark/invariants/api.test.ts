@@ -7,9 +7,10 @@ import { dbSystem as db } from '@/core/db/system';
 import { createKey } from '@/modules/apikeys/keys';
 import * as commitment from '@/app/api/v1/commitments/[id]/route';
 import * as invoices from '@/app/api/v1/invoices/route';
+import { submitInvoice } from '@/earmark/actions';
 import { resetAuthTables } from '../../helpers/auth';
 import { actAs } from '../../helpers/org';
-import { commitmentFor, world } from './world';
+import { as, commitmentFor, world } from './world';
 
 beforeEach(resetAuthTables);
 
@@ -93,4 +94,27 @@ it('D-33/D-41: a malformed amount on a foreign agency is the same 404 as any for
     expect([own.status, (await own.json()).detail]).toEqual([400, 'amountCents: a positive whole number of cents, as a string']);
   }
   expect(await db.invoice.count({ where: { orgId: w.orgId } })).toBe(0);
+});
+
+// Live gate (D-60, PRD §11 open item UX S10): one rule in fileInvoice, so the API and the guest form answer alike.
+it('D-60: an invoice due before its invoice date is refused on both paths; the same day is accepted; a foreign agency is still the 404', async () => {
+  const w = await world('northwind');
+  const other = await world('contoso');
+  const key = await keyFor(w, ['invoices']);
+  const body = { agencyId: w.agency.id, number: 'INV-1', poNumber: '', amountCents: '125000', invoicedOn: '2026-11-10', dueOn: '2026-11-01' };
+
+  const api = await post(body, key);
+  expect([api.status, (await api.json()).detail]).toEqual([422, 'Due date cannot be before the invoice date.']);
+  const form = () => submitInvoice(w.slug, { agencyId: w.agency.id, number: 'INV-1', amount: '1,250.00', invoicedOn: '2026-11-10', dueOn: '2026-11-01' });
+  expect(await as(w.owner.id, form)).toEqual({ error: 'Due date cannot be before the invoice date.' });
+  expect(await db.invoice.count({ where: { orgId: w.orgId } })).toBe(0);
+
+  // Ids resolve first (D-19): the rule never tells a foreign agency from a missing one.
+  const foreign = await post({ ...body, agencyId: other.agency.id }, key);
+  const missing = await post({ ...body, agencyId: randomUUID() }, key);
+  expect(foreign.status).toBe(404);
+  expect([missing.status, await missing.text()]).toEqual([foreign.status, await foreign.text()]);
+
+  // Due on receipt (the same day) is a real term and stays allowed.
+  expect((await post({ ...body, dueOn: '2026-11-10' }, key)).status).toBe(201);
 });

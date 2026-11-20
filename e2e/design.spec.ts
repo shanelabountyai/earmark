@@ -11,7 +11,7 @@ async function signIn(browser: Browser, email: string, opts: { scheme?: 'light' 
   const page = await (await browser.newContext({ colorScheme: opts.scheme ?? 'light', viewport: { width: opts.width ?? 1280, height: 900 } })).newPage();
   await page.goto('/demo');
   await page.getByRole('button', { name: email }).click();
-  await page.waitForURL(/\/onboarding$/);
+  await page.waitForURL(/\/(onboarding|o\/[a-z]+(\/commitments)?)$/); // signed in: Your orgs, or the one org (D-58)
   return page;
 }
 
@@ -36,6 +36,8 @@ for (const scheme of ['light', 'dark'] as const) {
       const page = await signIn(browser, 'owner@northwind.demo.test', { scheme, width });
       const o = '/o/northwind';
       const pages = [o, `${o}/plan`, `${o}/requests`, `${o}/approvals`, `${o}/commitments`, `${o}/invoices`, `${o}/variance`, `${o}/settings/rules`, `${o}/settings/seats`, `${o}/settings/agencies`,
+        // the template's settings pages, styled from globals.css in the live gate (D-59)
+        `${o}/settings/members`, `${o}/settings/audit`, `${o}/settings/security`, `${o}/settings/sso`, `${o}/settings/apikeys`, `${o}/settings/danger`,
         await firstHref(page, `${o}/requests`, '/requests/'), await firstHref(page, `${o}/commitments`, '/commitments/'),
         await firstHref(page, `${o}/invoices`, '/invoices/'), await firstHref(page, o, '/lines/')];
       for (const url of pages) {
@@ -64,6 +66,45 @@ test('a guest gets the 404 for every staff page (PRD §1, D-51)', async ({ brows
   }
   await expect(dana.getByRole('heading', { name: 'Page not found' })).toBeVisible();
   await expect(dana.getByRole('link', { name: 'Your orgs' })).toBeVisible();
+});
+
+// Live gate (D-57): a settings page the role may not open is the same 404 as a missing page, not the error page. The
+// template's pages throw on a missing permission, which a page renders as a 500; a layout beside each answers first.
+test('staff get the 404, not an error page, for a settings page their role may not open (D-57)', async ({ browser }) => {
+  const nowhere = 'settings/danger/export/00000000-0000-4000-8000-000000000000';
+  const member = await signIn(browser, 'member@northwind.demo.test');
+  for (const path of ['settings/audit', 'settings/apikeys', 'settings/danger', nowhere, 'settings/security', 'settings/sso']) {
+    expect((await member.goto(`/o/northwind/${path}`))?.status(), `member ${path}`).toBe(404);
+    await expect(member.getByRole('heading', { name: 'Page not found' }), `member ${path}`).toBeVisible();
+  }
+  expect((await member.goto('/o/northwind/settings/members'))?.status(), 'member settings/members').toBe(200);
+
+  const admin = await signIn(browser, 'admin@northwind.demo.test');
+  for (const path of ['settings/danger', nowhere, 'settings/sso']) expect((await admin.goto(`/o/northwind/${path}`))?.status(), `admin ${path}`).toBe(404);
+  for (const path of ['settings/audit', 'settings/apikeys', 'settings/security']) expect((await admin.goto(`/o/northwind/${path}`))?.status(), `admin ${path}`).toBe(200);
+
+  // Whoever holds the permission is let through exactly as before.
+  const owner = await signIn(browser, 'owner@northwind.demo.test');
+  for (const path of ['settings/audit', 'settings/apikeys', 'settings/danger', 'settings/security', 'settings/sso']) expect((await owner.goto(`/o/northwind/${path}`))?.status(), `owner ${path}`).toBe(200);
+  expect((await owner.goto(`/o/northwind/${nowhere}`))?.status(), 'owner, an export that does not exist').toBe(404);
+});
+
+// Live gate (D-59, PRD §11 open item UX S5): on a phone every member's role and controls are on screen, with no
+// sideways scroll inside the table. Before, the role was clipped and the controls sat off the right edge.
+test('the members page is usable on a phone: each row shows its role and controls inside the viewport (D-59)', async ({ browser }) => {
+  const owner = await signIn(browser, 'owner@northwind.demo.test', { width: 390 });
+  await owner.goto('/o/northwind/settings/members');
+  const table = owner.locator('main table').first();
+  expect(await table.evaluate((t) => t.scrollWidth <= t.clientWidth), 'the table does not scroll sideways').toBe(true);
+  const row = table.getByRole('row').filter({ hasText: 'member@northwind.demo.test' });
+  for (const part of [row.getByRole('cell').nth(1), row.getByLabel('Role for member@northwind.demo.test'), row.getByRole('button', { name: 'Change role' }), row.getByRole('button', { name: 'Remove' })]) {
+    await expect(part).toBeVisible();
+    const box = (await part.boundingBox())!;
+    expect(box.x, 'left edge').toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width, 'right edge').toBeLessThanOrEqual(390);
+  }
+  await expect(row.getByRole('cell').nth(1)).toHaveText('member');
+  expect(await owner.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 });
 
 test('a refused request keeps the line, agency and text the person entered (D-52)', async ({ browser }) => {
