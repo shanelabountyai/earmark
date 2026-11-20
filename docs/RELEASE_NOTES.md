@@ -18,7 +18,7 @@ The first closeout (2026-11-12/13) covered a product that ran only on a laptop. 
 | 2026-11-20 01:12 | The live gate: settings 404s, demo landing, phone members page, invoice dates, README's eight-step demo (D-57 to D-63) | PR #14, commit `6a4df45` |
 | 2026-11-20 14:11 | The *Request submitted* notice carries an *Open it* link to the new request (D-64) | PR #15, commit `7968689`; merged while this closeout was running |
 
-**Closeout pack (D-65 to D-67)**
+**Closeout pack (D-65 to D-68)**
 
 | Item | Where | State |
 |---|---|---|

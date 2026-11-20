@@ -1,5 +1,35 @@
 # NEXT — Earmark
 
+## ▶ Closure status: live closeout and five-lens review (scheduled run, 2026-11-20 UTC; branch `closeout/2026-11-19-live`, draft PR "Earmark: live closeout pack and five-lens review (docs only)")
+
+Documentation only. Nothing deployed, no environment variable touched, no application code, test, seed or template file changed. Decisions D-65 to D-67 in `prd-earmark.md`.
+
+**Done**
+- 2026-11-20: live closeout pack. `docs/RELEASE_NOTES.md` (new): what shipped from 17 to 20 November, live verification, local gate, cost review. `docs/DEMO.md` *Live demo*: nine stops (the gate plus the README's eight), each marked by its e2e test; none clicked through live yet. `docs/LINKEDIN_DRAFTS.md`: two drafts (D-47, D-63), unposted.
+- 2026-11-20: exec brief **Earmark Live in Brief**, a Claude Docs document, private: https://claude.ai/artifact/7h7spt45ccKWWUXZQ2diNS (the first brief, unchanged: https://claude.ai/artifact/Xwpdyi152Ct3HWeyD99yGs).
+- 2026-11-20: cost review (D-65): Earmark's measured Vercel usage $0.294 to $0.556 for 2026-11-17 08:00 to 2026-11-20 08:00 UTC, almost all builds. Neon, the domain, the Anthropic API and GitHub Actions not read.
+- 2026-11-20: five-lens review, `docs/audits/FIVE-LENS-2026-11-19.md`: no Blockers; 49 findings (19 Major, 30 Minor), 23 work items; top five all about the first ten minutes of a visit (shared demo spoiled by one visitor, "SaaS Foundation" at `/`, an unbranded `/demo`, phone tables, visitor free text). One money bug off the walk: a partly matched invoice is counted twice against Available (C1).
+
+**Verified, and how**
+- Production deployment `dpl_CTPB6uks1m7KSybA9wqVi5ztgvSN` READY on `7968689` (PR #15), aliased to `earmark.labintelligence.co`: Vercel, read-only, 14:15 UTC.
+- Runtime errors: one group, a `pg` SSL-mode warning, 12 occurrences in 7 days: Vercel, read-only.
+- Gate on this branch (Postgres 16, RLS enforce): lint 0 errors (1 warning), typecheck clean, unit 652 passed + 1 skipped, build clean, e2e 41 passed. `npm ci` itself fails here (Prisma engine download blocked); CI is the gate.
+- Every UI lens worked on a local production build with the demo seed, at 1280 and 390 px, light and dark.
+
+**Not verified:** any page on the live site (WebFetch `client_error` at 02:06 and 14:14 UTC); Postgres 17; `prisma migrate deploy`; `foundation:drift`; production env vars (whether `ANTHROPIC_API_KEY` is set).
+
+**Open:** the review's six decisions (report §3); the four proposed PRDs (report §2), not written; D-57's stated reason is wrong (report §1, C3), not edited; stale "not deployed" wording in `WRITEUP.md`, `docs/DEMO.md` (*Concede before you're asked*) and `prd-earmark.md` (opening paragraph, §6), listed in D-66, not edited.
+
+**Your hand steps, in order**
+1. You: read the draft PR and check CI is green on its head commit. It is docs only; merging it triggers a production build only if Vercel's ignore step sees a non-docs change (it should not).
+2. You: open https://earmark.labintelligence.co/ in a private window; expect the password prompt; then `/demo` (six walk accounts among 17) and `/api/health` (`{"ok":true}`); then https://earmark-tau.vercel.app/ (expect the same prompt).
+3. You: walk the nine stops in `docs/DEMO.md` *Live demo* on a laptop and once on a phone; fill in its table. Note: the live data has had visitors since the last seed.
+4. You: make the review's decisions 1 to 6 (`docs/audits/FIVE-LENS-2026-11-19.md` §3), starting with decision 1 (keep the shared demo from being spoiled).
+5. You: if you choose decision 5 (a), change `sslmode` to `verify-full` in the three Vercel database URLs and watch one redeploy.
+6. You: read the two LinkedIn drafts aloud; add the ones you keep to the Lab Intelligence Ledger (https://claude.ai/artifact/Ai5xKScgT2sWtqXRQ1ZA8i) as the next free numbers.
+7. You: share **Earmark Live in Brief** when you are ready; it is private until you do.
+8. You: read Neon's and the domain's billing yourself if you want a full cost figure; this run could not.
+
 ## ▶ D-61's two calls, decided by Shane on 2026-11-19 (branch `feat/request-open-link`, D-64)
 
 - **(d) Open a submitted request:** built as option 1. The *Request submitted* notice now carries an *Open it* link to the new request; the action still returns a notice and does not redirect (D-24).
