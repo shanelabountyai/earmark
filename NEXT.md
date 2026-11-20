@@ -1,5 +1,13 @@
 # NEXT — Earmark
 
+## ▶ D-61's two calls, decided by Shane on 2026-11-19 (branch `feat/request-open-link`, D-64)
+
+- **(d) Open a submitted request:** built as option 1. The *Request submitted* notice now carries an *Open it* link to the new request; the action still returns a notice and does not redirect (D-24).
+- **(f) Old `rules.edited` rows after a re-seed:** left as is (option 1). Nothing to build.
+- **Demo password:** Shane sends the shared password along with the link wherever he shares it; the README is unchanged.
+
+Not run locally (no database or Prisma engines in that session): the gate is the PR's CI (`ci (off)`, `ci (enforce)`, `modules-removed`). **Merging to `main` is a production deploy.** No migration, no schema change.
+
 ## ▶ Live gate (scheduled run, 2026-11-19): branch `live-gate`, draft PR "Earmark live gate: demo-path fixes and README demo script"
 
 **Nothing was deployed. Merging the PR to `main` is a production deploy** (Vercel builds `main` and runs `prisma migrate deploy`; this PR has no migration and no schema change).
@@ -16,7 +24,7 @@
 1. Read the PR; check CI is green on its head commit.
 2. Locally: `git fetch https://github.com/shanelabountyai/saas-foundation.git tag v1.7.0 --no-tags && npm run foundation:drift`. Expect the two entries that were already red on main (`src/modules/sso/hooks.ts` stale hash, `src/proxy.ts` unlisted) and none from this branch; update those two lines in `FOUNDATION_PATCHES.md` if you agree with them.
 3. Look at Members, Audit log, Security and API keys on a phone and in dark mode.
-4. Decide D-61's two calls.
+4. ~~Decide D-61's two calls.~~ Decided 2026-11-19 (D-64, above).
 5. Merge (this deploys). Then open https://earmark.labintelligence.co/demo, pick `owner@northwind.demo.test` (it should land on the dashboard, not *Your orgs*), and walk the README's eight steps once.
 6. Decide how a hiring manager gets the shared password: the README says only that the owner gives it out.
 
