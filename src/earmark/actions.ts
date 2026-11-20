@@ -89,7 +89,8 @@ export const submitRequest = orgAction(
       return { id: r.id };
     });
     refresh(ctx);
-    return { ...out, notice: 'Request submitted; it is listed below.' };
+    // D-64: still a notice, not a redirect (D-24); `open` is a link the form shows beside it.
+    return { ...out, notice: 'Request submitted; it is listed below.', open: { href: `/o/${ctx.slug}/requests/${out.id}`, label: 'Open it' } };
   },
 );
 

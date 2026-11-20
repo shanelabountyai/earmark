@@ -47,6 +47,23 @@ describe('E-INV-01: a requester cannot approve their own request through any sea
   });
 });
 
+describe('D-64: a submitted request comes back with a link to itself', () => {
+  it('the action returns a notice (no redirect) and the path of the request it made, in the caller\'s org', async () => {
+    const w = await world('northwind');
+    const r = await request(w, '7,500.00');
+    expect(r).toEqual({ id: r.id, notice: 'Request submitted; it is listed below.', open: { href: `/o/${w.slug}/requests/${r.id}`, label: 'Open it' } });
+    expect(await db.spendRequest.findUniqueOrThrow({ where: { id: r.id } })).toMatchObject({ orgId: w.orgId });
+  });
+
+  it('a refused submit returns no link', async () => {
+    const w = await world('northwind');
+    await db.seatHolder.deleteMany({ where: { userId: w.budgetOwner.id } }); // the E-INV-01 refusal: no one else holds the step
+    const r = await as(w.requester.id, () => submitRequest(w.slug, { budgetLineId: w.line.id, agencyId: w.agency.id, amount: '7,500.00', description: 'x' }));
+    expect(r).toMatchObject({ error: expect.stringMatching(/./) });
+    expect(r).not.toHaveProperty('open');
+  });
+});
+
 describe('E-INV-02: a commitment exists only for an approved request, for no more than the request', () => {
   it('the database refuses a commitment for a request that is not approved, even from the owner role', async () => {
     const w = await world('northwind');
