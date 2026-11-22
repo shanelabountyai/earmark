@@ -57,8 +57,11 @@ production build on the seeded test database, 2026-11-19), and steps 1 to 7 are 
 None of them has been run against the live site by the build agent: it could not reach it. The live database is
 shared, so the lists you see include the day's earlier visitors' requests and invoices (rows made today carry a
 *Today* marker); it is replanted from the seed every night at 06:00 UTC (D-73). The shared accounts cannot change the
-approval rules, seats, the plan or agencies (D-72), so step 3's chain is always the seeded one, and they are refused
-API keys, exports, member removal and SSO setup. The presenter's full script, with the steps that need a real owner or a
+approval rules, seats, the plan or agencies (D-72), so step 3's chain is built from the seeded rules and seats. It can
+still differ from the two steps below: once the day's earlier walks use up Q2 Paid Social's headroom the chain gains an
+over-budget Finance step, and the shared owner can still change another account's role (the template's role change has no demo
+guard yet, and the nightly reset does not restore the template accounts' roles: a template follow-up, D-87). They are
+refused API keys, exports, member removal and SSO setup. The presenter's full script, with the steps that need a real owner or a
 local setup (SSO sign-in, the API `curl`s, the AI spending cap, offboarding, export), is [`docs/DEMO.md`](docs/DEMO.md).
 
 ## Status
