@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { actorEmails } from '@/core/audit';
+import { auditDetails } from '@/earmark/audit-details';
 import { inOrg, requireOrg } from '@/core/authz/guards';
 import { withOrg } from '@/core/db/rls';
 import { Form as ActionForm } from '@/earmark/ui/form';
@@ -156,7 +157,7 @@ export default async function RequestPage({ params }: { params: Promise<{ org: s
                   <td style={{ whiteSpace: 'nowrap' }}>{when(e.at)}</td>
                   <td>{who(e.actorUserId)}</td>
                   <td><code>{e.action}</code></td>
-                  <td>{e.data ? <code style={{ overflowWrap: 'anywhere' }}>{JSON.stringify(e.data)}</code> : <span className="muted">—</span>}</td>
+                  <td>{auditDetails(e.data) || <span className="muted">—</span>}</td>
                 </tr>
               ))}
             </tbody>
