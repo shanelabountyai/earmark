@@ -63,7 +63,7 @@ Open three windows: `member@`, `demandgen@`, `admin@` (all Northwind, from `/dem
 
 3. As **member**: **Requests** → Budget line `Demand Gen / Paid Social / Q2 Paid Social`, Agency `Meridian Creative`, Amount `12,000.00`, a description → **Submit request**. Open it: the **Approval chain** table reads `Budget Owner`, `Marketing Ops`. *Say:* "the chain is frozen onto the request at submit."
 4. Still as member, **Approve** → *You cannot approve your own request.* (she holds the Demand Gen Owner seat; the refusal is the action's, not the page's). As **demandgen**: **Approvals** → the request → **Approve**; the page moves to *Decide step 2: Marketing Ops* and *Request audit* shows `request.step.approved`.
-5. As **admin**: **Rules** → in *Rules JSON* change Marketing Ops `"fromCents": 1000000` to `1500000` → **Save rules** → *Saved 1 change.*; *Rule edits* shows the before/after. As member, submit a second $12,000 request: its chain is `Budget Owner` only. Reopen the first: still two steps. *(demo.spec steps 3–5.)*
+5. As the **real owner** (the shared `admin@` is refused rule edits since D-72): **Rules** → in *Rules JSON* change Marketing Ops `"fromCents": 1000000` to `1500000` → **Save rules** → *Saved 1 change.*; *Rule edits* shows the before/after. As member, submit a second $12,000 request: its chain is `Budget Owner` only. Reopen the first: still two steps. *(demo.spec steps 3–5.)*
 
 ## 3. The PO and the webhook (1 min)
 
@@ -120,11 +120,11 @@ The README's eight steps (*Try the live demo*, D-63), one stop per screen, for a
 
 **How to read the mark on each stop.** *Verified by e2e* names the spec and test that drive that screen against a production build on the demo seed (the same code the live site runs, not the live site itself); the whole suite was re-run for this closeout on 2026-11-20 UTC at `main` = `7968689`: 41 passed (`docs/RELEASE_NOTES.md`). *Verified live* means someone loaded it on the live site and recorded it. **No stop is verified live yet:** the closeout run could not read the site from the cloud (three GETs, `client_error`, at 02:06 and again at 14:14 UTC on 2026-11-20), so every stop also carries *not yet clicked through by the owner* until Shane walks it once and ticks the table at the end.
 
-**Before you start.** The live database is shared and is not reset between visitors: lists include earlier visitors' requests and invoices, and if a visitor has edited the approval rules, stop 3's chain may differ. To change account, go back to `/demo` and pick another.
+**Before you start.** The live database is shared between visitors and is replanted from the seed every night at 06:00 UTC (D-73, once this change is deployed): lists include the day's earlier visitors' requests and invoices (rows made today carry a *Today* marker, D-78). The shared accounts cannot change rules, seats, the plan or agencies (D-72), so stop 3's chain is always the seeded one. To change account, go back to `/demo` and pick another.
 
 | # | Stop (screen) | Do | You should see | Mark |
 |---|---|---|---|---|
-| 0 | **The gate and the account list** (`/demo`) | Open the site; enter the shared password (any username; the owner gives it out). | A list of the seeded accounts, each a button. No email or password is typed. | Gate logic: unit test `tests/earmark/demo-gate.test.ts`. The password prompt itself exists only on the live site: **not yet clicked through by the owner**. |
+| 0 | **The gate and the account list** (`/demo`) | Open the site; enter the shared password (any username; the owner gives it out). | The six walk accounts as cards in the README's order, *Start here* on `owner@northwind.demo.test`, every other seeded account under a fold (D-75). No email or password is typed. | Gate logic: unit test `tests/earmark/demo-gate.test.ts`. The password prompt itself exists only on the live site: **not yet clicked through by the owner**. |
 | 1 | **The client's dashboard** (`/o/northwind`) | Pick `owner@northwind.demo.test`. | You land in Northwind, not on *Your orgs*: Planned, Committed, Actual, Available, then **Lines at risk** and **Unmatched invoices**. | Verified by e2e: `e2e/demo.spec.ts` "demo sign-in lands a seeded owner in their org", "step 1: the dashboard shows the four totals and the aged unmatched invoices", "design: the sidebar marks the current page and the dashboard leads with totals, then lines at risk". Not yet clicked through by the owner. |
 | 2 | **A replanned line** (the line page) | Click **Q2 Paid Social**. | A **Replan** marker in the heading and `Planned edited to …` in *Line history*. | Verified by e2e: `e2e/demo.spec.ts` "step 2: Demand Gen → Q2 Paid Social shows its history with the replan marker". Not yet clicked through by the owner. |
 | 3 | **A request and its frozen chain** (Requests, then the request page) | Pick `member@northwind.demo.test`. **Requests** → Budget line `Demand Gen / Paid Social / Q2 Paid Social`, Agency `Meridian Creative`, Amount `12,000.00`, a description → **Submit request**; press **Open it** in the *Request submitted* notice (D-64; or open it from the list); press **Approve**. | The **Approval chain** reads `Budget Owner`, then `Marketing Ops`. Approve is refused: *You cannot approve your own request.* | Verified by e2e: `e2e/demo.spec.ts` "steps 3–5: frozen chain, self-approval refused, rule edit applies only to the next request" (its `submit` helper follows the *Open it* link; the live walk-through skips that test's rule edit on purpose, D-63). Not yet clicked through by the owner. |
@@ -152,12 +152,13 @@ The README's eight steps (*Try the live demo*, D-63), one stop per screen, for a
 | Sign-in to Northwind/Contoso sends no link and no redirect | Require SSO is on and the email is staff, not on the SSO domain | use `/demo`, or the SSO domain email |
 | Google/Okta says `redirect_uri_mismatch` | the test app has no `localhost:7600` redirect | add `http://localhost:7600/login/sso/callback` |
 | Export, key creation or Offboard refused for `owner@…demo.test` | the demo guard, by design (D-33, D-36) | use the real owner |
+| Saving rules, seats, the plan, agencies or a reallocation refused for a `/demo` account | the demo guard, by design (D-72) | use the real owner |
 | Dashboard empty | seed not run against this database | `npm run seed:demo` |
 | Pages from an old build | stale `.next` | `rm -rf .next`, rebuild |
 
 ## Concede before you're asked
 
-- **Synthetic everything, and not deployed.** Two invented clients and one invented agency on a laptop. No AP system is connected; "approved for payment" is a status, nothing is paid.
+- **Synthetic everything; the live site is a demo.** Two invented clients and one invented agency, on a laptop or on the password-gated live site (deployed since 2026-11-17, D-65), which has email off and no SSO keys (D-43). No AP system is connected; "approved for payment" is a status, nothing is paid.
 - **The live SSO is the template's test tenants**, a Google Workspace domain and an Okta Integrator Free org, not a customer IdP. The e2e runs step 1 through a mock IdP.
 - **The real owner is promoted by hand** with `psql`. SSO never makes an owner (INV-38), and the shared demo accounts are blocked from keys, exports and removals on purpose.
 - **The AI cap is demonstrated with a stub.** With a real key, Haiku drafts cost ~$0.0002 and the fourth is not refused; the guard is the same code either way (E-INV-08).
