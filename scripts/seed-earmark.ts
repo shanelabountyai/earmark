@@ -2,6 +2,7 @@
 // Synthetic only: no real people, no real vendors. Every run deletes the org's Earmark rows and plants them again,
 // so the ledger is the same on every seed and its frozen approver ids always name users that exist.
 import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { sealSecret } from '@/core/auth/secret-box';
 import { now } from '@/core/clock';
 import { demoReceiverSecret, demoReceiverUrl } from '@/earmark/demo-receiver';
@@ -30,7 +31,10 @@ type Plan = {
   replanLine?: string;
 };
 
-const RULES = parseRules(JSON.parse(readFileSync('rules/approval-chains.json', 'utf8')) as RulesJson);
+// An absolute path from the working directory, as core.ts reads it, so the app's nightly demo reset (D-73) finds the
+// file in a deployed build too.
+const RULES_FILE = path.join(process.cwd(), 'rules/approval-chains.json');
+const RULES = parseRules(JSON.parse(readFileSync(RULES_FILE, 'utf8')) as RulesJson);
 export const AGENCY_DOMAIN = 'meridian.demo.test';
 export const GUEST_EMAIL = `dana@${AGENCY_DOMAIN}`;
 
@@ -134,7 +138,7 @@ async function seedOrg(db: Db, p: Plan): Promise<string[]> {
   const org = await db.org.findUniqueOrThrow({ where: { slug: p.slug }, select: { id: true, name: true } });
   const orgId = org.id;
   await clear(db, orgId);
-  await db.orgSettings.create({ data: { orgId, rules: JSON.parse(readFileSync('rules/approval-chains.json', 'utf8')), fiscalStartMonth: Number(p.fy.startsOn.slice(5, 7)) } });
+  await db.orgSettings.create({ data: { orgId, rules: JSON.parse(readFileSync(RULES_FILE, 'utf8')), fiscalStartMonth: Number(p.fy.startsOn.slice(5, 7)) } });
 
   // People: the template's owner/admin/member exist already; the others are members.
   const ids: Record<string, string> = {};

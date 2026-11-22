@@ -18,4 +18,5 @@ export const CROSS_ORG_FILES: Readonly<Record<string, string>> = {
   // clone entries below
   'src/earmark/alerts.ts': 'the alerts cron reads every org with budget lines, then works inside each with withOrg (PRD §4, D-30)',
   'src/earmark/ui/orgs.ts': "the sidebar's client switcher lists the user's own orgs, the read /onboarding makes (D-45)",
+  'src/earmark/demo-reset.ts': 'the nightly demo reset replants both demo orgs from the seed, as seed:demo does (PRD-A, D-73)',
 };
