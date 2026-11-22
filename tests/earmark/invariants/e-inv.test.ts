@@ -186,6 +186,16 @@ describe('E-INV-05: Commitment.remainingCents equals the recomputed value after 
     expect(matched).toBe(100_000n);
   });
 
+  it("D-71 / D5: another agency's PO, offered as a tier-2 suggestion, cannot be matched: refused, nothing written", async () => {
+    const w = await world('acme');
+    const other = await db.agency.create({ data: { orgId: w.orgId, name: 'Harbor Media', domains: ['harbor.test'] } });
+    const c = await commitmentFor(w, other.id, 500_000n, 'PO-H1');
+    const inv = await db.invoice.create({ data: { orgId: w.orgId, agencyId: w.agency.id, number: 'N-1', poNumber: 'PO-H1', amountCents: 100_000n, invoicedOn: new Date('2026-01-10'), dueOn: new Date('2026-02-09'), submittedById: w.requester.id } });
+    expect(await as(w.ops.id, () => matchInvoice(w.slug, { invoiceId: inv.id, commitmentId: c.id, amount: '1,000.00' }))).toMatchObject({ error: 'That invoice is from a different agency than the PO.' });
+    expect(await db.invoiceMatch.count()).toBe(0);
+    expect(await db.commitment.findUniqueOrThrow({ where: { id: c.id } })).toMatchObject({ remainingCents: 500_000n });
+  });
+
   it('a non-Finance matcher cannot take a commitment below zero', async () => {
     const w = await world('acme');
     const c = await commitmentFor(w, w.agency.id, 100_000n, 'PO-1');
