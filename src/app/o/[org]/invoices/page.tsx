@@ -34,21 +34,21 @@ export default async function Invoices({ params }: { params: Promise<{ org: stri
 
   const table = (label: string, list: Row[], age: boolean) => (
     <TableWrap label={label}>
-      <table aria-label={label}>
-        <thead><tr><th scope="col">Invoice</th><th scope="col">Agency</th><th scope="col">PO on invoice</th><th scope="col" className="num">Amount</th><th scope="col" className="num">Unmatched</th><th scope="col">Due</th>{age && <th scope="col" className="num">Age</th>}</tr></thead>
-        <tbody>
+      <table aria-label={label} className="stack-sm" role="table">
+        <thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader">Invoice</th><th scope="col" role="columnheader">Agency</th><th scope="col" role="columnheader">PO on invoice</th><th scope="col" role="columnheader" className="num">Amount</th><th scope="col" role="columnheader" className="num">Unmatched</th><th scope="col" role="columnheader">Due</th>{age && <th scope="col" role="columnheader" className="num">Age</th>}</tr></thead>
+        <tbody role="rowgroup">
           {list.map((i) => {
             const days = ageDays(i.createdAt.toISOString(), t) ?? 0;
             const old = days >= unmatchedDays;
             return (
-              <tr key={i.id}>
-                <td className="nowrap"><Link href={`${base}/invoices/${i.id}`}>{i.number}</Link><Today at={i.createdAt} /></td>
-                <td>{i.agency.name}</td>
-                <td>{i.poNumber ?? <span className="muted">—</span>}</td>
-                <td className="num"><Money cents={i.amountCents} /></td>
-                <td className="num"><Money cents={unmatched(i)} /></td>
-                <td className="nowrap">{day(i.dueOn)}</td>
-                {age && <td className={`num${old ? ' bad-text' : ''}`}>{old && <span aria-hidden="true">✕ </span>}{days} days{old && <span className="sr-only"> (past {unmatchedDays})</span>}</td>}
+              <tr key={i.id} role="row">
+                <td role="cell" data-label="Invoice" className="nowrap"><Link href={`${base}/invoices/${i.id}`}>{i.number}</Link><Today at={i.createdAt} /></td>
+                <td role="cell" data-label="Agency">{i.agency.name}</td>
+                <td role="cell" data-label="PO on invoice">{i.poNumber ?? <span className="muted">—</span>}</td>
+                <td role="cell" data-label="Amount" className="num"><Money cents={i.amountCents} /></td>
+                <td role="cell" data-label="Unmatched" className="num"><Money cents={unmatched(i)} /></td>
+                <td role="cell" data-label="Due" className="nowrap">{day(i.dueOn)}</td>
+                {age && <td role="cell" data-label="Age" className={`num${old ? ' bad-text' : ''}`}>{old && <span aria-hidden="true">✕ </span>}{days} days{old && <span className="sr-only"> (past {unmatchedDays})</span>}</td>}
               </tr>
             );
           })}

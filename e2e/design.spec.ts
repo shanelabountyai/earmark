@@ -182,3 +182,19 @@ test('focus moves to the refusal, the named field is marked invalid, and a repea
     expect(await amount.getAttribute('aria-describedby')).toContain(await alert.getAttribute('id'));
   }
 });
+
+// PRD-C C1 (review U7, U11, G2; D-82): on a phone the suggested POs stack, so the top Match button and the amount are
+// on screen without scrolling sideways; the invoice queues show Amount inside the viewport.
+test('the Match button and the key figures are on screen at 390 px', async ({ browser }) => {
+  const admin = await signIn(browser, 'admin@northwind.demo.test', { width: 390 });
+  await admin.goto('/o/northwind/invoices');
+  const amount = admin.getByRole('table', { name: 'To match' }).getByRole('row').nth(1).getByRole('cell').nth(3);
+  const a = (await amount.boundingBox())!;
+  expect(a.x + a.width).toBeLessThanOrEqual(390);
+  await admin.getByRole('table', { name: 'To match' }).getByRole('link').first().click();
+  const match = admin.getByRole('table', { name: 'Suggested POs' }).getByRole('button', { name: /^Match to / }).first();
+  await match.scrollIntoViewIfNeeded();
+  const b = (await match.boundingBox())!;
+  expect(b.x).toBeGreaterThanOrEqual(0);
+  expect(b.x + b.width).toBeLessThanOrEqual(390);
+});

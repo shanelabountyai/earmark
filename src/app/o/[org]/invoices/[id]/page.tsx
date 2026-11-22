@@ -86,23 +86,23 @@ export default async function InvoicePage({ params }: { params: Promise<{ org: s
         <Card id="sug-h" title="Suggested POs" aside={<span className="note">Ranked by the matcher with its reasons. A person picks.</span>}>
           {suggestions.length === 0 ? <p className="note">No open PO from {inv.agency.name}.</p> : (
             <TableWrap label="Suggested POs">
-              <table aria-label="Suggested POs">
-                <thead><tr><th scope="col">#</th><th scope="col">PO</th><th scope="col" className="num">Left on PO</th><th scope="col">Why</th><th scope="col">Match</th></tr></thead>
-                <tbody>
+              <table aria-label="Suggested POs" className="stack-sm" role="table">
+                <thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader">#</th><th scope="col" role="columnheader">PO</th><th scope="col" role="columnheader" className="num">Left on PO</th><th scope="col" role="columnheader">Why</th><th scope="col" role="columnheader">Match</th></tr></thead>
+                <tbody role="rowgroup">
                   {suggestions.slice(0, 5).map((s, k) => {
                     const c = byId.get(s.commitmentId)!;
                     const amount = s.remainingCents > 0n ? min(leftCents, s.remainingCents) : leftCents;
                     return (
-                      <tr key={s.commitmentId} className={k === 0 ? 'hi' : undefined}>
-                        <td><strong>{s.rank}</strong></td>
-                        <td className="nowrap"><Link href={`${base}/commitments/${c.id}`}><strong>{c.poNumber}</strong></Link>{c.agencyId !== inv.agencyId && <div className="muted">{c.agency.name}</div>}</td>
-                        <td className="num"><Money cents={s.remainingCents} /></td>
-                        <td><strong>{TIER[s.tier]}:</strong> {s.reasons.filter((x) => x !== 'would-overage').map((x) => REASON[x] ?? x).join(', ')}{s.wouldOverage && <>, <span className="bad-text"><span aria-hidden="true">✕ </span>would overage</span></>}</td>
+                      <tr key={s.commitmentId} className={k === 0 ? 'hi' : undefined} role="row">
+                        <td role="cell" data-label="Rank"><strong>{s.rank}</strong></td>
+                        <td role="cell" data-label="PO" className="nowrap"><Link href={`${base}/commitments/${c.id}`}><strong>{c.poNumber}</strong></Link>{c.agencyId !== inv.agencyId && <div className="muted">{c.agency.name}</div>}</td>
+                        <td role="cell" data-label="Left on PO" className="num"><Money cents={s.remainingCents} /></td>
+                        <td role="cell" data-label="Why"><strong>{TIER[s.tier]}:</strong> {s.reasons.filter((x) => x !== 'would-overage').map((x) => REASON[x] ?? x).join(', ')}{s.wouldOverage && <>, <span className="bad-text"><span aria-hidden="true">✕ </span>would overage</span></>}</td>
                         {c.agencyId !== inv.agencyId ? (
                           // D-71 (review C6): another agency's PO is shown for information; matchInvoice refuses it, so no button.
-                          <td><span className="note">Another agency&rsquo;s PO: not matchable</span></td>
+                          <td role="cell" data-label="Match"><span className="note">Another agency&rsquo;s PO: not matchable</span></td>
                         ) : (
-                        <td className="inline-form">
+                        <td role="cell" data-label="Match" className="inline-form">
                           <ActionForm action={matchInvoice.bind(null, ctx.slug)}>
                             <input type="hidden" name="invoiceId" value={inv.id} />
                             <input type="hidden" name="commitmentId" value={c.id} />
