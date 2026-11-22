@@ -35,9 +35,9 @@ export default async function CommitmentPage({ params }: { params: Promise<{ org
         where: { id, ...inOrg(ctx) },
         select: { closeReason: true, agency: { select: { name: true } }, request: { select: { id: true, description: true, budgetLine: { select: { id: true, name: true } } } } },
       }),
-      // Invoices naming this PO, and any matched to it without naming it.
+      // Invoices of this PO's agency naming it (D-71: another agency's invoice never lists here), and any matched to it.
       invoices: await tx.invoice.findMany({
-        where: { ...inOrg(ctx), ...(await scopeOf(tx, ctx)), OR: [{ poNumber: c.poNumber }, { matches: { some: { commitmentId: c.id } } }] },
+        where: { ...inOrg(ctx), ...(await scopeOf(tx, ctx)), OR: [{ agencyId: c.agencyId, poNumber: { equals: c.poNumber, mode: 'insensitive' } }, { matches: { some: { commitmentId: c.id } } }] },
         orderBy: { createdAt: 'desc' },
         select: { id: true, number: true, amountCents: true, invoicedOn: true, dueOn: true, state: true },
       }),

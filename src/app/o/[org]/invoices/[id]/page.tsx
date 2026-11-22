@@ -97,6 +97,10 @@ export default async function InvoicePage({ params }: { params: Promise<{ org: s
                         <td className="nowrap"><Link href={`${base}/commitments/${c.id}`}><strong>{c.poNumber}</strong></Link>{c.agencyId !== inv.agencyId && <div className="muted">{c.agency.name}</div>}</td>
                         <td className="num"><Money cents={s.remainingCents} /></td>
                         <td><strong>{TIER[s.tier]}:</strong> {s.reasons.filter((x) => x !== 'would-overage').map((x) => REASON[x] ?? x).join(', ')}{s.wouldOverage && <>, <span className="bad-text"><span aria-hidden="true">✕ </span>would overage</span></>}</td>
+                        {c.agencyId !== inv.agencyId ? (
+                          // D-71 (review C6): another agency's PO is shown for information; matchInvoice refuses it, so no button.
+                          <td><span className="note">Another agency&rsquo;s PO: not matchable</span></td>
+                        ) : (
                         <td className="inline-form">
                           <ActionForm action={matchInvoice.bind(null, ctx.slug)}>
                             <input type="hidden" name="invoiceId" value={inv.id} />
@@ -106,6 +110,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ org: s
                             <button type="submit" className={k === 0 ? undefined : 'btn-secondary'}>Match to {c.poNumber}</button>
                           </ActionForm>
                         </td>
+                        )}
                       </tr>
                     );
                   })}
