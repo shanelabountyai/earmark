@@ -11,11 +11,11 @@ import { WALK_ACCOUNTS } from '@/earmark/demo-accounts';
 export const metadata = { title: 'Demo sign-in' };
 export const dynamic = 'force-dynamic';
 
-function SignIn({ userId, email, primary }: { userId: string; email: string; primary?: boolean }) {
+function SignIn({ userId, email, primary, orgs }: { userId: string; email: string; primary?: boolean; orgs?: string }) {
   return (
     <form method="post" action="/demo/signin" style={{ margin: 0 }}>
       <input type="hidden" name="userId" value={userId} />
-      <button type="submit" className={primary ? undefined : 'btn-secondary'}>{email}</button>
+      <button type="submit" className={primary ? undefined : 'btn-secondary'}>{email}</button>{orgs !== undefined && <> {orgs}</>}
     </form>
   );
 }
@@ -52,9 +52,8 @@ export default async function Demo() {
           <summary>Every other seeded account ({rest.length})</summary>
           <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
             {rest.map((u) => (
-              <li key={u.id} style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-                <SignIn userId={u.id} email={u.email} />
-                <span className="note">{u.memberships.map((m) => `${m.role} of ${m.org.name}`).join(', ')}</span>
+              <li key={u.id}>
+                <SignIn userId={u.id} email={u.email} orgs={u.memberships.map((m) => `${m.role} of ${m.org.name}`).join(', ')} />
               </li>
             ))}
           </ul>
