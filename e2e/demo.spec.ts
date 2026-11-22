@@ -162,6 +162,8 @@ test('step 9: match to the ranked suggestion, approve for payment, variance view
 
   const admin = await as(browser, 'admin@northwind.demo.test');
   await admin.getByRole('navigation').getByRole('link', { name: 'Invoices' }).click();
+  // D-78 (PRD-B B3): today's rows say so, so a visitor finds theirs among earlier visitors'.
+  await expect(admin.getByRole('table', { name: 'To match' }).getByRole('row').filter({ hasText: number })).toContainText('Today');
   await admin.getByRole('table', { name: 'To match' }).getByRole('link', { name: number }).click();
   const top = admin.getByRole('table', { name: 'Suggested POs' }).locator('tbody tr').first();
   await expect(top).toContainText(po);

@@ -5,7 +5,7 @@ import { now } from '@/core/clock';
 import { withOrg } from '@/core/db/rls';
 import { alertRules } from '@/earmark/alerts';
 import { orgName } from '@/earmark/ui/org-name';
-import { Card, day, Money, PageHead, TableWrap } from '@/earmark/ui/kit';
+import { Card, day, Money, PageHead, TableWrap, Today } from '@/earmark/ui/kit';
 import { ageDays } from '@/lib/earmark/rollup';
 
 export const metadata = { title: 'Invoices' };
@@ -23,7 +23,7 @@ export default async function Invoices({ params }: { params: Promise<{ org: stri
   const select = { id: true, number: true, poNumber: true, amountCents: true, dueOn: true, createdAt: true, approvedForPaymentAt: true, agency: { select: { name: true } }, matches: { select: { amountCents: true } } } as const;
   const { toMatch, toApprove, approved, approvedCount } = await withOrg(ctx, async (tx) => ({
     toMatch: await tx.invoice.findMany({ where: { ...inOrg(ctx), state: 'submitted' }, orderBy: { createdAt: 'asc' }, take: 200, select }),
-    toApprove: await tx.invoice.findMany({ where: { ...inOrg(ctx), state: 'matched' }, orderBy: { dueOn: 'asc' }, take: 200, select }),
+    toApprove: await tx.invoice.findMany({ where: { ...inOrg(ctx), state: 'matched' }, orderBy: { createdAt: 'desc' }, take: 200, select }), // newest first (D-78)
     approved: await tx.invoice.findMany({ where: { ...inOrg(ctx), state: 'approved' }, orderBy: { approvedForPaymentAt: 'desc' }, take: 20, select }),
     approvedCount: await tx.invoice.count({ where: { ...inOrg(ctx), state: 'approved' } }),
   }), { atomic: false });
@@ -41,7 +41,7 @@ export default async function Invoices({ params }: { params: Promise<{ org: stri
             const old = days >= unmatchedDays;
             return (
               <tr key={i.id}>
-                <td className="nowrap"><Link href={`${base}/invoices/${i.id}`}>{i.number}</Link></td>
+                <td className="nowrap"><Link href={`${base}/invoices/${i.id}`}>{i.number}</Link><Today at={i.createdAt} /></td>
                 <td>{i.agency.name}</td>
                 <td>{i.poNumber ?? <span className="muted">—</span>}</td>
                 <td className="num"><Money cents={i.amountCents} /></td>
@@ -74,7 +74,7 @@ export default async function Invoices({ params }: { params: Promise<{ org: stri
       </Card>
       <Card id="to-approve" title={`To approve for payment (${toApprove.length})`}>
         {toApprove.length ? table('To approve for payment', toApprove, false) : <p className="note">None.</p>}
-        <p className="note">Fully matched. Only a Finance seat holder can approve one for payment.</p>
+        <p className="note">Newest first. Fully matched. Only a Finance seat holder can approve one for payment.</p>
       </Card>
       <Card id="approved" title={`Approved for payment (${approvedCount})`}>
         {approved.length === 0 ? <p className="note">None yet.</p> : (

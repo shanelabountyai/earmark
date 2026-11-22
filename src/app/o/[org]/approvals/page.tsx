@@ -4,7 +4,7 @@ import { inOrg, requireOrg } from '@/core/authz/guards';
 import { withOrg } from '@/core/db/rls';
 import { heldSeats } from '@/earmark/core';
 import { orgName } from '@/earmark/ui/org-name';
-import { Card, day, Money, PageHead, Pill, TableWrap } from '@/earmark/ui/kit';
+import { Card, day, Money, PageHead, Pill, TableWrap, Today } from '@/earmark/ui/kit';
 
 export const metadata = { title: 'Approvals' };
 
@@ -46,7 +46,7 @@ export default async function Approvals({ params }: { params: Promise<{ org: str
                     <tr key={r.id}>
                       <td className="nowrap">{day(r.submittedAt)}</td>
                       <td>
-                        <Link href={`${base}/requests/${r.id}`}>{r.description}</Link>
+                        <Link href={`${base}/requests/${r.id}`}>{r.description}</Link><Today at={r.submittedAt} />
                         {(r.overBudget || r.requestedById === ctx.userId) && <>{' '}<span className="pills">
                           {r.overBudget && <Pill tone="bad" glyph="▲">Over budget</Pill>}
                           {r.requestedById === ctx.userId && <Pill tone="hold">Your own request</Pill>}

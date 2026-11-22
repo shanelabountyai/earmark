@@ -6,7 +6,7 @@ import { Form as ActionForm } from '@/earmark/ui/form';
 import { earmarkCan } from '@/earmark/core';
 import { submitRequest } from '@/earmark/actions';
 import { orgName } from '@/earmark/ui/org-name';
-import { Card, day, Money, PageHead, Pill, RequestState, TableWrap } from '@/earmark/ui/kit';
+import { Card, day, Money, PageHead, Pill, RequestState, TableWrap, Today } from '@/earmark/ui/kit';
 
 export const metadata = { title: 'Requests' };
 
@@ -85,7 +85,7 @@ export default async function Requests({ params, searchParams }: { params: Promi
                   {requests.map((r) => (
                     <tr key={r.id}>
                       <td className="nowrap">{day(r.submittedAt)}</td>
-                      <td><Link href={`${base}/requests/${r.id}`}>{r.description}</Link>{r.overBudget && <> <Pill tone="bad" glyph="▲">Over budget</Pill></>}{r.kind === 'reallocation' && <> <Pill tone="info">Reallocation</Pill></>}</td>
+                      <td><Link href={`${base}/requests/${r.id}`}>{r.description}</Link><Today at={r.submittedAt} />{r.overBudget && <> <Pill tone="bad" glyph="▲">Over budget</Pill></>}{r.kind === 'reallocation' && <> <Pill tone="info">Reallocation</Pill></>}</td>
                       <td><Link href={`${base}/lines/${r.budgetLine.id}`}>{r.budgetLine.name}</Link></td>
                       <td>{r.agency?.name ?? <span className="muted">—</span>}</td>
                       <td className="num"><Money cents={r.amountCents} /></td>
