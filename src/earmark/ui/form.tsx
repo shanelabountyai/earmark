@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useEffect, useId, useRef, useState, useTransition } from 'react';
+import { refusalNames } from './refusal-field';
 
 /**
  * Earmark's form for its own actions (D-52): the same contract as the template's ActionForm (shows the `{ error }` a
@@ -16,8 +17,8 @@ import { useEffect, useId, useRef, useState, useTransition } from 'react';
  * second identical refusal is a new alert and is read again. A refusal that starts with a field's label ("Amount must
  * be …", "Due date cannot …") marks that field `aria-invalid` and points its `aria-describedby` at the alert.
  */
-/** The label's words before any "(USD)"-style aside: what a refusal names the field by. */
-const labelHead = (el: Element) => ((el as HTMLInputElement).labels?.[0]?.textContent ?? '').replace(/\(.*$/, '').trim();
+/** The field's first label text: what a refusal names the field by (refusal-field.ts). */
+const labelText = (el: Element) => (el as HTMLInputElement).labels?.[0]?.textContent;
 
 function openLink(state: unknown): { href: string; label: string } | null {
   if (!state || typeof state !== 'object' || !('open' in state)) return null;
@@ -49,7 +50,7 @@ export function Form({ action, children }: { action: (form: FormData) => Promise
       else el.removeAttribute('aria-describedby');
     }
     if (error) {
-      const field = [...form.elements].find((el) => el.matches('input, select, textarea') && labelHead(el) && error.startsWith(labelHead(el)));
+      const field = [...form.elements].find((el) => el.matches('input, select, textarea') && refusalNames(error, labelText(el)));
       if (field) {
         field.setAttribute('aria-invalid', 'true');
         field.setAttribute('data-earmark-invalid', '');
