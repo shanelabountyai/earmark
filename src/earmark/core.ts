@@ -14,6 +14,7 @@ import type { Commitment, Prisma } from '@/generated/prisma/client';
 import type { InvoiceState, Role } from '@/generated/prisma/enums';
 import { type ApprovalRules, parseRules, type RulesJson, type Seat } from '@/lib/earmark/chain';
 import { type Cents, MoneyError, parseDollars } from '@/lib/earmark/money';
+import { normalizePo } from '@/lib/earmark/match';
 import { type MatchState, rollup } from '@/lib/earmark/rollup';
 import { isReplan } from '@/lib/earmark/variance';
 
@@ -167,11 +168,15 @@ export async function heldSeats(tx: Tx, ctx: OrgCtx): Promise<string[]> {
 
 // ---------- a line's available (PRD §4), through the rollup engine ----------
 
-// An invoice names a PO, not a line: a submitted invoice counts against the line of the PO it names, and one naming
-// no known PO counts once at org level (rollup's unassigned). Actual = matches whose invoice is approved for payment.
+// An invoice names a PO, not a line: a submitted invoice counts against the line of the PO it names **of its own
+// agency**, PO numbers compared normalised (D-71), and one naming no such PO counts once at org level (rollup's
+// unassigned). Actual = matches whose invoice is approved for payment. Each submitted invoice carries what is already
+// matched to it on any PO, so only its unmatched rest is provision (D-69).
 // ponytail: "known" means a PO on the loaded lines, so an invoice naming a PO from another fiscal year counts as
 // unassigned on the dashboard; resolve POs org-wide if fiscal-year close (carry-forward) ever leaves such invoices.
 const matchState = (s: InvoiceState): MatchState => (s === 'approved' ? 'approved' : s === 'voided' ? 'rejected' : 'pending');
+/** The key an invoice and a PO meet on: the agency and the normalised PO number (D-71). */
+export const poKey = (agencyId: string, poNumber: string | null | undefined) => `${agencyId}|${normalizePo(poNumber)}`;
 
 /**
  * The rollup engine over the lines `where` selects, plus what the pages show beside it: the submitted invoices it
@@ -182,15 +187,18 @@ export async function ledgerOf(tx: Tx, ctx: Pick<OrgCtx, 'orgId'>, where: Prisma
   const lines = await tx.budgetLine.findMany({ where: { ...where, ...inOrg(ctx) }, select: { id: true, campaignId: true, periodId: true, plannedCents: true, plannedEditedAt: true, campaign: { select: { programId: true } } } });
   const commitments = await tx.commitment.findMany({
     where: { ...inOrg(ctx), request: { budgetLineId: { in: lines.map((l) => l.id) } } },
-    select: { id: true, poNumber: true, amountCents: true, closedAt: true, issuedAt: true, request: { select: { budgetLineId: true } }, matches: { select: { invoiceId: true, amountCents: true, invoice: { select: { state: true } } } } },
+    select: { id: true, agencyId: true, poNumber: true, amountCents: true, closedAt: true, issuedAt: true, request: { select: { budgetLineId: true } }, matches: { select: { invoiceId: true, amountCents: true, invoice: { select: { state: true } } } } },
   });
-  const lineOfPo = new Map(commitments.map((c) => [c.poNumber, c.request.budgetLineId]));
-  const invoices = opts.orgWide || lineOfPo.size
+  const lineOfPo = new Map(commitments.map((c) => [poKey(c.agencyId, c.poNumber), c.request.budgetLineId]));
+  const agencies = [...new Set(commitments.map((c) => c.agencyId))];
+  const loaded = opts.orgWide || agencies.length
     ? await tx.invoice.findMany({
-        where: { ...inOrg(ctx), state: 'submitted', ...(opts.orgWide ? {} : { poNumber: { in: [...lineOfPo.keys()] } }) },
-        select: { id: true, number: true, poNumber: true, amountCents: true, createdAt: true, agency: { select: { name: true } } },
+        where: { ...inOrg(ctx), state: 'submitted', ...(opts.orgWide ? {} : { agencyId: { in: agencies }, poNumber: { not: null } }) },
+        select: { id: true, number: true, agencyId: true, poNumber: true, amountCents: true, createdAt: true, agency: { select: { name: true } }, matches: { select: { amountCents: true } } },
       })
     : [];
+  const lineOf = (i: { agencyId: string; poNumber: string | null }) => (i.poNumber && lineOfPo.get(poKey(i.agencyId, i.poNumber))) || null;
+  const invoices = opts.orgWide ? loaded : loaded.filter((i) => lineOf(i));
   const firstCommitted = new Map<string, Date>();
   for (const c of commitments) {
     const l = c.request.budgetLineId;
@@ -203,7 +211,7 @@ export async function ledgerOf(tx: Tx, ctx: Pick<OrgCtx, 'orgId'>, where: Prisma
     lines: lines.map((l) => ({ id: l.id, campaignId: l.campaignId, periodId: l.periodId, plannedCents: l.plannedCents })),
     commitments: commitments.map((c) => ({ id: c.id, lineId: c.request.budgetLineId, amountCents: c.amountCents, state: c.closedAt ? 'closed' : 'open' })),
     matches: commitments.flatMap((c) => c.matches.map((m) => ({ invoiceId: m.invoiceId, commitmentId: c.id, amountCents: m.amountCents, state: matchState(m.invoice.state) }))),
-    invoices: invoices.map((i) => ({ id: i.id, amountCents: i.amountCents, state: 'submitted', lineId: (i.poNumber && lineOfPo.get(i.poNumber)) || null, submittedOn: i.createdAt.toISOString() })),
+    invoices: invoices.map((i) => ({ id: i.id, amountCents: i.amountCents, state: 'submitted', lineId: lineOf(i), submittedOn: i.createdAt.toISOString(), matchedCents: i.matches.reduce((a, m) => a + m.amountCents, 0n) })),
     now: now().toISOString(),
   });
   return { rollup: r, invoices: new Map(invoices.map((i) => [i.id, i])), replan, firstCommitted };

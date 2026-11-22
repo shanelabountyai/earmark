@@ -37,3 +37,36 @@ it('maps invoices to lines through their PO, counts approved matches as actual, 
   expect(line.rollup.unassignedUnmatchedCents).toBe(0n); // a line's ledger ignores invoices naming none of its POs
   expect(available).toBe(8_950_000n);
 });
+
+// D-69 (review C1): a partly matched invoice stays `submitted`; only its unmatched rest is provision.
+it('counts only the unmatched rest of a partly matched invoice against Available', async () => {
+  const w = await world('ledger-partial', { plannedCents: 10_000_000n });
+  const po = await commitmentFor(w, w.agency.id, 300_000n, 'PO-P');
+  const inv = await db.invoice.create({ data: { orgId: w.orgId, agencyId: w.agency.id, number: 'PART', poNumber: 'PO-P', amountCents: 500_000n, state: 'submitted', invoicedOn: new Date('2026-01-10'), dueOn: new Date('2026-02-09'), submittedById: w.requester.id } });
+  await db.invoiceMatch.create({ data: { orgId: w.orgId, invoiceId: inv.id, commitmentId: po.id, amountCents: 300_000n, matchedById: w.admin.id, variance: 'exact' } });
+  await db.commitment.update({ where: { id: po.id }, data: { remainingCents: 0n, closedAt: new Date(), closeReason: 'fully matched' } });
+
+  const ctx = await actAs(w.admin.id, w.slug);
+  const { org, available } = await withOrg(ctx, async (tx) => ({ org: await ledgerOf(tx, ctx, {}, { orgWide: true }), available: await lineAvailable(tx, ctx, w.line) }), { atomic: false });
+  // $5,000 billed, $3,000 of it matched to a $3,000 PO: $5,000 off Available, not $8,000.
+  expect(org.rollup.lines[0]).toMatchObject({ committedCents: 300_000n, unmatchedProvisionCents: 200_000n, availableCents: 9_500_000n });
+  expect(available).toBe(9_500_000n);
+  expect(org.rollup.unmatchedInvoices).toMatchObject([{ invoiceId: inv.id, amountCents: 500_000n, unmatchedCents: 200_000n }]);
+});
+
+// D-71 (review S2, C7): an invoice reaches a line only through a PO of its own agency, compared normalised.
+it('maps an invoice to a line only through a PO of the same agency, matching PO numbers normalised', async () => {
+  const w = await world('ledger-agency', { plannedCents: 10_000_000n });
+  await commitmentFor(w, w.agency.id, 1_000_000n, 'PO-NW-1');
+  const other = await db.agency.create({ data: { orgId: w.orgId, name: 'Harbor Media', domains: ['harbor.test'] } });
+  const invoice = (number: string, agencyId: string, poNumber: string, amountCents: bigint) =>
+    db.invoice.create({ data: { orgId: w.orgId, agencyId, number, poNumber, amountCents, state: 'submitted', invoicedOn: new Date('2026-01-10'), dueOn: new Date('2026-02-09'), submittedById: w.requester.id } });
+  await invoice('OWN', w.agency.id, ' po-nw-1 ', 40_000n); // same agency, written loosely: counts against the line
+  await invoice('FOREIGN', other.id, 'PO-NW-1', 25_000n); // another agency naming this PO (an old row): never this line's
+
+  const ctx = await actAs(w.admin.id, w.slug);
+  const { org, available } = await withOrg(ctx, async (tx) => ({ org: await ledgerOf(tx, ctx, {}, { orgWide: true }), available: await lineAvailable(tx, ctx, w.line) }), { atomic: false });
+  expect(org.rollup.lines[0]).toMatchObject({ unmatchedProvisionCents: 40_000n, availableCents: 8_960_000n });
+  expect(org.rollup.unassignedUnmatchedCents).toBe(25_000n); // the foreign one still counts once, at org level
+  expect(available).toBe(8_960_000n);
+});
