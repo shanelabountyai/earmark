@@ -14,9 +14,10 @@ type P = { params: Promise<{ org: string; id: string }> };
 export async function generateMetadata({ params }: P) {
   const ctx = await requireOrg((await params).org);
   const { id } = await params;
-  if (ctx.role === 'guest' || !UUID.test(id)) return { title: 'Budget line' };
+  if (ctx.role === 'guest' || !UUID.test(id)) notFound(); // D-79: the 404's title, as the page answers
   const l = await withOrg(ctx, (tx) => tx.budgetLine.findFirst({ where: { id, ...inOrg(ctx) }, select: { name: true } }), { atomic: false });
-  return { title: l ? `${l.name} · line` : 'Budget line' };
+  if (!l) notFound();
+  return { title: `${l.name} · line` };
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

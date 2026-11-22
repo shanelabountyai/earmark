@@ -7,8 +7,9 @@ import { earmarkCan } from '@/earmark/core';
 import { submitRequest } from '@/earmark/actions';
 import { orgName } from '@/earmark/ui/org-name';
 import { Card, day, Money, PageHead, Pill, RequestState, TableWrap, Today } from '@/earmark/ui/kit';
+import { titleFor } from '@/earmark/ui/titles';
 
-export const metadata = { title: 'Requests' };
+export const generateMetadata = titleFor('Requests'); // D-79: a guest gets the 404's title
 
 // Demo step 3 (design: docs/design/Requests.dc.html): submit a request against a line; the chain freezes at submit
 // and the new request lists beside the form.

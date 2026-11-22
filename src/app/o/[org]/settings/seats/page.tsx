@@ -7,8 +7,9 @@ import { assignSeat, clearDelegation, createSeat, delegateSeat, endSeat } from '
 import { earmarkCan } from '@/earmark/core';
 import { orgName } from '@/earmark/ui/org-name';
 import { Card, day, PageHead, Pill, TableWrap } from '@/earmark/ui/kit';
+import { titleFor } from '@/earmark/ui/titles';
 
-export const metadata = { title: 'Seats' };
+export const generateMetadata = titleFor('Seats', (r) => earmarkCan(r, 'seats.manage')); // D-79
 
 // Approver seats (PRD §1–2, D-27; design: docs/design/Seats.dc.html): who holds each seat, from when to when, and who
 // it is delegated to. Owner only: a seat is approval authority, so an admin must not be able to hand one to themselves.

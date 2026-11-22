@@ -7,6 +7,9 @@ export const metadata = { title: 'Page not found' };
 export default function NotFound() {
   return (
     <main className="stack" style={{ maxWidth: '40rem' }}>
+      {/* D-79: when a layout's generateMetadata answers the 404, Next renders no <title> at all; React hoists this one into
+          the head, so the tab and the route announcer always say what the page says. */}
+      <title>Page not found · Earmark</title>
       <p className="eyebrow"><span aria-hidden="true" className="logo" style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: 8 }} />Earmark</p>
       <h1>Page not found</h1>
       <p className="lede" style={{ color: 'var(--muted)', fontSize: 18 }}>There is nothing here, or nothing you can see. Check the address, or go back to your orgs.</p>

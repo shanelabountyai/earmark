@@ -7,8 +7,9 @@ import { earmarkCan, ledgerOf } from '@/earmark/core';
 import { orgName } from '@/earmark/ui/org-name';
 import { Card, Metrics, Money, PageHead, Pill, TableWrap } from '@/earmark/ui/kit';
 import type { Totals } from '@/lib/earmark/rollup';
+import { titleFor } from '@/earmark/ui/titles';
 
-export const metadata = { title: 'Dashboard' };
+export const generateMetadata = titleFor('Dashboard', () => true); // D-79: a non-member gets the 404's title
 
 const MONTH = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const pct = (bps: bigint | null) => (bps === null ? null : Number(bps / 100n));

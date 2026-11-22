@@ -8,8 +8,9 @@ import { earmarkCan, rulesOf } from '@/earmark/core';
 import { orgName } from '@/earmark/ui/org-name';
 import { Card, PageHead, TableWrap } from '@/earmark/ui/kit';
 import { formatUsd } from '@/lib/earmark/money';
+import { titleFor } from '@/earmark/ui/titles';
 
-export const metadata = { title: 'Approval rules' };
+export const generateMetadata = titleFor('Approval rules'); // D-79: a guest gets the 404's title
 
 type Step = { seat: string; fromCents: number | string };
 type Json = { default?: Step[]; reallocation?: Step[]; overrides?: { when?: Record<string, string>; append?: Step[] }[]; [k: string]: unknown };

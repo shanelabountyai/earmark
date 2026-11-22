@@ -5,8 +5,9 @@ import { withOrg } from '@/core/db/rls';
 import { scopeOf, toGuestCommitment } from '@/earmark/core';
 import { InvoiceForm } from '@/earmark/ui/invoice-form';
 import { Card, day, InvoiceState, Money, PageHead, PoState, TableWrap } from '@/earmark/ui/kit';
+import { titleFor } from '@/earmark/ui/titles';
 
-export const metadata = { title: 'Purchase orders' };
+export const generateMetadata = titleFor('Purchase orders', () => true); // D-79
 
 // Demo step 7's start (designs: docs/design/Guest.dc.html, Commitments.dc.html): a guest lands here (her agency's POs
 // and invoices only, E-INV-03) and can bill an open PO from this page; staff see every PO with its agency and line.

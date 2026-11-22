@@ -6,8 +6,9 @@ import { ledgerOf } from '@/earmark/core';
 import { orgName } from '@/earmark/ui/org-name';
 import { Card, day, Money, PageHead, Pill, TableWrap, VarianceState } from '@/earmark/ui/kit';
 import { variance } from '@/lib/earmark/variance';
+import { titleFor } from '@/earmark/ui/titles';
 
-export const metadata = { title: 'Variance' };
+export const generateMetadata = titleFor('Variance'); // D-79: a guest gets the 404's title
 
 const pct = (bps: bigint | null) => (bps === null ? '—' : `${(Number(bps) / 100).toFixed(1)} %`);
 

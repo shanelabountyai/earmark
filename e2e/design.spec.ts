@@ -145,3 +145,21 @@ test('the skip link moves focus past the sidebar', async ({ browser }) => {
   await owner.keyboard.press('Enter');
   await expect(owner.locator('#content')).toBeFocused();
 });
+
+// PRD-C C2 (review U10, A2; D-79): a page that answers the 404 is titled "Page not found", so the route announcer
+// does not read out the name of a page the visitor cannot see.
+test('a 404 inside an org is titled Page not found, whoever is refused', async ({ browser }) => {
+  const dana = await signIn(browser, 'dana@meridian.demo.test');
+  for (const url of ['/o/northwind/requests', '/o/northwind/invoices', '/o/northwind/variance', '/o/northwind/settings/rules', '/o/northwind/settings/members', '/o/nosuchorg', `/o/northwind/commitments/${crypto.randomUUID()}`]) {
+    await dana.goto(url);
+    await expect(dana.getByRole('heading', { name: 'Page not found' }), url).toBeVisible();
+    await expect(dana, url).toHaveTitle(/^Page not found/);
+  }
+  const member = await signIn(browser, 'member@northwind.demo.test');
+  for (const url of ['/o/northwind/settings/audit', '/o/northwind/settings/danger', '/o/northwind/plan']) {
+    await member.goto(url);
+    await expect(member, url).toHaveTitle(/^Page not found/);
+  }
+  await member.goto('/o/northwind/requests'); // and a page the role may open keeps its own title
+  await expect(member).toHaveTitle(/^Requests/);
+});

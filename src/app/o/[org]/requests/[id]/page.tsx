@@ -16,9 +16,10 @@ type P = { params: Promise<{ org: string; id: string }> };
 export async function generateMetadata({ params }: P) {
   const ctx = await requireOrg((await params).org);
   const { id } = await params;
-  if (ctx.role === 'guest' || !isUuid(id)) return { title: 'Request' };
+  if (ctx.role === 'guest' || !isUuid(id)) notFound(); // D-79
   const r = await withOrg(ctx, (tx) => tx.spendRequest.findFirst({ where: { id, ...inOrg(ctx) }, select: { description: true } }), { atomic: false });
-  return { title: r ? `Request: ${r.description}` : 'Request' };
+  if (!r) notFound();
+  return { title: `Request: ${r.description}` };
 }
 
 const when = (d: Date) => d.toISOString().slice(0, 16).replace('T', ' ');

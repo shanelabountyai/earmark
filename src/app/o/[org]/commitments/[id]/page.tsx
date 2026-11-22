@@ -12,9 +12,10 @@ type P = { params: Promise<{ org: string; id: string }> };
 export async function generateMetadata({ params }: P) {
   const ctx = await requireOrg((await params).org);
   const { id } = await params;
-  if (!isUuid(id)) return { title: 'Purchase order' };
+  if (!isUuid(id)) notFound(); // D-79
   const c = await withOrg(ctx, async (tx) => tx.commitment.findFirst({ where: { id, ...inOrg(ctx), ...(await scopeOf(tx, ctx)) }, select: { poNumber: true } }), { atomic: false });
-  return { title: c ? c.poNumber : 'Purchase order' };
+  if (!c) notFound();
+  return { title: c.poNumber };
 }
 
 // Demo steps 6–8 (design: docs/design/Guest.dc.html): the PO an approval issued; a guest submits an invoice against

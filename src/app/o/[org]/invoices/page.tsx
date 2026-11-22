@@ -7,8 +7,9 @@ import { alertRules } from '@/earmark/alerts';
 import { orgName } from '@/earmark/ui/org-name';
 import { Card, day, Money, PageHead, TableWrap, Today } from '@/earmark/ui/kit';
 import { ageDays } from '@/lib/earmark/rollup';
+import { titleFor } from '@/earmark/ui/titles';
 
-export const metadata = { title: 'Invoices' };
+export const generateMetadata = titleFor('Invoices'); // D-79: a guest gets the 404's title
 
 type Row = { id: string; number: string; poNumber: string | null; amountCents: bigint; dueOn: Date; createdAt: Date; approvedForPaymentAt: Date | null; agency: { name: string }; matches: { amountCents: bigint }[] };
 

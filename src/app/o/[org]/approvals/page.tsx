@@ -5,8 +5,9 @@ import { withOrg } from '@/core/db/rls';
 import { heldSeats } from '@/earmark/core';
 import { orgName } from '@/earmark/ui/org-name';
 import { Card, day, Money, PageHead, Pill, TableWrap, Today } from '@/earmark/ui/kit';
+import { titleFor } from '@/earmark/ui/titles';
 
-export const metadata = { title: 'Approvals' };
+export const generateMetadata = titleFor('Approvals'); // D-79: a guest gets the 404's title
 
 // Demo step 4 (design: docs/design/Approvals.dc.html): the open requests whose current step names me among its
 // frozen approvers (seats, not roles, PRD §1). A step whose seat I don't hold reached me by delegation.

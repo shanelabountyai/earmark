@@ -15,9 +15,10 @@ type P = { params: Promise<{ org: string; id: string }> };
 export async function generateMetadata({ params }: P) {
   const ctx = await requireOrg((await params).org);
   const { id } = await params;
-  if (ctx.role === 'guest' || !isUuid(id)) return { title: 'Invoice' };
+  if (ctx.role === 'guest' || !isUuid(id)) notFound(); // D-79
   const i = await withOrg(ctx, (tx) => tx.invoice.findFirst({ where: { id, ...inOrg(ctx) }, select: { number: true } }), { atomic: false });
-  return { title: i ? `Invoice ${i.number}` : 'Invoice' };
+  if (!i) notFound();
+  return { title: `Invoice ${i.number}` };
 }
 
 const TIER = { 1: 'PO number and agency', 2: 'PO number, other agency', 3: 'Agency, amount within 2 %', 4: 'Agency' } as const;
