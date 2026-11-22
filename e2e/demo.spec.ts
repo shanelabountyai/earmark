@@ -78,8 +78,17 @@ test('steps 3–5: frozen chain, self-approval refused, rule edit applies only t
   await expect(owner.getByRole('button', { name: 'Approve' })).toHaveCount(0);
   await expect(owner.getByRole('table', { name: 'Request audit' })).toContainText('request.step.approved');
 
-  const admin = await as(browser, 'admin@northwind.demo.test');
-  await admin.getByRole('link', { name: 'Rules' }).click();
+  // D-72 (PRD-A): the shared demo admin is refused a rules edit, so the next visitor's chain cannot change under them.
+  const demoAdmin = await as(browser, 'admin@northwind.demo.test');
+  await demoAdmin.getByRole('link', { name: 'Rules' }).click();
+  const demoRules = demoAdmin.getByLabel('Rules JSON');
+  await demoRules.fill((await demoRules.inputValue()).replace('"seat": "Marketing Ops",\n      "fromCents": 1000000', '"seat": "Marketing Ops",\n      "fromCents": 1500000'));
+  await demoAdmin.getByRole('button', { name: 'Save rules' }).click();
+  await expect(demoAdmin.locator('main').getByRole('alert')).toHaveText('This is a shared demo account, so that is switched off here.');
+
+  // The same edit as a real owner (review §1 note: moved to asRealOwner, not weakened).
+  const { page: admin } = await asRealOwner(browser, 'northwind');
+  await admin.goto('/o/northwind/settings/rules');
   const rules = admin.getByLabel('Rules JSON');
   await rules.fill((await rules.inputValue()).replace('"seat": "Marketing Ops",\n      "fromCents": 1000000', '"seat": "Marketing Ops",\n      "fromCents": 1500000'));
   await admin.getByRole('button', { name: 'Save rules' }).click();

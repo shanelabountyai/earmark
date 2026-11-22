@@ -45,6 +45,18 @@ async function emit(...args: Parameters<typeof logEvent>) {
 }
 
 const json = (v: unknown) => v as Prisma.InputJsonValue;
+
+/**
+ * PRD-A (D-72): on the shared demo, nothing a visitor does may change what the next visitor's walk depends on. Every
+ * configuration action calls this right after its permission check, before any write: the template's own refusal.
+ */
+const notOnSharedDemo = (ctx: OrgCtx) => assertNotDemo(ctx.session);
+
+/** PRD-A (D-74): free text a demo visitor types is shown to the next visitor, so a demo session keeps it short. */
+const DEMO_TEXT_MAX = 200;
+function demoText(ctx: OrgCtx, ...texts: (string | undefined)[]) {
+  if (ctx.session.isDemo && texts.some((t) => (t ?? '').length > DEMO_TEXT_MAX)) throw new Refused(`On the shared demo, keep text to ${DEMO_TEXT_MAX} characters.`);
+}
 /** After a write, every org page re-renders with it (the action returns a value, so nothing redirects). */
 const refresh = (ctx: OrgCtx) => revalidatePath(`/o/${ctx.slug}`, 'layout');
 
@@ -64,6 +76,7 @@ export const submitRequest = orgAction(
   }),
   async (ctx, i) => {
     requirePerm(ctx, 'request.create');
+    demoText(ctx, i.description);
     const out = await withOrg(ctx, async (tx) => {
       const line = (await tx.budgetLine.findFirst({ where: { id: i.budgetLineId, ...inOrg(ctx) } })) ?? notFound();
       const agency = (await tx.agency.findFirst({ where: { id: i.agencyId, ...inOrg(ctx) } })) ?? notFound();
@@ -106,6 +119,7 @@ export const decideStep = orgAction(
   null,
   z.object({ requestId: ref('spendRequest'), decision: z.enum(['approve', 'reject']), note: z.string().max(2000).default('') }),
   async (ctx, i) => {
+    demoText(ctx, i.note);
     const res = await withOrg(ctx, async (tx) => {
       if (ctx.role === 'guest') throw new Refused('You do not have access to that.');
       await lock(tx, 'SpendRequest', i.requestId, ctx.orgId);
@@ -168,6 +182,7 @@ export const submitReallocation = orgAction(
   z.object({ fromLineId: ref('budgetLine'), toLineId: ref('budgetLine'), amount: z.string().max(32), description: z.string().trim().min(1, 'Say why the money moves.').max(2000) }),
   async (ctx, i) => {
     requirePerm(ctx, 'request.create');
+    notOnSharedDemo(ctx); // moves planned between lines: configuration, not the walk
     const out = await withOrg(ctx, async (tx) => {
       const lineOf = async (id: string) => (await tx.budgetLine.findFirst({ where: { id, ...inOrg(ctx) }, include: { period: { select: { fiscalYearId: true } } } })) ?? notFound();
       const from = await lineOf(i.fromLineId);
@@ -217,6 +232,7 @@ export const withdrawRequest = orgAction(null, z.object({ requestId: ref('spendR
 
 export const editRules = orgAction(null, z.object({ rules: z.string().max(20_000) }), async (ctx, i) => {
   requirePerm(ctx, 'rules.edit');
+  notOnSharedDemo(ctx);
   let after;
   try {
     after = parseRules(JSON.parse(i.rules) as RulesJson);
@@ -253,6 +269,7 @@ export const submitInvoice = orgAction(
   }),
   async (ctx, i) => {
     requirePerm(ctx, 'invoice.submit');
+    demoText(ctx, i.number);
     const out = await withOrg(ctx, async (tx) => fileInvoice(tx, ctx, await scopeOf(tx, ctx), { ...i, amountCents: () => dollars(i.amount) }, ctx.userId));
     refresh(ctx);
     return { id: out.id, notice: `Invoice ${out.number} submitted; it is listed below.` };
@@ -264,6 +281,7 @@ export const matchInvoice = orgAction(
   z.object({ invoiceId: ref('invoice'), commitmentId: ref('commitment'), amount: z.string().max(32), note: z.string().max(2000).default('') }),
   async (ctx, i) => {
     requirePerm(ctx, 'invoice.match');
+    demoText(ctx, i.note);
     const out = await withOrg(ctx, async (tx) => {
       // Invoice first, then PO, always in that order: the invoice lock stops one invoice being matched against two POs
       // at once for more than it billed; the PO lock stops two invoices taking one PO's remaining at once.
@@ -323,6 +341,7 @@ export const publishVarianceNote = orgAction(
   z.object({ budgetLineId: ref('budgetLine'), text: z.string().trim().min(1, 'Write the note.').max(4000) }),
   async (ctx, i) => {
     requirePerm(ctx, 'variance.draft');
+    demoText(ctx, i.text);
     await withOrg(ctx, async (tx) => {
       const line = (await tx.budgetLine.findFirst({ where: { id: i.budgetLineId, ...inOrg(ctx) } })) ?? notFound();
       const published = { published: i.text, publishedAt: now(), publishedById: ctx.userId };
@@ -354,6 +373,7 @@ const unlocked = (fy: { label: string; lockedAt: Date | null }) => {
 /** A fiscal year and its twelve fiscal months (D-06), the first starting on `startsOn`. */
 export const createFiscalYear = orgAction(null, z.object({ label: name, startsOn: z.string().max(10) }), async (ctx, i) => {
   requirePerm(ctx, 'budget.plan');
+  notOnSharedDemo(ctx);
   const start = isoDate(i.startsOn, 'Start date');
   if (start.getUTCDate() !== 1) throw new Refused('A fiscal year starts on the first of a month.');
   await withOrg(ctx, async (tx) => {
@@ -369,6 +389,7 @@ export const createFiscalYear = orgAction(null, z.object({ label: name, startsOn
 
 export const createProgram = orgAction(null, z.object({ fiscalYearId: ref('fiscalYear'), name }), async (ctx, i) => {
   requirePerm(ctx, 'budget.plan');
+  notOnSharedDemo(ctx);
   await withOrg(ctx, async (tx) => {
     const fy = (await tx.fiscalYear.findFirst({ where: { id: i.fiscalYearId, ...inOrg(ctx) } })) ?? notFound();
     unlocked(fy);
@@ -381,6 +402,7 @@ export const createProgram = orgAction(null, z.object({ fiscalYearId: ref('fisca
 
 export const createCampaign = orgAction(null, z.object({ programId: ref('program'), name }), async (ctx, i) => {
   requirePerm(ctx, 'budget.plan');
+  notOnSharedDemo(ctx);
   await withOrg(ctx, async (tx) => {
     const p = (await tx.program.findFirst({ where: { id: i.programId, ...inOrg(ctx) }, include: { fiscalYear: true } })) ?? notFound();
     unlocked(p.fiscalYear);
@@ -396,6 +418,7 @@ export const createLine = orgAction(
   z.object({ campaignId: ref('campaign'), periodId: ref('period'), name, planned: z.string().max(32), ownerSeat: name, costCenter: z.string().trim().max(64).default(''), glCode: z.string().trim().max(64).default('') }),
   async (ctx, i) => {
     requirePerm(ctx, 'budget.plan');
+    notOnSharedDemo(ctx);
     await withOrg(ctx, async (tx) => {
       const c = (await tx.campaign.findFirst({ where: { id: i.campaignId, ...inOrg(ctx) }, include: { program: { include: { fiscalYear: true } } } })) ?? notFound();
       const period = (await tx.period.findFirst({ where: { id: i.periodId, ...inOrg(ctx) } })) ?? notFound();
@@ -414,6 +437,7 @@ export const createLine = orgAction(
 /** PRD §4 "Planned": editable until the year locks; every edit is audited and stamped, which the replan marker reads. */
 export const setPlanned = orgAction(null, z.object({ budgetLineId: ref('budgetLine'), planned: z.string().max(32) }), async (ctx, i) => {
   requirePerm(ctx, 'budget.plan');
+  notOnSharedDemo(ctx);
   await withOrg(ctx, async (tx) => {
     const l = (await tx.budgetLine.findFirst({ where: { id: i.budgetLineId, ...inOrg(ctx) }, include: { period: { include: { fiscalYear: true } } } })) ?? notFound();
     const plannedCents = dollars(i.planned, 'Planned', 0n);
@@ -437,6 +461,7 @@ async function staffMember(tx: Tx, ctx: OrgCtx, userId: string) {
 
 export const createSeat = orgAction(null, z.object({ name }), async (ctx, i) => {
   requirePerm(ctx, 'seats.manage');
+  notOnSharedDemo(ctx);
   await withOrg(ctx, async (tx) => {
     if (await tx.seat.findFirst({ where: { ...inOrg(ctx), name: i.name }, select: { id: true } })) throw new Refused(`There is already a ${i.name} seat.`);
     const s = await tx.seat.create({ data: { ...inOrg(ctx), name: i.name } });
@@ -449,6 +474,7 @@ export const createSeat = orgAction(null, z.object({ name }), async (ctx, i) => 
 /** Seats a member from now, until `activeTo` if given; a past holder is re-seated on the same row. */
 export const assignSeat = orgAction(null, z.object({ seatId: ref('seat'), userId: ref('member'), activeTo: z.string().max(10).default('') }), async (ctx, i) => {
   requirePerm(ctx, 'seats.manage');
+  notOnSharedDemo(ctx);
   await withOrg(ctx, async (tx) => {
     const seat = (await tx.seat.findFirst({ where: { id: i.seatId, ...inOrg(ctx) } })) ?? notFound();
     const m = await staffMember(tx, ctx, i.userId);
@@ -473,6 +499,7 @@ async function holding(tx: Tx, ctx: OrgCtx, seatId: string, userId: string) {
 
 export const endSeat = orgAction(null, z.object({ seatId: ref('seat'), userId: ref('member') }), async (ctx, i) => {
   requirePerm(ctx, 'seats.manage');
+  notOnSharedDemo(ctx);
   await withOrg(ctx, async (tx) => {
     const h = await holding(tx, ctx, i.seatId, i.userId);
     await tx.seatHolder.update({ where: { id: h.id }, data: { activeTo: now(), delegateToId: null } });
@@ -485,6 +512,7 @@ export const endSeat = orgAction(null, z.object({ seatId: ref('seat'), userId: r
 /** PRD §3 rule 3: the holder's steps go to the delegate until the delegation is cleared (or the holding ends). */
 export const delegateSeat = orgAction(null, z.object({ seatId: ref('seat'), userId: ref('member'), delegateToId: ref('member') }), async (ctx, i) => {
   requirePerm(ctx, 'seats.manage');
+  notOnSharedDemo(ctx);
   await withOrg(ctx, async (tx) => {
     if (!(await tx.membership.findFirst({ where: { userId: i.delegateToId, ...inOrg(ctx) }, select: { userId: true } }))) notFound(); // every id resolves before any refusal
     const h = await holding(tx, ctx, i.seatId, i.userId);
@@ -499,6 +527,7 @@ export const delegateSeat = orgAction(null, z.object({ seatId: ref('seat'), user
 
 export const clearDelegation = orgAction(null, z.object({ seatId: ref('seat'), userId: ref('member') }), async (ctx, i) => {
   requirePerm(ctx, 'seats.manage');
+  notOnSharedDemo(ctx);
   await withOrg(ctx, async (tx) => {
     const h = await holding(tx, ctx, i.seatId, i.userId);
     await tx.seatHolder.update({ where: { id: h.id }, data: { delegateToId: null } });
@@ -513,6 +542,7 @@ export const clearDelegation = orgAction(null, z.object({ seatId: ref('seat'), u
 /** Ties a `guest` member to one agency in this org (D-12). Phase 3 binds it at invite time. */
 export const assignGuestAgency = orgAction(null, z.object({ userId: ref('member'), agencyId: ref('agency') }), async (ctx, i) => {
   requirePerm(ctx, 'agency.manage');
+  notOnSharedDemo(ctx);
   await withOrg(ctx, async (tx) => {
     const m = (await tx.membership.findFirst({ where: { userId: i.userId, ...inOrg(ctx) } })) ?? notFound();
     const agency = (await tx.agency.findFirst({ where: { id: i.agencyId, ...inOrg(ctx) } })) ?? notFound();
@@ -528,6 +558,7 @@ export const assignGuestAgency = orgAction(null, z.object({ userId: ref('member'
 /** An agency the client works with; `domains` are its email domains, used to suggest a new guest's agency (D-29). */
 export const createAgency = orgAction(null, z.object({ name, domains: z.string().max(500).default('') }), async (ctx, i) => {
   requirePerm(ctx, 'agency.manage');
+  notOnSharedDemo(ctx);
   const domains = [...new Set(i.domains.split(/[\s,]+/).map((d) => d.trim().toLowerCase().replace(/^@/, '')).filter(Boolean))];
   if (domains.some((d) => !/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(d))) throw new Refused('Domains look like meridian.com, separated by commas.');
   await withOrg(ctx, async (tx) => {
