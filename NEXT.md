@@ -31,7 +31,8 @@
 3. You (decision 5 (a)): in Vercel, change `sslmode=require` to `sslmode=verify-full` on `DATABASE_URL`, `DATABASE_URL_SYSTEM` and `MIGRATE_URL`, then watch one redeploy; a failed connection is a rollback.
 4. You: after the deploy, open `/` and `/demo` on the live site in a private window (password prompt first), walk the README's eight steps once on a phone, and fill in the *Owner's live click-through* table in `docs/DEMO.md`.
 5. You: if you want the upstream hooks, take `docs/upstream/saas-foundation-clone-hooks.md` to saas-foundation; then the two new patch lines go.
-6. You: drift is still red on main for `src/modules/sso/hooks.ts` and `src/proxy.ts` (unchanged by this branch); confirm against the real `v1.7.0` tag and update those two lines.
+6. You (overnight review, 2026-11-22, before merging): two should-fixes are left for your call, both about the nightly reset. (a) `src/app/api/cron/route.ts` (template-owned) sets no `maxDuration`; time one reset or set it through a patch line. (b) The reset's `clear` runs outside a transaction, so a throw part-way leaves the demo half-planted until the next night (D-73). The doc and comment nits from the review are fixed in this branch.
+7. You: drift is still red on main for `src/modules/sso/hooks.ts` and `src/proxy.ts` (unchanged by this branch); confirm against the real `v1.7.0` tag and update those two lines.
 
 
 ## ▶ Closure status: live closeout and five-lens review (scheduled run, 2026-11-20 UTC; branch `closeout/2026-11-19-live`, draft PR "Earmark: live closeout pack and five-lens review (docs only)")

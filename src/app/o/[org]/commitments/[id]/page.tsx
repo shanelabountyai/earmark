@@ -47,6 +47,8 @@ export default async function CommitmentPage({ params }: { params: Promise<{ org
   const canBill = !po.closedAt && earmarkCan(ctx.role, 'invoice.submit');
   // D-76 (review U8): what has been invoiced on this PO but not yet matched, so the page never says "nothing billed"
   // with an invoice sitting under it. Only submitted invoices of this PO's agency naming it are in `invoices` (D-71).
+  // Same rest as the engine's provision (D-69): a submitted invoice's matches are all pending (rollup's matchState), so
+  // subtracting every match here equals subtracting its pending and approved ones there.
   const awaitingCents = invoices.filter((i) => i.state === 'submitted').reduce((a, i) => a + i.amountCents - i.matches.reduce((m, x) => m + x.amountCents, 0n), 0n);
   const billing = awaitingCents > 0n && po.matchStatus === 'unmatched' ? 'awaiting' : po.matchStatus;
 
