@@ -152,10 +152,13 @@ export default async function OrgHome({ params }: { params: Promise<{ org: strin
   );
 }
 
+// PRD-C C5 (review A3, D-83): the hierarchy is in the words too, not only in indent and bold.
+const LEVEL = { 1: 'Program total: ', 2: 'Campaign total: ', 3: 'Line: ' } as const;
+
 function Row({ level, label, t }: { level: 1 | 2 | 3; label: React.ReactNode; t?: Totals }) {
   return (
     <tr data-level={level}>
-      <th scope="row">{label}</th>
+      <th scope="row"><span className="sr-only">{LEVEL[level]}</span>{label}</th>
       <td className="num"><Money cents={t?.plannedCents ?? 0n} /></td>
       <td className="num"><Money cents={t?.committedCents ?? 0n} /></td>
       <td className="num"><Money cents={t?.actualCents ?? 0n} /></td>

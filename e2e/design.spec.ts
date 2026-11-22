@@ -198,3 +198,12 @@ test('the Match button and the key figures are on screen at 390 px', async ({ br
   expect(b.x).toBeGreaterThanOrEqual(0);
   expect(b.x + b.width).toBeLessThanOrEqual(390);
 });
+
+// PRD-C C5 (review A3, D-83): the budget table's rows say what level they are, for a screen reader.
+test('the budget table names each row\'s level', async ({ browser }) => {
+  const owner = await signIn(browser, 'owner@northwind.demo.test');
+  const heads = owner.getByRole('table', { name: 'Budget' }).getByRole('rowheader');
+  await expect(heads.nth(0)).toContainText('Program total:');
+  await expect(heads.nth(1)).toContainText('Campaign total:');
+  await expect(heads.nth(2)).toContainText('Line:');
+});
