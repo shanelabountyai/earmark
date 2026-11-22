@@ -60,3 +60,22 @@ it('one failing cron job is recorded and the jobs after it still run', async () 
   expect(out).toEqual({ first: 1, broken: { failed: true }, last: 3 });
   expect(ran).toEqual(['first', 'last']);
 });
+
+it('a reset that fails part-way rolls back: no demo org is left half-planted or without its rules (D-87)', async () => {
+  await seedDemo();
+  const orgId = await spoil();
+  const contoso = await db.org.findUniqueOrThrow({ where: { slug: 'contoso' } });
+  const before = { fys: await db.fiscalYear.count({ where: { orgId: contoso.id } }), seats: await db.seat.count({ where: { orgId: contoso.id } }) };
+  // Contoso's seed looks its template member up by email after Northwind is fully replanted and Contoso is cleared:
+  // renaming that user makes the reset throw in the middle of the second org.
+  const member = await db.user.update({ where: { email: 'member@contoso.demo.test' }, data: { email: 'moved@contoso.demo.test' } });
+
+  await expect(cronDemoReset({ DEMO_MODE: '1' })).rejects.toThrow();
+  expect(await state(orgId)).toMatchObject({ financeEnded: true, planned: 1n }); // Northwind's replant rolled back too
+  expect(await db.orgSettings.count({ where: { orgId: contoso.id } })).toBe(1);
+  expect({ fys: await db.fiscalYear.count({ where: { orgId: contoso.id } }), seats: await db.seat.count({ where: { orgId: contoso.id } }) }).toEqual(before);
+
+  await db.user.update({ where: { id: member.id }, data: { email: 'member@contoso.demo.test' } });
+  expect(await cronDemoReset({ DEMO_MODE: '1' })).toEqual({ reset: ['northwind', 'contoso'] }); // and the next night's run works
+  expect(await state(orgId)).toEqual({ rules: SEED_RULES, financeEnded: false, planned: 22_500_000n });
+});

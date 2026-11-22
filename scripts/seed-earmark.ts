@@ -6,12 +6,12 @@ import path from 'node:path';
 import { sealSecret } from '@/core/auth/secret-box';
 import { now } from '@/core/clock';
 import { demoReceiverSecret, demoReceiverUrl } from '@/earmark/demo-receiver';
-import type { PrismaClient } from '@/generated/prisma/client';
+import type { Prisma } from '@/generated/prisma/client';
 import { chainToJson } from '@/lib/earmark/cases';
 import { evaluateChain, parseRules, type RulesJson, type Seat } from '@/lib/earmark/chain';
 import { applyMatch } from '@/lib/earmark/match';
 
-type Db = PrismaClient;
+type Db = Prisma.TransactionClient; // a PrismaClient or a transaction: the nightly reset runs the seed inside one (D-87)
 type Person = { local: string; name: string; seats: string[] };
 type Program = { name: string; seat: string; dollars: number; campaigns: { name: string; costCenter?: string }[] };
 type Plan = {
