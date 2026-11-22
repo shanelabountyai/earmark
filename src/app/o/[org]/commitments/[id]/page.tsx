@@ -6,6 +6,7 @@ import { earmarkCan, findCommitment, isUuid, scopeOf, toGuestCommitment } from '
 import { InvoiceForm } from '@/earmark/ui/invoice-form';
 import { orgName } from '@/earmark/ui/org-name';
 import { Card, day, InvoiceState, Metrics, Money, PageHead, PoState, TableWrap } from '@/earmark/ui/kit';
+import { awaitingMatchCents } from '@/earmark/awaiting';
 
 type P = { params: Promise<{ org: string; id: string }> };
 // A foreign or other-agency id gets the same generic title as a missing one (E-INV-03).
@@ -40,14 +41,14 @@ export default async function CommitmentPage({ params }: { params: Promise<{ org
       invoices: await tx.invoice.findMany({
         where: { ...inOrg(ctx), ...(await scopeOf(tx, ctx)), OR: [{ agencyId: c.agencyId, poNumber: { equals: c.poNumber, mode: 'insensitive' } }, { matches: { some: { commitmentId: c.id } } }] },
         orderBy: { createdAt: 'desc' },
-        select: { id: true, number: true, amountCents: true, invoicedOn: true, dueOn: true, state: true, matches: { select: { amountCents: true } } },
+        select: { id: true, number: true, agencyId: true, poNumber: true, amountCents: true, invoicedOn: true, dueOn: true, state: true, matches: { select: { amountCents: true } } },
       }),
     };
   }, { atomic: false });
   const canBill = !po.closedAt && earmarkCan(ctx.role, 'invoice.submit');
-  // D-76 (review U8): what has been invoiced on this PO but not yet matched, so the page never says "nothing billed"
-  // with an invoice sitting under it. Only submitted invoices of this PO's agency naming it are in `invoices` (D-71).
-  const awaitingCents = invoices.filter((i) => i.state === 'submitted').reduce((a, i) => a + i.amountCents - i.matches.reduce((m, x) => m + x.amountCents, 0n), 0n);
+  // D-76 (review U8), D-87: invoiced on this PO but not yet matched; the engine's unmatched rest (D-69) over the invoices
+  // of this PO's agency that name it. `invoices` also lists invoices naming another PO that are partly matched here.
+  const awaitingCents = awaitingMatchCents({ agencyId, poNumber: po.poNumber }, invoices);
   const billing = awaitingCents > 0n && po.matchStatus === 'unmatched' ? 'awaiting' : po.matchStatus;
 
   return (
