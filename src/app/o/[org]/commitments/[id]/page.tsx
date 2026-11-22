@@ -39,11 +39,15 @@ export default async function CommitmentPage({ params }: { params: Promise<{ org
       invoices: await tx.invoice.findMany({
         where: { ...inOrg(ctx), ...(await scopeOf(tx, ctx)), OR: [{ agencyId: c.agencyId, poNumber: { equals: c.poNumber, mode: 'insensitive' } }, { matches: { some: { commitmentId: c.id } } }] },
         orderBy: { createdAt: 'desc' },
-        select: { id: true, number: true, amountCents: true, invoicedOn: true, dueOn: true, state: true },
+        select: { id: true, number: true, amountCents: true, invoicedOn: true, dueOn: true, state: true, matches: { select: { amountCents: true } } },
       }),
     };
   }, { atomic: false });
   const canBill = !po.closedAt && earmarkCan(ctx.role, 'invoice.submit');
+  // D-76 (review U8): what has been invoiced on this PO but not yet matched, so the page never says "nothing billed"
+  // with an invoice sitting under it. Only submitted invoices of this PO's agency naming it are in `invoices` (D-71).
+  const awaitingCents = invoices.filter((i) => i.state === 'submitted').reduce((a, i) => a + i.amountCents - i.matches.reduce((m, x) => m + x.amountCents, 0n), 0n);
+  const billing = awaitingCents > 0n && po.matchStatus === 'unmatched' ? 'awaiting' : po.matchStatus;
 
   return (
     <main className="stack">
@@ -51,11 +55,12 @@ export default async function CommitmentPage({ params }: { params: Promise<{ org
         eyebrow={<>{await orgName(ctx.orgId)} · <Link href={`${base}/commitments`}>Purchase orders</Link>{staff && <> · {staff.agency.name}</>}</>}
         title={po.poNumber}
         lede={<>Issued {po.issuedAt.slice(0, 10)}{po.closedAt && <> · closed {po.closedAt.slice(0, 10)}{staff?.closeReason ? ` (${staff.closeReason})` : ''}</>}</>}
-        aside={<p style={{ margin: 0 }}><span className="sr-only">Status: </span><PoState closed={!!po.closedAt} matchStatus={po.matchStatus} /></p>}
+        aside={<p style={{ margin: 0 }}><span className="sr-only">Status: </span><PoState closed={!!po.closedAt} matchStatus={billing} /></p>}
       />
       <Metrics label="Purchase order" items={[
         { label: 'PO amount', cents: BigInt(po.amountCents) },
         { label: 'Left to bill', cents: BigInt(po.remainingCents) },
+        ...(awaitingCents > 0n ? [{ label: 'Billed, awaiting match', cents: awaitingCents }] : []),
       ]} />
 
       {staff && (

@@ -117,6 +117,8 @@ test('steps 7–8: a guest invoices her PO; the same id under another client is 
   await dana.getByLabel('Due date').fill('2026-12-01');
   await dana.getByRole('button', { name: 'Submit invoice' }).click();
   await expect(dana.locator('main').getByRole('status')).toHaveText(`Invoice ${number} submitted; it is listed below.`);
+  // D-76 (PRD-B B5): the PO page counts the invoice as billed and waiting for a match, never "nothing billed".
+  await expect(dana.locator('main dl.metrics')).toContainText('Billed, awaiting match');
   await expect(dana.getByRole('table', { name: 'Invoices on this PO' })).toContainText(number);
 
   const res = await dana.goto(dana.url().replace('/o/northwind/', '/o/contoso/'));

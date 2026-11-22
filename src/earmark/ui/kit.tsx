@@ -91,7 +91,8 @@ export function VarianceState({ status }: { status: string }) {
   }[status] ?? <Pill tone="info">{status}</Pill>;
 }
 
-export const MATCH_STATUS: Record<string, string> = { unmatched: 'nothing billed', partial: 'part billed', matched: 'fully billed' };
+// `awaiting`: invoices are in but none is matched yet (D-76), so the PO is not "nothing billed".
+export const MATCH_STATUS: Record<string, string> = { unmatched: 'nothing billed', awaiting: 'billed, awaiting match', partial: 'part billed', matched: 'fully billed' };
 
 export function PoState({ closed, matchStatus }: { closed: boolean; matchStatus?: string }) {
   return (
