@@ -5,6 +5,26 @@ import { asRealOwner } from './real-owner';
 // INV-27, flag-on half (the flag-off half is tests/invariants/inv-27-demo.test.ts). playwright.config.ts starts the
 // server with DEMO_MODE=1; e2e/global-setup.ts seeds the same database once per sweep.
 
+// PRD-B B1, B2 (Shane's decisions 3 (c) and 4 (b), D-75): the first two screens are Earmark's.
+test('the bare domain is Earmark\'s, with a way into the demo', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('heading', { level: 1 })).not.toContainText('SaaS Foundation');
+  await expect(page.locator('main')).toContainText('Earmark');
+  await page.getByRole('link', { name: 'Try the demo' }).click();
+  await expect(page).toHaveURL(/\/demo$/);
+});
+
+test('/demo shows the six walk accounts first, Start here on the owner, the rest under a fold', async ({ page }) => {
+  await page.goto('/demo');
+  const walk = page.getByRole('list', { name: 'Accounts for the walk' }).getByRole('listitem');
+  await expect(walk).toHaveCount(6);
+  await expect(walk.first()).toContainText('Start here');
+  expect(await walk.getByRole('button').allInnerTexts()).toEqual(['owner@northwind.demo.test', 'member@northwind.demo.test', 'demandgen@northwind.demo.test', 'admin@northwind.demo.test', 'finance@northwind.demo.test', 'dana@meridian.demo.test']);
+  await expect(page.getByRole('button', { name: 'owner@contoso.demo.test' })).toBeHidden();
+  await page.getByText(/^Every other seeded account/).click();
+  await expect(page.getByRole('button', { name: 'owner@contoso.demo.test' })).toBeVisible();
+});
+
 // D-58 (live gate): an account with one org lands in it; an account with several still picks on Your orgs.
 test('demo sign-in lands a seeded owner in their org', async ({ page }) => {
   await page.goto('/demo');

@@ -50,6 +50,21 @@ for (const scheme of ['light', 'dark'] as const) {
   }
 }
 
+// PRD-B (D-75): the first two screens a visitor sees, signed out, light and dark, desktop and phone.
+for (const scheme of ['light', 'dark'] as const) {
+  for (const width of [1280, 390]) {
+    test(`axe: the landing and /demo pass (${scheme}, ${width}px)`, async ({ browser }) => {
+      const page = await (await browser.newContext({ colorScheme: scheme, viewport: { width, height: 900 } })).newPage();
+      for (const url of ['/', '/demo']) {
+        await page.goto(url);
+        if (url === '/demo') await page.getByText(/^Every other seeded account/).click(); // the fold, open
+        expect.soft(await axe(page), url).toEqual([]);
+        expect.soft(await page.evaluate(() => document.documentElement.scrollWidth), `${url} width`).toBeLessThanOrEqual(width);
+      }
+    });
+  }
+}
+
 test('axe: the guest pages and the 404 pass too', async ({ browser }) => {
   const dana = await signIn(browser, 'dana@meridian.demo.test', { width: 390 });
   const po = await firstHref(dana, '/o/northwind/commitments', '/commitments/');
