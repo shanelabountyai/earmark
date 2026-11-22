@@ -29,7 +29,7 @@ export default async function Demo() {
   const rest = users.filter((u) => !WALK_ACCOUNTS.some((a) => a.email === u.email));
   return (
     <main className="stack" style={{ maxWidth: '52rem' }}>
-      <p className="eyebrow"><span aria-hidden="true" className="logo" style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: 8 }} />Earmark demo</p>
+      <p className="eyebrow"><span aria-hidden="true" className="logo on-paper" style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: 8 }} />Earmark demo</p>
       <h1>Demo sign-in</h1>
       <p className="lede" style={{ color: 'var(--muted)', fontSize: 18, margin: 0 }}>
         Pick an account to sign in; no email or password. The README&rsquo;s five-minute walk uses these six, in this order. Everything is invented, and the demo is replanted every night.

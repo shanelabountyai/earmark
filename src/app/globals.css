@@ -47,7 +47,7 @@ pre { padding: 12px; overflow-x: auto; white-space: pre; }
 small { font-size: 14px; color: var(--muted); }
 table { width: 100%; border-collapse: collapse; background: var(--card); font-variant-numeric: tabular-nums; }
 main > table, main > form > fieldset > table { border: 1px solid var(--rule); border-radius: 4px; margin: .5rem 0 1.25rem; }
-th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--rule); vertical-align: baseline; } /* baseline: money sits on the text line (D-85, review G5) */
 thead th { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600; vertical-align: bottom; }
 tbody tr:last-child > * { border-bottom: 0; }
 tfoot th, tfoot td { border-top: 1px solid var(--rule); border-bottom: 0; font-weight: 700; }
@@ -328,4 +328,12 @@ dl.facts { border: 0; padding: 0; margin: 0; background: none; display: grid; gr
   table.stack-sm tr { padding: 12px 0; border-bottom: 1px solid var(--rule); }
   table.stack-sm tr > td { border: 0; padding: 4px 0; text-align: left; white-space: normal; }
   table.stack-sm td[data-label]::before { content: attr(data-label) / ""; display: block; font: 600 12px/1.3 var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+}
+
+/* D-85 (review G7, G9): the logo's fold on paper (404, landing, /demo) is the paper's own fold, not the sidebar's green;
+   approval-rule rows keep the seat and its threshold on one line on wider screens. */
+.logo.on-paper { background: linear-gradient(225deg, var(--paper) 0 7px, var(--fold) 7px 8px, #e4f2ea 8px); outline: 1px solid var(--rule); }
+@media (min-width: 40rem) {
+  .rules-chain li { flex-wrap: nowrap; }
+  .rules-chain li strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }

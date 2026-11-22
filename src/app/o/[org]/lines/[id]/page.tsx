@@ -213,7 +213,7 @@ export default async function LinePage({ params }: { params: Promise<{ org: stri
           {pos.every((c) => c.matches.length === 0) ? <p className="note">None yet.</p> : (
             <TableWrap label="Invoice matches">
               <table aria-label="Invoice matches">
-                <thead><tr><th scope="col">Invoice</th><th scope="col">PO</th><th scope="col" className="num">Amount</th><th scope="col">Invoice</th></tr></thead>
+                <thead><tr><th scope="col">Invoice</th><th scope="col">PO</th><th scope="col" className="num">Amount</th><th scope="col">Status</th></tr></thead>
                 <tbody>
                   {pos.flatMap((c) => c.matches.map((m) => (
                     <tr key={m.id}>

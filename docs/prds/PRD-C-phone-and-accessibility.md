@@ -12,11 +12,11 @@ On a phone, step 7 cannot be finished by sight: the *Match to PO-…* button sit
 |---|---|---|
 | C1 | Below 40 rem, the invoice page's *Suggested POs* rows stack (PO, reason, figures, button), so *Match to PO-…* is inside the viewport at 390 px; the wide list tables (invoices, dashboard unmatched) stack with each cell labelled. | `e2e/design.spec.ts` "the Match button is on screen at 390 px". |
 | C2 | A page inside an org that ends in the 404 has the tab title *Page not found*. | `e2e/design.spec.ts` "a 404 inside an org is titled Page not found". |
-| C3 | After an Earmark `Form` submit settles, focus moves to its alert or status (`tabIndex=-1`); the alert and status are always-present live regions cleared at submit, so a second identical refusal is announced again. | `e2e/design.spec.ts` "focus moves to the refusal …". |
+| C3 | After an Earmark `Form` submit settles, focus moves to its alert or status (`tabIndex=-1`); the message is cleared when a submit starts, so a second identical refusal is a new alert and is announced again (D-81: always-present empty regions would have matched every e2e `getByRole('status')` on pages with several forms). | `e2e/design.spec.ts` "focus moves to the refusal …". |
 | C4 | After a refusal that names a field, that field carries `aria-invalid="true"` and `aria-describedby` pointing at the alert. | Same test. |
 | C5 | The dashboard's budget table states its hierarchy: program and campaign rows are `th scope="row"` headers with an `aria-level`-equivalent visually hidden prefix (*Program*, *Campaign*). | Same file, a DOM check. |
 | C6 | The variance page lists the newest period first; the seed plants one published note (Q2 Paid Social). | `e2e/demo.spec.ts` step 9 reads the note. |
-| C7 | Design polish: money on the text baseline; the 404 logo uses the paper fold; a line page marks *Plan* current in the sidebar; approval-rule rows do not wrap at 1280 px; the line page's status column is headed *Status*. | Visual; axe sweep stays at 0. |
+| C7 | Design polish: money on the text baseline; the 404 logo uses the paper fold; a line page marks *Dashboard* current in the sidebar (the budget tree it is reached from; *Plan* is not shown to every role); approval-rule rows do not wrap at 1280 px; the line page's status column is headed *Status*. | Visual; axe sweep stays at 0. |
 
 ## Out of scope
 

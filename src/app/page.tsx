@@ -11,7 +11,7 @@ export default function Home() {
   const demo = demoEnabled();
   return (
     <main className="stack" style={{ maxWidth: '44rem' }}>
-      <p className="eyebrow"><span aria-hidden="true" className="logo" style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: 8 }} />Earmark</p>
+      <p className="eyebrow"><span aria-hidden="true" className="logo on-paper" style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: 8 }} />Earmark</p>
       <h1>Marketing budgets and agency spend, one approval at a time</h1>
       <p className="lede" style={{ color: 'var(--muted)', fontSize: 18, margin: 0 }}>
         Each client company plans its budget by month, routes every spend request through an approval chain it controls, and matches agency invoices to the purchase orders those approvals issued. Agency staff see only their own agency&rsquo;s orders.{demo && ' Everything here is invented demo data.'}
