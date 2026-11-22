@@ -43,9 +43,9 @@ describe('rollup (PRD §2 derived values, §4)', () => {
     expect(r.unassignedUnmatchedCents).toBe(3000n);
     expect(r.orgAvailableCents).toBe(60004n);
     expect(r.unmatchedInvoices).toEqual([
-      { invoiceId: 'i3', amountCents: 7000n, lineId: 'l1', ageDays: 14 },
-      { invoiceId: 'i4', amountCents: 3000n, lineId: null, ageDays: 0 },
-      { invoiceId: 'i5', amountCents: 1n, lineId: 'l3', ageDays: null },
+      { invoiceId: 'i3', amountCents: 7000n, unmatchedCents: 7000n, lineId: 'l1', ageDays: 14 },
+      { invoiceId: 'i4', amountCents: 3000n, unmatchedCents: 3000n, lineId: null, ageDays: 0 },
+      { invoiceId: 'i5', amountCents: 1n, unmatchedCents: 1n, lineId: 'l3', ageDays: null },
     ]);
   });
   it('filters to a period, keeping org-level unassigned invoices', () => {

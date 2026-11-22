@@ -3,7 +3,9 @@
 //   committed per line  = sum of open commitments on the line, plus what was matched (pending or approved) to its
 //                         closed ones: closing a PO releases only its unspent rest, never money already billed (D-23)
 //   actual per line     = sum of approved invoice matches against the line's commitments (open or closed)
-//   unmatched provision = sum of submitted (not yet matched) invoices that name the line
+//   unmatched provision = sum over submitted invoices naming the line of what is not yet matched on each: its
+//                         amount minus its pending or approved matches, so a partly matched invoice is not counted
+//                         twice, once as committed and again as provision (D-69, beside D-23)
 //   available           = planned − committed − unmatched provision; shown even when negative, never clamped
 //
 // Campaign, program and org rows are sums of their lines, so a rollup can never disagree with its rows. Invoices
@@ -19,7 +21,9 @@ export type LedgerCommitment = { id: string; lineId: string; amountCents: Cents;
 export type MatchState = 'approved' | 'pending' | 'rejected';
 export type LedgerMatch = { invoiceId: string; commitmentId: string; amountCents: Cents; state: MatchState };
 export type InvoiceState = 'submitted' | 'matched' | 'disputed' | 'approved' | 'voided';
-export type LedgerInvoice = { id: string; amountCents: Cents; state: InvoiceState; lineId?: string | null; submittedOn?: string | null };
+// matchedCents: what is matched to the invoice across every PO, when the caller loaded only some POs (a line's view);
+// absent, the engine sums the ledger's own pending and approved matches that name the invoice.
+export type LedgerInvoice = { id: string; amountCents: Cents; state: InvoiceState; lineId?: string | null; submittedOn?: string | null; matchedCents?: Cents | null };
 
 export type Ledger = {
   programs: Program[];
@@ -36,7 +40,7 @@ export type Totals = { plannedCents: Cents; committedCents: Cents; actualCents: 
 export type LineRollup = Totals & { lineId: string; campaignId: string; programId: string; periodId: string; overCommitted: boolean; committedBps: bigint | null; actualBps: bigint | null };
 export type CampaignRollup = Totals & { campaignId: string; programId: string; lineCount: number };
 export type ProgramRollup = Totals & { programId: string; lineCount: number };
-export type UnmatchedInvoice = { invoiceId: string; amountCents: Cents; lineId: string | null; ageDays: number | null };
+export type UnmatchedInvoice = { invoiceId: string; amountCents: Cents; unmatchedCents: Cents; lineId: string | null; ageDays: number | null };
 export type Rollup = {
   periodId: string | null;
   lines: LineRollup[];
@@ -105,6 +109,7 @@ export function rollup(ledger: Ledger): Rollup {
   }
 
   const actual = new Map<string, Cents>();
+  const matchedOf = new Map<string, Cents>(); // invoice id → its pending and approved matches in this ledger
   for (const m of ledger.matches) {
     const c = commitments.get(m.commitmentId);
     if (!c) throw new LedgerError('UNKNOWN_COMMITMENT', `match for invoice ${m.invoiceId} names unknown commitment ${m.commitmentId}`);
@@ -112,6 +117,7 @@ export function rollup(ledger: Ledger): Rollup {
     if (m.state !== 'approved' && m.state !== 'pending' && m.state !== 'rejected') throw new LedgerError('BAD_STATE', `match ${m.invoiceId}/${m.commitmentId} has state ${String(m.state)}`);
     if (m.state === 'approved' && inScope.has(c.lineId)) actual.set(c.lineId, (actual.get(c.lineId) ?? 0n) + amount);
     if (m.state !== 'rejected' && c.state === 'closed' && inScope.has(c.lineId)) committed.set(c.lineId, (committed.get(c.lineId) ?? 0n) + amount);
+    if (m.state !== 'rejected') matchedOf.set(m.invoiceId, (matchedOf.get(m.invoiceId) ?? 0n) + amount);
   }
 
   const provision = new Map<string, Cents>();
@@ -122,11 +128,17 @@ export function rollup(ledger: Ledger): Rollup {
     const amount = requireCents(inv.amountCents, `invoice ${inv.id} amountCents`, { min: 0n });
     if (inv.lineId && !allLines.has(inv.lineId)) throw new LedgerError('UNKNOWN_LINE', `invoice ${inv.id} names unknown line ${inv.lineId}`);
     if (inv.state !== 'submitted') continue;
+    const inLedger = matchedOf.get(inv.id) ?? 0n;
+    const matched = inv.matchedCents == null ? inLedger : requireCents(inv.matchedCents, `invoice ${inv.id} matchedCents`, { min: 0n });
+    if (matched < inLedger) throw new LedgerError('MATCHED_BELOW_LEDGER', `invoice ${inv.id} says ${matched} matched, but the ledger matches ${inLedger} to it`);
+    if (matched > amount) throw new LedgerError('INVOICE_OVER_MATCHED', `invoice ${inv.id} (${amount}) has ${matched} matched to it`);
+    const rest = amount - matched;
+    if (rest === 0n) continue; // all of it is matched: it counts as committed, not as provision
     const lineId = inv.lineId || null;
     if (lineId && !inScope.has(lineId)) continue; // another period's line
-    if (lineId) provision.set(lineId, (provision.get(lineId) ?? 0n) + amount);
-    else unassigned += amount;
-    unmatched.push({ invoiceId: inv.id, amountCents: amount, lineId, ageDays: ageDays(inv.submittedOn, ledger.now) });
+    if (lineId) provision.set(lineId, (provision.get(lineId) ?? 0n) + rest);
+    else unassigned += rest;
+    unmatched.push({ invoiceId: inv.id, amountCents: amount, unmatchedCents: rest, lineId, ageDays: ageDays(inv.submittedOn, ledger.now) });
   }
   unmatched.sort((a, b) => cmp(a.invoiceId, b.invoiceId));
 
@@ -208,6 +220,6 @@ export function rollupToJson(r: Rollup): unknown {
     org: { lineCount: r.org.lineCount, ...totals(r.org) },
     unassignedUnmatchedCents: jsonCents(r.unassignedUnmatchedCents),
     orgAvailableCents: jsonCents(r.orgAvailableCents),
-    unmatchedInvoices: r.unmatchedInvoices.map((u) => ({ invoiceId: u.invoiceId, amountCents: jsonCents(u.amountCents), lineId: u.lineId, ageDays: u.ageDays })),
+    unmatchedInvoices: r.unmatchedInvoices.map((u) => ({ invoiceId: u.invoiceId, amountCents: jsonCents(u.amountCents), unmatchedCents: jsonCents(u.unmatchedCents), lineId: u.lineId, ageDays: u.ageDays })),
   };
 }

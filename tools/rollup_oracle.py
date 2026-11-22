@@ -61,6 +61,7 @@ def rollup(ledger):
             committed[c["lineId"]] = committed.get(c["lineId"], 0) + amount
 
     actual = {}
+    matched_of = {}  # invoice id -> its pending and approved matches in this ledger (D-69)
     for m in ledger.get("matches") or []:
         c = commitments.get(m["commitmentId"])
         if c is None:
@@ -72,6 +73,8 @@ def rollup(ledger):
             actual[c["lineId"]] = actual.get(c["lineId"], 0) + amount
         if m["state"] != "rejected" and c["state"] == "closed" and c["lineId"] in in_scope:  # D-23
             committed[c["lineId"]] = committed.get(c["lineId"], 0) + amount
+        if m["state"] != "rejected":
+            matched_of[m["invoiceId"]] = matched_of.get(m["invoiceId"], 0) + amount
 
     provision = {}
     unassigned = 0
@@ -84,13 +87,22 @@ def rollup(ledger):
             raise LedgerError("UNKNOWN_LINE", f"invoice {inv['id']} names unknown line {line_id}")
         if inv.get("state") != "submitted":
             continue
+        in_ledger = matched_of.get(inv["id"], 0)
+        matched = in_ledger if inv.get("matchedCents") is None else require_cents(inv["matchedCents"], f"invoice {inv['id']} matchedCents", 0)
+        if matched < in_ledger:
+            raise LedgerError("MATCHED_BELOW_LEDGER", f"invoice {inv['id']} says {matched} matched, but the ledger matches {in_ledger} to it")
+        if matched > amount:
+            raise LedgerError("INVOICE_OVER_MATCHED", f"invoice {inv['id']} ({amount}) has {matched} matched to it")
+        rest = amount - matched
+        if rest == 0:
+            continue
         if line_id and line_id not in in_scope:
             continue
         if line_id:
-            provision[line_id] = provision.get(line_id, 0) + amount
+            provision[line_id] = provision.get(line_id, 0) + rest
         else:
-            unassigned += amount
-        unmatched.append({"invoiceId": inv["id"], "amountCents": json_cents(amount), "lineId": line_id, "ageDays": age_days(inv.get("submittedOn"), ledger.get("now"))})
+            unassigned += rest
+        unmatched.append({"invoiceId": inv["id"], "amountCents": json_cents(amount), "unmatchedCents": json_cents(rest), "lineId": line_id, "ageDays": age_days(inv.get("submittedOn"), ledger.get("now"))})
     unmatched.sort(key=lambda u: u["invoiceId"])
 
     line_rows = []
