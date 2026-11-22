@@ -77,7 +77,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ org: s
           <dt>Unmatched</dt><dd><Money cents={leftCents} /></dd>
           <dt>Invoiced</dt><dd>{day(inv.invoicedOn)} · due {day(inv.dueOn)}</dd>
           <dt>Status</dt><dd>{STATUS[inv.state] ?? inv.state}{inv.approvedForPaymentAt && ` ${day(inv.approvedForPaymentAt)}`}</dd>
-          {inv.fileRef && <><dt>File</dt><dd><a href={inv.fileRef} rel="noreferrer noopener" target="_blank">Open the invoice<span className="sr-only"> (opens in a new tab)</span></a></dd></>}
+          {inv.fileRef?.startsWith('https://') && <><dt>File</dt><dd><a href={inv.fileRef} rel="noreferrer noopener" target="_blank">Open the invoice<span className="sr-only"> (opens in a new tab)</span></a></dd></>}
         </dl>
       </Card>
 

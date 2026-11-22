@@ -141,3 +141,16 @@ it("D-70: an invoice naming another agency's PO, or no PO at all, is refused on 
   expect([made.status, (await made.json()).poNumber]).toEqual([201, 'PO-MER-1']);
   expect(await as(w.owner.id, () => form('', 'INV-2'))).toMatchObject({ notice: expect.any(String) });
 });
+
+// PRD-A A5 (review S6, D-75): an invoice's file reference is an https URL or nothing, on both paths.
+it('D-75: a file reference must be https on the API and the guest form', async () => {
+  const w = await world('northwind');
+  const key = await keyFor(w, ['invoices']);
+  const body = { agencyId: w.agency.id, number: 'INV-1', poNumber: '', amountCents: '125000', invoicedOn: '2026-11-01', dueOn: '2026-12-01' };
+  for (const fileRef of ['javascript:alert(1)', 'data:text/html,hi', 'http://example.test/inv.pdf'])
+    expect([fileRef, (await post({ ...body, fileRef }, key)).status]).toEqual([fileRef, 400]);
+  const form = (fileRef: string) => as(w.owner.id, () => submitInvoice(w.slug, { agencyId: w.agency.id, number: 'INV-2', amount: '10.00', invoicedOn: '2026-11-01', dueOn: '2026-12-01', fileRef }));
+  expect(await form('http://example.test/inv.pdf')).toMatchObject({ error: expect.stringContaining('https') });
+  expect(await db.invoice.count({ where: { orgId: w.orgId } })).toBe(0);
+  expect((await post({ ...body, fileRef: 'https://files.example.test/inv.pdf' }, key)).status).toBe(201);
+});

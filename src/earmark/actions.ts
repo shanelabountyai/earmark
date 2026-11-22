@@ -24,7 +24,7 @@ import { applyDecisions, authorizeRuleEdit, type ChainResult, evaluateChain, par
 import { applyMatch, FINANCE_SEAT } from '@/lib/earmark/match';
 import { formatUsd } from '@/lib/earmark/money';
 import { draftVarianceNote, drafterFromEnv } from './explainer';
-import { dollars, fileInvoice, heldSeats, isoDate, lineAvailable, requirePerm, rulesOf, scopeOf, seatsFor } from './core';
+import { dollars, fileInvoice, fileRefSchema, heldSeats, isoDate, lineAvailable, requirePerm, rulesOf, scopeOf, seatsFor } from './core';
 
 /** D-40: the inline sweep sends at most this many deliveries; anything left waits for the daily cron. */
 const INLINE_MAX_SENDS = 5;
@@ -265,7 +265,7 @@ export const submitInvoice = orgAction(
     amount: z.string().max(32),
     invoicedOn: z.string().max(10),
     dueOn: z.string().max(10),
-    fileRef: z.union([z.literal(''), z.url().max(2000)]).default(''),
+    fileRef: fileRefSchema,
   }),
   async (ctx, i) => {
     requirePerm(ctx, 'invoice.submit');
