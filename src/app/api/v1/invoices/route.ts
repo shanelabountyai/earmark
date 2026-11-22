@@ -15,7 +15,7 @@ const body = z
     amountCents: z.string().max(32), // its shape is checked in fileInvoice, after the agency resolves (D-33, D-41)
     invoicedOn: z.string().max(10),
     dueOn: z.string().max(10),
-    fileRef: fileRefSchema, // https only (D-75)
+    fileRef: fileRefSchema, // https only (D-74)
   })
   .strict();
 

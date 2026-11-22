@@ -103,7 +103,7 @@ export function dollars(text: string, what = 'Amount', min: Cents = 1n): Cents {
 }
 
 /**
- * An invoice's file reference (PRD §10.3): an https URL or nothing (D-75, review S6). Staff see it as a link, so no
+ * An invoice's file reference (PRD §10.3): an https URL or nothing (D-74, review S6). Staff see it as a link, so no
  * `javascript:`, `data:` or plain `http:`. One schema for the guest form and POST /api/v1/invoices.
  */
 export const fileRefSchema = z.union([z.literal(''), z.url({ protocol: /^https$/, message: 'The file link must be an https:// address.' }).max(2000)]).default('');

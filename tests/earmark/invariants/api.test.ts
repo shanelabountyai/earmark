@@ -142,8 +142,8 @@ it("D-70: an invoice naming another agency's PO, or no PO at all, is refused on 
   expect(await as(w.owner.id, () => form('', 'INV-2'))).toMatchObject({ notice: expect.any(String) });
 });
 
-// PRD-A A5 (review S6, D-75): an invoice's file reference is an https URL or nothing, on both paths.
-it('D-75: a file reference must be https on the API and the guest form', async () => {
+// PRD-A A5 (review S6, D-74): an invoice's file reference is an https URL or nothing, on both paths.
+it('D-74: a file reference must be https on the API and the guest form', async () => {
   const w = await world('northwind');
   const key = await keyFor(w, ['invoices']);
   const body = { agencyId: w.agency.id, number: 'INV-1', poNumber: '', amountCents: '125000', invoicedOn: '2026-11-01', dueOn: '2026-12-01' };
