@@ -163,3 +163,22 @@ test('a 404 inside an org is titled Page not found, whoever is refused', async (
   await member.goto('/o/northwind/requests'); // and a page the role may open keeps its own title
   await expect(member).toHaveTitle(/^Requests/);
 });
+
+// PRD-C C3, C4 (review A1, A4, A5; D-81): after a refused submit, focus is on the refusal, the field it names is
+// marked invalid and points at it, and the same refusal a second time is a fresh alert.
+test('focus moves to the refusal, the named field is marked invalid, and a repeat is announced again', async ({ browser }) => {
+  const page = await signIn(browser, 'member@northwind.demo.test', { width: 390 });
+  await page.goto('/o/northwind/requests');
+  await page.getByLabel('Amount (USD)').fill('twelve');
+  await page.getByLabel('What it is for').fill('a11y probe');
+  for (let k = 0; k < 2; k++) {
+    await page.getByRole('button', { name: 'Submit request' }).click();
+    const alert = page.locator('main').getByRole('alert');
+    await expect(alert).toHaveText(/^Amount must be/);
+    await expect(alert).toBeFocused();
+    await expect(alert).toBeInViewport();
+    const amount = page.getByLabel('Amount (USD)');
+    await expect(amount).toHaveAttribute('aria-invalid', 'true');
+    expect(await amount.getAttribute('aria-describedby')).toContain(await alert.getAttribute('id'));
+  }
+});
