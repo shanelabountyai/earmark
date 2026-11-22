@@ -39,6 +39,7 @@ it("a key reads its own commitment through the guest projection; another client'
 it('POST /invoices needs the invoices scope and files under the key creator, with the guest form rules', async () => {
   const w = await world('northwind');
   const other = await world('contoso');
+  await commitmentFor(w, w.agency.id, 500_000n, 'PO-N1'); // D-70: the PO an invoice names must exist for its agency
   const body = { agencyId: w.agency.id, number: 'INV-1', poNumber: 'PO-N1', amountCents: '125000', invoicedOn: '2026-11-01', dueOn: '2026-12-01' };
 
   expect((await post(body, await keyFor(w, ['read', 'write']))).status).toBe(403);
@@ -117,4 +118,26 @@ it('D-60: an invoice due before its invoice date is refused on both paths; the s
 
   // Due on receipt (the same day) is a real term and stays allowed.
   expect((await post({ ...body, dueOn: '2026-11-10' }, key)).status).toBe(201);
+});
+
+// D-70 (review S2): the PO an invoice names resolves to a PO of the same org and the invoice's agency, or it is refused.
+it("D-70: an invoice naming another agency's PO, or no PO at all, is refused on both paths; its own PO is stored canonical", async () => {
+  const w = await world('northwind');
+  const other = await db.agency.create({ data: { orgId: w.orgId, name: 'Harbor Media', domains: ['harbor.test'] } });
+  await commitmentFor(w, other.id, 500_000n, 'PO-HARBOR-1');
+  await commitmentFor(w, w.agency.id, 500_000n, 'PO-MER-1');
+  const key = await keyFor(w, ['invoices']);
+  const body = { agencyId: w.agency.id, number: 'INV-1', poNumber: 'PO-HARBOR-1', amountCents: '125000', invoicedOn: '2026-11-01', dueOn: '2026-12-01' };
+
+  const api = await post(body, key);
+  expect([api.status, (await api.json()).detail]).toEqual([422, 'No PO PO-HARBOR-1 for Meridian Creative.']);
+  expect((await post({ ...body, poNumber: 'PO-NOPE' }, key)).status).toBe(422);
+  const form = (poNumber: string, number = 'INV-1') => submitInvoice(w.slug, { agencyId: w.agency.id, number, poNumber, amount: '1,250.00', invoicedOn: '2026-11-01', dueOn: '2026-12-01' });
+  expect(await as(w.owner.id, () => form('PO-HARBOR-1'))).toEqual({ error: 'No PO PO-HARBOR-1 for Meridian Creative.' });
+  expect(await db.invoice.count({ where: { orgId: w.orgId } })).toBe(0);
+
+  // Its own PO, typed loosely, is stored as the PO's own number; no PO at all stays allowed (the control exception).
+  const made = await post({ ...body, poNumber: ' po-mer-1 ' }, key);
+  expect([made.status, (await made.json()).poNumber]).toEqual([201, 'PO-MER-1']);
+  expect(await as(w.owner.id, () => form('', 'INV-2'))).toMatchObject({ notice: expect.any(String) });
 });

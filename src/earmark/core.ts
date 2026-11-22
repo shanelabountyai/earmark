@@ -124,9 +124,17 @@ export async function fileInvoice(tx: Tx, ctx: { orgId: string; userId: string |
   const dueOn = isoDate(i.dueOn, 'Due date');
   if (dueOn < invoicedOn) throw new Refused('Due date cannot be before the invoice date.'); // D-60; the same day (due on receipt) is allowed
   if (agency.offboardedAt) throw new Refused(`${agency.name} has been offboarded.`);
+  // D-70: a PO number names a PO of this org and this agency, compared normalised, and is stored as that PO's own
+  // number; anything else is refused, so an invoice can never land on another agency's PO or line. None is allowed.
+  let poNumber: string | null = null;
+  if (normalizePo(i.poNumber)) {
+    const pos = await tx.commitment.findMany({ where: { ...inOrg(ctx), agencyId: agency.id }, select: { poNumber: true } });
+    poNumber = pos.find((p) => normalizePo(p.poNumber) === normalizePo(i.poNumber))?.poNumber ?? null;
+    if (!poNumber) throw new Refused(`No PO ${i.poNumber.trim()} for ${agency.name}.`);
+  }
   if (await tx.invoice.findFirst({ where: { ...inOrg(ctx), agencyId: agency.id, number: i.number }, select: { id: true } })) throw new Refused(`Invoice ${i.number} is already in.`);
   const inv = await tx.invoice.create({
-    data: { ...inOrg(ctx), agencyId: agency.id, number: i.number, poNumber: i.poNumber || null, amountCents, invoicedOn, dueOn, submittedById, fileRef: i.fileRef || null },
+    data: { ...inOrg(ctx), agencyId: agency.id, number: i.number, poNumber, amountCents, invoicedOn, dueOn, submittedById, fileRef: i.fileRef || null },
   });
   await audit(ctx, 'invoice.submitted', { targetType: 'invoice', targetId: inv.id, data: { amountCents: amountCents.toString() } }, tx);
   return inv;
