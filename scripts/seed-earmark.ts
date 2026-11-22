@@ -227,7 +227,12 @@ async function seedOrg(db: Db, p: Plan): Promise<string[]> {
       commitments.push({ id: c.id, poNumber: c.poNumber, agencyId: agency.id, amountCents, remainingCents: amountCents, issuedAt: c.issuedAt, open: true });
       line.committed += amountCents;
       if (line.name === p.replanLine) {
-        await db.budgetLine.update({ where: { id: line.id }, data: { plannedEditedAt: new Date(c.issuedAt.getTime() + 10 * DAY) } }); // PRD §4 replan marker
+        const replannedAt = new Date(c.issuedAt.getTime() + 10 * DAY);
+        await db.budgetLine.update({ where: { id: line.id }, data: { plannedEditedAt: replannedAt } }); // PRD §4 replan marker
+        // PRD-C C6 (review G3, D-84): one published note, so the variance page shows what a published note looks like.
+        const text = `${line.name}: the plan was edited after the first PO to follow the Meridian Creative media buy; actual is reported against the edited figure.`;
+        const period = await db.budgetLine.findUniqueOrThrow({ where: { id: line.id }, select: { periodId: true } });
+        await db.varianceNote.create({ data: { orgId, budgetLineId: line.id, periodId: period.periodId, draft: text, published: text, publishedAt: replannedAt, publishedById: ids.owner!, createdById: ids.owner!, createdAt: replannedAt } });
       }
     }
   }

@@ -180,6 +180,8 @@ test('step 9: match to the ranked suggestion, approve for payment, variance view
   await expect(finance.locator('dl[aria-label="Invoice"]')).toContainText('Statusapproved');
   await finance.getByRole('navigation').getByRole('link', { name: 'Variance' }).click();
   await expect(finance.getByRole('heading', { name: 'Variance' })).toBeVisible();
+  // D-84 (PRD-C C6): the seed's published note shows on the variance page.
+  await expect(finance.locator('main')).toContainText('the plan was edited after the first PO');
 });
 
 // Demo steps 1, 2 and 6. Step 1 here signs in through /demo (D-22); e2e/enterprise.spec.ts runs it through SSO. Step 6

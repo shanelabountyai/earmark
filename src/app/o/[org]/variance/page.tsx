@@ -25,7 +25,8 @@ export default async function VariancePage({ params }: { params: Promise<{ org: 
     lines: await tx.budgetLine.findMany({
       where: inOrg(ctx),
       select: { id: true, name: true, plannedEditedAt: true, periodId: true, campaign: { select: { name: true, program: { select: { name: true } } } }, period: { select: { index: true, startsOn: true, fiscalYear: { select: { label: true, startsOn: true } } } } },
-      orderBy: [{ period: { fiscalYear: { startsOn: 'desc' } } }, { period: { index: 'asc' } }, { campaign: { program: { name: 'asc' } } }, { campaign: { name: 'asc' } }, { name: 'asc' }],
+      orderBy: [{ period: { fiscalYear: { startsOn: 'desc' } } }, { period: { index: 'desc' } }, // newest period first (D-84)
+        { campaign: { program: { name: 'asc' } } }, { campaign: { name: 'asc' } }, { name: 'asc' }],
     }),
     notes: await tx.varianceNote.findMany({ where: { ...inOrg(ctx), published: { not: null } }, orderBy: { publishedAt: 'asc' }, select: { budgetLineId: true, published: true } }),
   }), { atomic: false });
