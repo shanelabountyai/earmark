@@ -14,9 +14,10 @@ type P = { params: Promise<{ org: string; id: string }> };
 export async function generateMetadata({ params }: P) {
   const ctx = await requireOrg((await params).org);
   const { id } = await params;
-  if (ctx.role === 'guest' || !UUID.test(id)) return { title: 'Budget line' };
+  if (ctx.role === 'guest' || !UUID.test(id)) notFound(); // D-79: the 404's title, as the page answers
   const l = await withOrg(ctx, (tx) => tx.budgetLine.findFirst({ where: { id, ...inOrg(ctx) }, select: { name: true } }), { atomic: false });
-  return { title: l ? `${l.name} · line` : 'Budget line' };
+  if (!l) notFound();
+  return { title: `${l.name} · line` };
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -212,7 +213,7 @@ export default async function LinePage({ params }: { params: Promise<{ org: stri
           {pos.every((c) => c.matches.length === 0) ? <p className="note">None yet.</p> : (
             <TableWrap label="Invoice matches">
               <table aria-label="Invoice matches">
-                <thead><tr><th scope="col">Invoice</th><th scope="col">PO</th><th scope="col" className="num">Amount</th><th scope="col">Invoice</th></tr></thead>
+                <thead><tr><th scope="col">Invoice</th><th scope="col">PO</th><th scope="col" className="num">Amount</th><th scope="col">Status</th></tr></thead>
                 <tbody>
                   {pos.flatMap((c) => c.matches.map((m) => (
                     <tr key={m.id}>

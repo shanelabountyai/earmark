@@ -6,8 +6,9 @@ import { Form as ActionForm } from '@/earmark/ui/form';
 import { assignGuestAgency, createAgency, offboardAgency } from '@/earmark/actions';
 import { earmarkCan } from '@/earmark/core';
 import { Card, day, PageHead, Pill, TableWrap } from '@/earmark/ui/kit';
+import { titleFor } from '@/earmark/ui/titles';
 
-export const metadata = { title: 'Agencies' };
+export const generateMetadata = titleFor('Agencies', (r) => earmarkCan(r, 'agency.manage')); // D-79
 
 // PRD §5, D-29 (design: docs/design/Agencies.dc.html): the agencies, and every guest with the agency they are tied to.
 // Core's invite accept is template-owned, so a new guest arrives here untied and sees nothing (scopeOf fails closed)

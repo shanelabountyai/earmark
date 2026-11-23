@@ -7,8 +7,9 @@ import { earmarkCan, ledgerOf } from '@/earmark/core';
 import { orgName } from '@/earmark/ui/org-name';
 import { Card, Metrics, Money, PageHead, Pill, TableWrap } from '@/earmark/ui/kit';
 import type { Totals } from '@/lib/earmark/rollup';
+import { titleFor } from '@/earmark/ui/titles';
 
-export const metadata = { title: 'Dashboard' };
+export const generateMetadata = titleFor('Dashboard', () => true); // D-79: a non-member gets the 404's title
 
 const MONTH = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const pct = (bps: bigint | null) => (bps === null ? null : Number(bps / 100n));
@@ -151,10 +152,13 @@ export default async function OrgHome({ params }: { params: Promise<{ org: strin
   );
 }
 
+// PRD-C C5 (review A3, D-83): the hierarchy is in the words too, not only in indent and bold.
+const LEVEL = { 1: 'Program total: ', 2: 'Campaign total: ', 3: 'Line: ' } as const;
+
 function Row({ level, label, t }: { level: 1 | 2 | 3; label: React.ReactNode; t?: Totals }) {
   return (
     <tr data-level={level}>
-      <th scope="row">{label}</th>
+      <th scope="row"><span className="sr-only">{LEVEL[level]}</span>{label}</th>
       <td className="num"><Money cents={t?.plannedCents ?? 0n} /></td>
       <td className="num"><Money cents={t?.committedCents ?? 0n} /></td>
       <td className="num"><Money cents={t?.actualCents ?? 0n} /></td>

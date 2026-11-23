@@ -5,6 +5,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { notFound } from 'next/navigation';
+import { z } from 'zod';
 import { audit } from '@/core/audit';
 import { inOrg, type OrgCtx } from '@/core/authz/guards';
 import { now } from '@/core/clock';
@@ -14,6 +15,7 @@ import type { Commitment, Prisma } from '@/generated/prisma/client';
 import type { InvoiceState, Role } from '@/generated/prisma/enums';
 import { type ApprovalRules, parseRules, type RulesJson, type Seat } from '@/lib/earmark/chain';
 import { type Cents, MoneyError, parseDollars } from '@/lib/earmark/money';
+import { normalizePo } from '@/lib/earmark/match';
 import { type MatchState, rollup } from '@/lib/earmark/rollup';
 import { isReplan } from '@/lib/earmark/variance';
 
@@ -100,6 +102,12 @@ export function dollars(text: string, what = 'Amount', min: Cents = 1n): Cents {
   throw new Refused(`${what} must be a ${min > 0n ? 'positive' : 'non-negative'} dollar amount, like 12,000.00.`);
 }
 
+/**
+ * An invoice's file reference (PRD §10.3): an https URL or nothing (D-74, review S6). Staff see it as a link, so no
+ * `javascript:`, `data:` or plain `http:`. One schema for the guest form and POST /api/v1/invoices.
+ */
+export const fileRefSchema = z.union([z.literal(''), z.url({ protocol: /^https$/, message: 'The file link must be an https:// address.' }).max(2000)]).default('');
+
 /** A YYYY-MM-DD field, checked in the body after the ids resolve (see submitRequest). */
 export function isoDate(text: string, what: string): Date {
   const d = new Date(`${text}T00:00:00Z`);
@@ -123,9 +131,17 @@ export async function fileInvoice(tx: Tx, ctx: { orgId: string; userId: string |
   const dueOn = isoDate(i.dueOn, 'Due date');
   if (dueOn < invoicedOn) throw new Refused('Due date cannot be before the invoice date.'); // D-60; the same day (due on receipt) is allowed
   if (agency.offboardedAt) throw new Refused(`${agency.name} has been offboarded.`);
+  // D-70: a PO number names a PO of this org and this agency, compared normalised, and is stored as that PO's own
+  // number; anything else is refused, so an invoice can never land on another agency's PO or line. None is allowed.
+  let poNumber: string | null = null;
+  if (normalizePo(i.poNumber)) {
+    const pos = await tx.commitment.findMany({ where: { ...inOrg(ctx), agencyId: agency.id }, select: { poNumber: true } });
+    poNumber = pos.find((p) => normalizePo(p.poNumber) === normalizePo(i.poNumber))?.poNumber ?? null;
+    if (!poNumber) throw new Refused(`No PO ${i.poNumber.trim()} for ${agency.name}.`);
+  }
   if (await tx.invoice.findFirst({ where: { ...inOrg(ctx), agencyId: agency.id, number: i.number }, select: { id: true } })) throw new Refused(`Invoice ${i.number} is already in.`);
   const inv = await tx.invoice.create({
-    data: { ...inOrg(ctx), agencyId: agency.id, number: i.number, poNumber: i.poNumber || null, amountCents, invoicedOn, dueOn, submittedById, fileRef: i.fileRef || null },
+    data: { ...inOrg(ctx), agencyId: agency.id, number: i.number, poNumber, amountCents, invoicedOn, dueOn, submittedById, fileRef: i.fileRef || null },
   });
   await audit(ctx, 'invoice.submitted', { targetType: 'invoice', targetId: inv.id, data: { amountCents: amountCents.toString() } }, tx);
   return inv;
@@ -167,11 +183,15 @@ export async function heldSeats(tx: Tx, ctx: OrgCtx): Promise<string[]> {
 
 // ---------- a line's available (PRD §4), through the rollup engine ----------
 
-// An invoice names a PO, not a line: a submitted invoice counts against the line of the PO it names, and one naming
-// no known PO counts once at org level (rollup's unassigned). Actual = matches whose invoice is approved for payment.
+// An invoice names a PO, not a line: a submitted invoice counts against the line of the PO it names **of its own
+// agency**, PO numbers compared normalised (D-71), and one naming no such PO counts once at org level (rollup's
+// unassigned). Actual = matches whose invoice is approved for payment. Each submitted invoice carries what is already
+// matched to it on any PO, so only its unmatched rest is provision (D-69).
 // ponytail: "known" means a PO on the loaded lines, so an invoice naming a PO from another fiscal year counts as
 // unassigned on the dashboard; resolve POs org-wide if fiscal-year close (carry-forward) ever leaves such invoices.
 const matchState = (s: InvoiceState): MatchState => (s === 'approved' ? 'approved' : s === 'voided' ? 'rejected' : 'pending');
+/** The key an invoice and a PO meet on: the agency and the normalised PO number (D-71). */
+export const poKey = (agencyId: string, poNumber: string | null | undefined) => `${agencyId}|${normalizePo(poNumber)}`;
 
 /**
  * The rollup engine over the lines `where` selects, plus what the pages show beside it: the submitted invoices it
@@ -182,15 +202,18 @@ export async function ledgerOf(tx: Tx, ctx: Pick<OrgCtx, 'orgId'>, where: Prisma
   const lines = await tx.budgetLine.findMany({ where: { ...where, ...inOrg(ctx) }, select: { id: true, campaignId: true, periodId: true, plannedCents: true, plannedEditedAt: true, campaign: { select: { programId: true } } } });
   const commitments = await tx.commitment.findMany({
     where: { ...inOrg(ctx), request: { budgetLineId: { in: lines.map((l) => l.id) } } },
-    select: { id: true, poNumber: true, amountCents: true, closedAt: true, issuedAt: true, request: { select: { budgetLineId: true } }, matches: { select: { invoiceId: true, amountCents: true, invoice: { select: { state: true } } } } },
+    select: { id: true, agencyId: true, poNumber: true, amountCents: true, closedAt: true, issuedAt: true, request: { select: { budgetLineId: true } }, matches: { select: { invoiceId: true, amountCents: true, invoice: { select: { state: true } } } } },
   });
-  const lineOfPo = new Map(commitments.map((c) => [c.poNumber, c.request.budgetLineId]));
-  const invoices = opts.orgWide || lineOfPo.size
+  const lineOfPo = new Map(commitments.map((c) => [poKey(c.agencyId, c.poNumber), c.request.budgetLineId]));
+  const agencies = [...new Set(commitments.map((c) => c.agencyId))];
+  const loaded = opts.orgWide || agencies.length
     ? await tx.invoice.findMany({
-        where: { ...inOrg(ctx), state: 'submitted', ...(opts.orgWide ? {} : { poNumber: { in: [...lineOfPo.keys()] } }) },
-        select: { id: true, number: true, poNumber: true, amountCents: true, createdAt: true, agency: { select: { name: true } } },
+        where: { ...inOrg(ctx), state: 'submitted', ...(opts.orgWide ? {} : { agencyId: { in: agencies }, poNumber: { not: null } }) },
+        select: { id: true, number: true, agencyId: true, poNumber: true, amountCents: true, createdAt: true, agency: { select: { name: true } }, matches: { select: { amountCents: true } } },
       })
     : [];
+  const lineOf = (i: { agencyId: string; poNumber: string | null }) => (i.poNumber && lineOfPo.get(poKey(i.agencyId, i.poNumber))) || null;
+  const invoices = opts.orgWide ? loaded : loaded.filter((i) => lineOf(i));
   const firstCommitted = new Map<string, Date>();
   for (const c of commitments) {
     const l = c.request.budgetLineId;
@@ -203,7 +226,7 @@ export async function ledgerOf(tx: Tx, ctx: Pick<OrgCtx, 'orgId'>, where: Prisma
     lines: lines.map((l) => ({ id: l.id, campaignId: l.campaignId, periodId: l.periodId, plannedCents: l.plannedCents })),
     commitments: commitments.map((c) => ({ id: c.id, lineId: c.request.budgetLineId, amountCents: c.amountCents, state: c.closedAt ? 'closed' : 'open' })),
     matches: commitments.flatMap((c) => c.matches.map((m) => ({ invoiceId: m.invoiceId, commitmentId: c.id, amountCents: m.amountCents, state: matchState(m.invoice.state) }))),
-    invoices: invoices.map((i) => ({ id: i.id, amountCents: i.amountCents, state: 'submitted', lineId: (i.poNumber && lineOfPo.get(i.poNumber)) || null, submittedOn: i.createdAt.toISOString() })),
+    invoices: invoices.map((i) => ({ id: i.id, amountCents: i.amountCents, state: 'submitted', lineId: lineOf(i), submittedOn: i.createdAt.toISOString(), matchedCents: i.matches.reduce((a, m) => a + m.amountCents, 0n) })),
     now: now().toISOString(),
   });
   return { rollup: r, invoices: new Map(invoices.map((i) => [i.id, i])), replan, firstCommitted };

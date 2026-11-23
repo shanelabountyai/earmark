@@ -5,10 +5,11 @@ import { now } from '@/core/clock';
 import { withOrg } from '@/core/db/rls';
 import { alertRules } from '@/earmark/alerts';
 import { orgName } from '@/earmark/ui/org-name';
-import { Card, day, Money, PageHead, TableWrap } from '@/earmark/ui/kit';
+import { Card, day, Money, PageHead, TableWrap, Today } from '@/earmark/ui/kit';
 import { ageDays } from '@/lib/earmark/rollup';
+import { titleFor } from '@/earmark/ui/titles';
 
-export const metadata = { title: 'Invoices' };
+export const generateMetadata = titleFor('Invoices'); // D-79: a guest gets the 404's title
 
 type Row = { id: string; number: string; poNumber: string | null; amountCents: bigint; dueOn: Date; createdAt: Date; approvedForPaymentAt: Date | null; agency: { name: string }; matches: { amountCents: bigint }[] };
 
@@ -23,7 +24,7 @@ export default async function Invoices({ params }: { params: Promise<{ org: stri
   const select = { id: true, number: true, poNumber: true, amountCents: true, dueOn: true, createdAt: true, approvedForPaymentAt: true, agency: { select: { name: true } }, matches: { select: { amountCents: true } } } as const;
   const { toMatch, toApprove, approved, approvedCount } = await withOrg(ctx, async (tx) => ({
     toMatch: await tx.invoice.findMany({ where: { ...inOrg(ctx), state: 'submitted' }, orderBy: { createdAt: 'asc' }, take: 200, select }),
-    toApprove: await tx.invoice.findMany({ where: { ...inOrg(ctx), state: 'matched' }, orderBy: { dueOn: 'asc' }, take: 200, select }),
+    toApprove: await tx.invoice.findMany({ where: { ...inOrg(ctx), state: 'matched' }, orderBy: { createdAt: 'desc' }, take: 200, select }), // newest first (D-78)
     approved: await tx.invoice.findMany({ where: { ...inOrg(ctx), state: 'approved' }, orderBy: { approvedForPaymentAt: 'desc' }, take: 20, select }),
     approvedCount: await tx.invoice.count({ where: { ...inOrg(ctx), state: 'approved' } }),
   }), { atomic: false });
@@ -33,21 +34,21 @@ export default async function Invoices({ params }: { params: Promise<{ org: stri
 
   const table = (label: string, list: Row[], age: boolean) => (
     <TableWrap label={label}>
-      <table aria-label={label}>
-        <thead><tr><th scope="col">Invoice</th><th scope="col">Agency</th><th scope="col">PO on invoice</th><th scope="col" className="num">Amount</th><th scope="col" className="num">Unmatched</th><th scope="col">Due</th>{age && <th scope="col" className="num">Age</th>}</tr></thead>
-        <tbody>
+      <table aria-label={label} className="stack-sm" role="table">
+        <thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader">Invoice</th><th scope="col" role="columnheader">Agency</th><th scope="col" role="columnheader">PO on invoice</th><th scope="col" role="columnheader" className="num">Amount</th><th scope="col" role="columnheader" className="num">Unmatched</th><th scope="col" role="columnheader">Due</th>{age && <th scope="col" role="columnheader" className="num">Age</th>}</tr></thead>
+        <tbody role="rowgroup">
           {list.map((i) => {
             const days = ageDays(i.createdAt.toISOString(), t) ?? 0;
             const old = days >= unmatchedDays;
             return (
-              <tr key={i.id}>
-                <td className="nowrap"><Link href={`${base}/invoices/${i.id}`}>{i.number}</Link></td>
-                <td>{i.agency.name}</td>
-                <td>{i.poNumber ?? <span className="muted">—</span>}</td>
-                <td className="num"><Money cents={i.amountCents} /></td>
-                <td className="num"><Money cents={unmatched(i)} /></td>
-                <td className="nowrap">{day(i.dueOn)}</td>
-                {age && <td className={`num${old ? ' bad-text' : ''}`}>{old && <span aria-hidden="true">✕ </span>}{days} days{old && <span className="sr-only"> (past {unmatchedDays})</span>}</td>}
+              <tr key={i.id} role="row">
+                <td role="cell" data-label="Invoice" className="nowrap"><Link href={`${base}/invoices/${i.id}`}>{i.number}</Link><Today at={i.createdAt} /></td>
+                <td role="cell" data-label="Agency">{i.agency.name}</td>
+                <td role="cell" data-label="PO on invoice">{i.poNumber ?? <span className="muted">—</span>}</td>
+                <td role="cell" data-label="Amount" className="num"><Money cents={i.amountCents} /></td>
+                <td role="cell" data-label="Unmatched" className="num"><Money cents={unmatched(i)} /></td>
+                <td role="cell" data-label="Due" className="nowrap">{day(i.dueOn)}</td>
+                {age && <td role="cell" data-label="Age" className={`num${old ? ' bad-text' : ''}`}>{old && <span aria-hidden="true">✕ </span>}{days} days{old && <span className="sr-only"> (past {unmatchedDays})</span>}</td>}
               </tr>
             );
           })}
@@ -74,7 +75,7 @@ export default async function Invoices({ params }: { params: Promise<{ org: stri
       </Card>
       <Card id="to-approve" title={`To approve for payment (${toApprove.length})`}>
         {toApprove.length ? table('To approve for payment', toApprove, false) : <p className="note">None.</p>}
-        <p className="note">Fully matched. Only a Finance seat holder can approve one for payment.</p>
+        <p className="note">Newest first. Fully matched. Only a Finance seat holder can approve one for payment.</p>
       </Card>
       <Card id="approved" title={`Approved for payment (${approvedCount})`}>
         {approved.length === 0 ? <p className="note">None yet.</p> : (

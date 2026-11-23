@@ -50,6 +50,21 @@ for (const scheme of ['light', 'dark'] as const) {
   }
 }
 
+// PRD-B (D-75): the first two screens a visitor sees, signed out, light and dark, desktop and phone.
+for (const scheme of ['light', 'dark'] as const) {
+  for (const width of [1280, 390]) {
+    test(`axe: the landing and /demo pass (${scheme}, ${width}px)`, async ({ browser }) => {
+      const page = await (await browser.newContext({ colorScheme: scheme, viewport: { width, height: 900 } })).newPage();
+      for (const url of ['/', '/demo']) {
+        await page.goto(url);
+        if (url === '/demo') await page.getByText(/^Every other seeded account/).click(); // the fold, open
+        expect.soft(await axe(page), url).toEqual([]);
+        expect.soft(await page.evaluate(() => document.documentElement.scrollWidth), `${url} width`).toBeLessThanOrEqual(width);
+      }
+    });
+  }
+}
+
 test('axe: the guest pages and the 404 pass too', async ({ browser }) => {
   const dana = await signIn(browser, 'dana@meridian.demo.test', { width: 390 });
   const po = await firstHref(dana, '/o/northwind/commitments', '/commitments/');
@@ -129,4 +144,66 @@ test('the skip link moves focus past the sidebar', async ({ browser }) => {
   await expect(owner.getByRole('link', { name: 'Skip to content' })).toBeFocused();
   await owner.keyboard.press('Enter');
   await expect(owner.locator('#content')).toBeFocused();
+});
+
+// PRD-C C2 (review U10, A2; D-79): a page that answers the 404 is titled "Page not found", so the route announcer
+// does not read out the name of a page the visitor cannot see.
+test('a 404 inside an org is titled Page not found, whoever is refused', async ({ browser }) => {
+  const dana = await signIn(browser, 'dana@meridian.demo.test');
+  for (const url of ['/o/northwind/requests', '/o/northwind/invoices', '/o/northwind/variance', '/o/northwind/settings/rules', '/o/northwind/settings/members', '/o/nosuchorg', `/o/northwind/commitments/${crypto.randomUUID()}`]) {
+    await dana.goto(url);
+    await expect(dana.getByRole('heading', { name: 'Page not found' }), url).toBeVisible();
+    await expect(dana, url).toHaveTitle(/^Page not found/);
+  }
+  const member = await signIn(browser, 'member@northwind.demo.test');
+  for (const url of ['/o/northwind/settings/audit', '/o/northwind/settings/danger', '/o/northwind/plan']) {
+    await member.goto(url);
+    await expect(member, url).toHaveTitle(/^Page not found/);
+  }
+  await member.goto('/o/northwind/requests'); // and a page the role may open keeps its own title
+  await expect(member).toHaveTitle(/^Requests/);
+});
+
+// PRD-C C3, C4 (review A1, A4, A5; D-81): after a refused submit, focus is on the refusal, the field it names is
+// marked invalid and points at it, and the same refusal a second time is a fresh alert.
+test('focus moves to the refusal, the named field is marked invalid, and a repeat is announced again', async ({ browser }) => {
+  const page = await signIn(browser, 'member@northwind.demo.test', { width: 390 });
+  await page.goto('/o/northwind/requests');
+  await page.getByLabel('Amount (USD)').fill('twelve');
+  await page.getByLabel('What it is for').fill('a11y probe');
+  for (let k = 0; k < 2; k++) {
+    await page.getByRole('button', { name: 'Submit request' }).click();
+    const alert = page.locator('main').getByRole('alert');
+    await expect(alert).toHaveText(/^Amount must be/);
+    await expect(alert).toBeFocused();
+    await expect(alert).toBeInViewport();
+    const amount = page.getByLabel('Amount (USD)');
+    await expect(amount).toHaveAttribute('aria-invalid', 'true');
+    expect(await amount.getAttribute('aria-describedby')).toContain(await alert.getAttribute('id'));
+  }
+});
+
+// PRD-C C1 (review U7, U11, G2; D-82): on a phone the suggested POs stack, so the top Match button and the amount are
+// on screen without scrolling sideways; the invoice queues show Amount inside the viewport.
+test('the Match button and the key figures are on screen at 390 px', async ({ browser }) => {
+  const admin = await signIn(browser, 'admin@northwind.demo.test', { width: 390 });
+  await admin.goto('/o/northwind/invoices');
+  const amount = admin.getByRole('table', { name: 'To match' }).getByRole('row').nth(1).getByRole('cell').nth(3);
+  const a = (await amount.boundingBox())!;
+  expect(a.x + a.width).toBeLessThanOrEqual(390);
+  await admin.getByRole('table', { name: 'To match' }).getByRole('link').first().click();
+  const match = admin.getByRole('table', { name: 'Suggested POs' }).getByRole('button', { name: /^Match to / }).first();
+  await match.scrollIntoViewIfNeeded();
+  const b = (await match.boundingBox())!;
+  expect(b.x).toBeGreaterThanOrEqual(0);
+  expect(b.x + b.width).toBeLessThanOrEqual(390);
+});
+
+// PRD-C C5 (review A3, D-83): the budget table's rows say what level they are, for a screen reader.
+test('the budget table names each row\'s level', async ({ browser }) => {
+  const owner = await signIn(browser, 'owner@northwind.demo.test');
+  const heads = owner.getByRole('table', { name: 'Budget' }).getByRole('rowheader');
+  await expect(heads.nth(0)).toContainText('Program total:');
+  await expect(heads.nth(1)).toContainText('Campaign total:');
+  await expect(heads.nth(2)).toContainText('Line:');
 });

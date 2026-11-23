@@ -7,8 +7,9 @@ import { createCampaign, createFiscalYear, createLine, createProgram } from '@/e
 import { earmarkCan } from '@/earmark/core';
 import { orgName } from '@/earmark/ui/org-name';
 import { Card, day, Money, PageHead, Pill } from '@/earmark/ui/kit';
+import { titleFor } from '@/earmark/ui/titles';
 
-export const metadata = { title: 'Plan' };
+export const generateMetadata = titleFor('Plan', (r) => earmarkCan(r, 'budget.plan')); // D-79
 
 // Planning (PRD §4, D-26; design: docs/design/Plan.dc.html): fiscal years with their twelve periods, programs,
 // campaigns and lines. Planned is edited on the line page, where the replan marker shows. Owner and admin only.

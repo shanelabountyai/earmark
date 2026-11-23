@@ -5,6 +5,26 @@ import { asRealOwner } from './real-owner';
 // INV-27, flag-on half (the flag-off half is tests/invariants/inv-27-demo.test.ts). playwright.config.ts starts the
 // server with DEMO_MODE=1; e2e/global-setup.ts seeds the same database once per sweep.
 
+// PRD-B B1, B2 (Shane's decisions 3 (c) and 4 (b), D-75): the first two screens are Earmark's.
+test('the bare domain is Earmark\'s, with a way into the demo', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('heading', { level: 1 })).not.toContainText('SaaS Foundation');
+  await expect(page.locator('main')).toContainText('Earmark');
+  await page.getByRole('link', { name: 'Try the demo' }).click();
+  await expect(page).toHaveURL(/\/demo$/);
+});
+
+test('/demo shows the six walk accounts first, Start here on the owner, the rest under a fold', async ({ page }) => {
+  await page.goto('/demo');
+  const walk = page.getByRole('list', { name: 'Accounts for the walk' }).getByRole('listitem');
+  await expect(walk).toHaveCount(6);
+  await expect(walk.first()).toContainText('Start here');
+  expect(await walk.getByRole('button').allInnerTexts()).toEqual(['owner@northwind.demo.test', 'member@northwind.demo.test', 'demandgen@northwind.demo.test', 'admin@northwind.demo.test', 'finance@northwind.demo.test', 'dana@meridian.demo.test']);
+  await expect(page.getByRole('button', { name: 'owner@contoso.demo.test' })).toBeHidden();
+  await page.getByText(/^Every other seeded account/).click();
+  await expect(page.getByRole('button', { name: 'owner@contoso.demo.test' })).toBeVisible();
+});
+
 // D-58 (live gate): an account with one org lands in it; an account with several still picks on Your orgs.
 test('demo sign-in lands a seeded owner in their org', async ({ page }) => {
   await page.goto('/demo');
@@ -78,8 +98,17 @@ test('steps 3–5: frozen chain, self-approval refused, rule edit applies only t
   await expect(owner.getByRole('button', { name: 'Approve' })).toHaveCount(0);
   await expect(owner.getByRole('table', { name: 'Request audit' })).toContainText('request.step.approved');
 
-  const admin = await as(browser, 'admin@northwind.demo.test');
-  await admin.getByRole('link', { name: 'Rules' }).click();
+  // D-72 (PRD-A): the shared demo admin is refused a rules edit, so the next visitor's chain cannot change under them.
+  const demoAdmin = await as(browser, 'admin@northwind.demo.test');
+  await demoAdmin.getByRole('link', { name: 'Rules' }).click();
+  const demoRules = demoAdmin.getByLabel('Rules JSON');
+  await demoRules.fill((await demoRules.inputValue()).replace('"seat": "Marketing Ops",\n      "fromCents": 1000000', '"seat": "Marketing Ops",\n      "fromCents": 1500000'));
+  await demoAdmin.getByRole('button', { name: 'Save rules' }).click();
+  await expect(demoAdmin.locator('main').getByRole('alert')).toHaveText('This is a shared demo account, so that is switched off here.');
+
+  // The same edit as a real owner (review §1 note: moved to asRealOwner, not weakened).
+  const { page: admin } = await asRealOwner(browser, 'northwind');
+  await admin.goto('/o/northwind/settings/rules');
   const rules = admin.getByLabel('Rules JSON');
   await rules.fill((await rules.inputValue()).replace('"seat": "Marketing Ops",\n      "fromCents": 1000000', '"seat": "Marketing Ops",\n      "fromCents": 1500000'));
   await admin.getByRole('button', { name: 'Save rules' }).click();
@@ -108,6 +137,8 @@ test('steps 7–8: a guest invoices her PO; the same id under another client is 
   await dana.getByLabel('Due date').fill('2026-12-01');
   await dana.getByRole('button', { name: 'Submit invoice' }).click();
   await expect(dana.locator('main').getByRole('status')).toHaveText(`Invoice ${number} submitted; it is listed below.`);
+  // D-76 (PRD-B B5): the PO page counts the invoice as billed and waiting for a match, never "nothing billed".
+  await expect(dana.locator('main dl.metrics')).toContainText('Billed, awaiting match');
   await expect(dana.getByRole('table', { name: 'Invoices on this PO' })).toContainText(number);
 
   const res = await dana.goto(dana.url().replace('/o/northwind/', '/o/contoso/'));
@@ -131,6 +162,8 @@ test('step 9: match to the ranked suggestion, approve for payment, variance view
 
   const admin = await as(browser, 'admin@northwind.demo.test');
   await admin.getByRole('navigation').getByRole('link', { name: 'Invoices' }).click();
+  // D-78 (PRD-B B3): today's rows say so, so a visitor finds theirs among earlier visitors'.
+  await expect(admin.getByRole('table', { name: 'To match' }).getByRole('row').filter({ hasText: number })).toContainText('Today');
   await admin.getByRole('table', { name: 'To match' }).getByRole('link', { name: number }).click();
   const top = admin.getByRole('table', { name: 'Suggested POs' }).locator('tbody tr').first();
   await expect(top).toContainText(po);
@@ -147,6 +180,8 @@ test('step 9: match to the ranked suggestion, approve for payment, variance view
   await expect(finance.locator('dl[aria-label="Invoice"]')).toContainText('Statusapproved');
   await finance.getByRole('navigation').getByRole('link', { name: 'Variance' }).click();
   await expect(finance.getByRole('heading', { name: 'Variance' })).toBeVisible();
+  // D-84 (PRD-C C6): the seed's published note shows on the variance page.
+  await expect(finance.locator('main')).toContainText('the plan was edited after the first PO');
 });
 
 // Demo steps 1, 2 and 6. Step 1 here signs in through /demo (D-22); e2e/enterprise.spec.ts runs it through SSO. Step 6

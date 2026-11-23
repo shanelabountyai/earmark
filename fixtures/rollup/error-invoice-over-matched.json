@@ -1,0 +1,56 @@
+{
+  "engine": "rollup",
+  "name": "error-invoice-over-matched",
+  "note": "D-69: more matched to an invoice than it bills is a ledger error, never a negative provision",
+  "input": {
+    "programs": [
+      {
+        "id": "p1"
+      }
+    ],
+    "campaigns": [
+      {
+        "id": "c1",
+        "programId": "p1"
+      }
+    ],
+    "lines": [
+      {
+        "id": "l1",
+        "campaignId": "c1",
+        "periodId": "m1",
+        "plannedCents": 1000000
+      }
+    ],
+    "commitments": [
+      {
+        "id": "po-a",
+        "lineId": "l1",
+        "amountCents": 300000,
+        "state": "open"
+      }
+    ],
+    "matches": [
+      {
+        "invoiceId": "i1",
+        "commitmentId": "po-a",
+        "amountCents": 150000,
+        "state": "pending"
+      }
+    ],
+    "invoices": [
+      {
+        "id": "i1",
+        "amountCents": 100000,
+        "state": "submitted",
+        "lineId": "l1"
+      }
+    ]
+  },
+  "expect": {
+    "ok": false,
+    "error": {
+      "code": "INVOICE_OVER_MATCHED"
+    }
+  }
+}

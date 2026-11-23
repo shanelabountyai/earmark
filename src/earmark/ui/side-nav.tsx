@@ -25,7 +25,9 @@ export function SideNav({ home, org, main, settings, foot, clients, current, sig
   const bodyId = useId();
   // The deepest matching link is current: /settings/rules lights Rules, not Dashboard.
   const all = [...main, ...settings];
-  const best = all.filter((l) => (l.exact ? path === l.href : path === l.href || path.startsWith(`${l.href}/`))).sort((a, b) => b.href.length - a.href.length)[0];
+  const best = all.filter((l) => (l.exact ? path === l.href : path === l.href || path.startsWith(`${l.href}/`))).sort((a, b) => b.href.length - a.href.length)[0]
+    // D-85 (review G8): a line page has no sidebar item of its own; lines are reached from the dashboard's budget tree.
+    ?? (/\/lines\/[^/]+$/.test(path) ? main[0] : undefined);
   const item = (l: NavLink) => <li key={l.href}><Link href={l.href} aria-current={l === best ? 'page' : undefined}>{l.label}</Link></li>;
 
   return (

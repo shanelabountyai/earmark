@@ -1,5 +1,6 @@
 // Earmark's page parts (D-44): server components over the classes in src/app/globals.css. Presentation only; every
 // number they show is computed by the caller from real rows. Statuses are word, then glyph, then colour (HANDOFF.md).
+import { now } from '@/core/clock';
 import { formatUsd } from '@/lib/earmark/money';
 
 export type Tone = 'good' | 'hold' | 'info' | 'bad' | 'done';
@@ -91,7 +92,8 @@ export function VarianceState({ status }: { status: string }) {
   }[status] ?? <Pill tone="info">{status}</Pill>;
 }
 
-export const MATCH_STATUS: Record<string, string> = { unmatched: 'nothing billed', partial: 'part billed', matched: 'fully billed' };
+// `awaiting`: invoices are in but none is matched yet (D-76), so the PO is not "nothing billed".
+export const MATCH_STATUS: Record<string, string> = { unmatched: 'nothing billed', awaiting: 'billed, awaiting match', partial: 'part billed', matched: 'fully billed' };
 
 export function PoState({ closed, matchStatus }: { closed: boolean; matchStatus?: string }) {
   return (
@@ -103,3 +105,8 @@ export function PoState({ closed, matchStatus }: { closed: boolean; matchStatus?
 }
 
 export const day = (d: Date) => d.toISOString().slice(0, 10);
+
+/** PRD-B B3 (review U6, D-78): a row made today (UTC) says so, so a visitor finds their own among earlier visitors'. */
+export function Today({ at }: { at: Date }) {
+  return day(at) === day(now()) ? <>{' '}<Pill tone="info">Today</Pill></> : null;
+}

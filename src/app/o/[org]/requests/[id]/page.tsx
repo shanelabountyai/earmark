@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { actorEmails } from '@/core/audit';
+import { auditDetails } from '@/earmark/audit-details';
 import { inOrg, requireOrg } from '@/core/authz/guards';
 import { withOrg } from '@/core/db/rls';
 import { Form as ActionForm } from '@/earmark/ui/form';
@@ -15,9 +16,10 @@ type P = { params: Promise<{ org: string; id: string }> };
 export async function generateMetadata({ params }: P) {
   const ctx = await requireOrg((await params).org);
   const { id } = await params;
-  if (ctx.role === 'guest' || !isUuid(id)) return { title: 'Request' };
+  if (ctx.role === 'guest' || !isUuid(id)) notFound(); // D-79
   const r = await withOrg(ctx, (tx) => tx.spendRequest.findFirst({ where: { id, ...inOrg(ctx) }, select: { description: true } }), { atomic: false });
-  return { title: r ? `Request: ${r.description}` : 'Request' };
+  if (!r) notFound();
+  return { title: `Request: ${r.description}` };
 }
 
 const when = (d: Date) => d.toISOString().slice(0, 16).replace('T', ' ');
@@ -156,7 +158,7 @@ export default async function RequestPage({ params }: { params: Promise<{ org: s
                   <td style={{ whiteSpace: 'nowrap' }}>{when(e.at)}</td>
                   <td>{who(e.actorUserId)}</td>
                   <td><code>{e.action}</code></td>
-                  <td>{e.data ? <code style={{ overflowWrap: 'anywhere' }}>{JSON.stringify(e.data)}</code> : <span className="muted">—</span>}</td>
+                  <td>{auditDetails(e.data) || <span className="muted">—</span>}</td>
                 </tr>
               ))}
             </tbody>

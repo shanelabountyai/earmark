@@ -6,7 +6,10 @@ import { expect, test } from '@playwright/test';
 for (const [slug, name] of [['northwind', 'Northwind'], ['contoso', 'Contoso']] as const) {
   test(`settings pages render for the ${name} demo owner`, async ({ page }) => {
     await page.goto('/demo');
-    await page.getByRole('button', { name: `owner@${slug}.demo.test` }).click();
+    // Earmark D-75: /demo shows the README's six walk accounts first; every other account is under a fold.
+    const button = page.getByRole('button', { name: `owner@${slug}.demo.test` });
+    if (!(await button.isVisible())) await page.getByText(/^Every other seeded account/).click();
+    await button.click();
     await expect(page).toHaveURL(new RegExp(`/o/${slug}$`)); // Earmark D-58: a one-org demo account lands in its org
     await expect(page.getByRole('navigation').first()).toContainText(name);
     // The nav holding the settings links, however many nav rows a clone's layout adds (F-08).

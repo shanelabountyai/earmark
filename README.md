@@ -29,7 +29,7 @@ To change account, go back to `/demo` and pick another. Everything is invented d
 2. **A replanned line.** Click **Q2 Paid Social**. *You should see* a **Replan** marker in the heading and
    `Planned edited to …` in *Line history*: a plan edited after money was committed is flagged, not hidden.
 3. **A request and its frozen chain.** Pick `member@northwind.demo.test`. **Requests** → Budget line
-   `Demand Gen / Paid Social / Q2 Paid Social`, Agency `Meridian Creative`, Amount `12,000.00`, any description →
+   `Demand Gen / Paid Social / Q2 Paid Social`, Agency `Meridian Creative`, Amount `12,000.00`, *What it is for* any short text (your name helps you find it) →
    **Submit request**, then open it from the list. *You should see* the **Approval chain**: `Budget Owner`, then
    `Marketing Ops`. Press **Approve**: *You cannot approve your own request.* (she holds the seat; the rule still refuses her).
 4. **Two approvals, one PO.** Pick `demandgen@northwind.demo.test` → **Approvals** → your request → **Approve**.
@@ -55,9 +55,13 @@ To change account, go back to `/demo` and pick another. Everything is invented d
 **What was checked, and where.** All eight steps were run in one browser session against the test environment (a
 production build on the seeded test database, 2026-11-19), and steps 1 to 7 are also covered by `e2e/demo.spec.ts`.
 None of them has been run against the live site by the build agent: it could not reach it. The live database is
-shared and is not reset between visitors, so the lists you see include earlier visitors' requests and invoices; if a
-visitor has edited the approval rules, step 3's chain may differ. The shared accounts are deliberately refused API
-keys, exports, member removal and SSO setup. The presenter's full script, with the steps that need a real owner or a
+shared, so the lists you see include the day's earlier visitors' requests and invoices (rows made today carry a
+*Today* marker); it is replanted from the seed every night at 06:00 UTC (D-73). The shared accounts cannot change the
+approval rules, seats, the plan or agencies (D-72), so step 3's chain is built from the seeded rules and seats. It can
+still differ from the two steps below: once the day's earlier walks use up Q2 Paid Social's headroom the chain gains an
+over-budget Finance step, and the shared owner can still change another account's role (the template's role change has no demo
+guard yet, and the nightly reset does not restore the template accounts' roles: a template follow-up, D-87). They are
+refused API keys, exports, member removal and SSO setup. The presenter's full script, with the steps that need a real owner or a
 local setup (SSO sign-in, the API `curl`s, the AI spending cap, offboarding, export), is [`docs/DEMO.md`](docs/DEMO.md).
 
 ## Status

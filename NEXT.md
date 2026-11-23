@@ -1,5 +1,40 @@
 # NEXT — Earmark
 
+## ▶ Review fixes PRD-A to D (scheduled run, 2026-11-21 CT / 2026-11-22 UTC; branch `review-fixes/2026-11-21`, draft PR "Earmark: review fixes PRD-A to D (demo freshness, first minute, phone/a11y, ledger)")
+
+**Nothing deployed, no environment variable read or changed. Merging this PR to `main` is a production deploy** (Vercel builds `main` and runs `prisma migrate deploy`; this branch has **no migration and no schema change**). Decisions D-69 to D-86 in `prd-earmark.md`. PRDs in `docs/prds/`.
+
+**Built, per PRD**
+- **PRD-D ledger integrity (all five items):** C1 fixed in the engine, the oracle and three new fixtures (D-69): a partly matched invoice counts only its unmatched rest; `fileInvoice` refuses a PO number that is not a PO of the invoice's own agency (D-70); ledger and PO page join on agency and normalised PO number; tier-2 suggestions have no Match button (D-71).
+- **PRD-A demo stays fresh (all seven items):** 14 configuration actions refuse a shared demo session (D-72); nightly replant of the demo orgs' Earmark rows from `/api/cron` when `DEMO_MODE=1`, cron jobs and per-org alerts isolated (D-73); demo free text capped at 200 (D-74); `fileRef` https only (D-74); e2e rules edit moved to the real owner; README and DEMO.md say the demo resets nightly.
+- **PRD-B first minute (all six items):** Earmark landing at `/`, `/demo` with the six walk accounts as cards and the rest under a fold, two `FOUNDATION_PATCHES.md` lines, upstream proposal `docs/upstream/saas-foundation-clone-hooks.md` (D-75); PO page *Billed, awaiting match* (D-76); readable request audit (D-77); *Today* markers and newest-first payment queue (D-78); README wording.
+- **PRD-C phone and accessibility (most items; see Not done):** *Page not found* titles (D-79); D-57's reason corrected (D-80); `Form` focus, repeat announcement, `aria-invalid` (D-81); Suggested POs and invoice queues stack at 390 px (D-82); budget rows name their level (D-83); variance newest first plus a seeded published note (D-84); design polish (D-85).
+- Stale "not deployed" wording fixed in `WRITEUP.md`, `docs/DEMO.md` (*Concede before you're asked*) and this PRD's opening and §6 (D-66's list).
+
+**Gate (this sandbox, Postgres 16, RLS enforce, Prisma stub engine; exact numbers in the PR body)**
+- lint: 0 errors, 1 warning (the existing `org-hooks.ts` one, C13). typecheck: clean.
+- unit (`npm test`): 666 tests, 665 passed + 1 skipped, 67 files (main had 652 + 1 skipped).
+- `test:engines`: 259 passed; `src/lib/earmark` coverage 100 % lines, 96.88 % branches (gate 95 %).
+- build (with `.env.test`): clean. e2e: 51 passed (main had 41).
+- drift (`--base 4938406`): only the two entries already red on main.
+- CI: see the PR's *Gate results*.
+
+**Not done or not verified**
+- PRD-C: the dashboard's *Unmatched invoices* table and other wide tables do not stack (D-82); variance does not fold empty periods or sort by variance (D-84).
+- The nightly reset has run only in vitest, not from a Vercel function on Neon (time, connection count).
+- Postgres 17 and `prisma migrate deploy` (not runnable here); the live site (not read).
+- The `Missing permission` log lines from the guarded template pages (C3) remain: a foundation fix.
+
+**You:**
+1. You: read the draft PR and check CI is green on its head commit.
+2. You: decide whether to merge. **Merging is a production deploy.** After it, the first 06:00 UTC cron replants both demo orgs (rules, seats, plan, requests, POs, invoices, agencies, Dana's tie); the audit log keeps every visitor's rows.
+3. You (decision 5 (a)): in Vercel, change `sslmode=require` to `sslmode=verify-full` on `DATABASE_URL`, `DATABASE_URL_SYSTEM` and `MIGRATE_URL`, then watch one redeploy; a failed connection is a rollback.
+4. You: after the deploy, open `/` and `/demo` on the live site in a private window (password prompt first), walk the README's eight steps once on a phone, and fill in the *Owner's live click-through* table in `docs/DEMO.md`.
+5. You: if you want the upstream hooks, take `docs/upstream/saas-foundation-clone-hooks.md` to saas-foundation; then the two new patch lines go.
+6. You (overnight review, 2026-11-22): the two reset should-fixes are now done on this branch (D-87). The reset runs in one transaction (240 s timeout), and `/api/cron` has `maxDuration: 300` in `vercel.json` (Pro plan, D-65; the route file is template-owned, so it is not touched). Check that the first production build after the merge accepts the `functions` entry: Preview builds are skipped (D-56), so nothing has checked it yet. Also still open: a demo guard on the template's role change (template follow-up, D-87).
+7. You: drift is still red on main for `src/modules/sso/hooks.ts` and `src/proxy.ts` (unchanged by this branch); confirm against the real `v1.7.0` tag and update those two lines.
+
+
 ## ▶ Closure status: live closeout and five-lens review (scheduled run, 2026-11-20 UTC; branch `closeout/2026-11-19-live`, draft PR "Earmark: live closeout pack and five-lens review (docs only)")
 
 Documentation only. Nothing deployed, no environment variable touched, no application code, test, seed or template file changed. Decisions D-65 to D-67 in `prd-earmark.md`.

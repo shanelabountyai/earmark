@@ -9,6 +9,7 @@ import { audit } from '@/core/audit';
 import { now } from '@/core/clock';
 import { asSystem, type Tx, withOrg } from '@/core/db/rls';
 import { sendEmail } from '@/core/email/transport';
+import { log } from '@/core/log';
 import { FINANCE_SEAT } from '@/lib/earmark/match';
 import { formatUsd } from '@/lib/earmark/money';
 import { ledgerOf } from './core';
@@ -81,10 +82,19 @@ export async function runOrgAlerts(orgId: string, rules = RULES()): Promise<numb
 }
 
 /** The cron job: every org that has budget lines. */
-export async function cronAlerts(): Promise<{ orgs: number; sent: number }> {
+export async function cronAlerts(): Promise<{ orgs: number; sent: number; failed: number }> {
   const orgs = await asSystem(async (sys) => (await sys.budgetLine.findMany({ distinct: ['orgId'], select: { orgId: true } })).map((r) => r.orgId));
   const rules = RULES();
   let sent = 0;
-  for (const orgId of orgs) sent += await runOrgAlerts(orgId, rules);
-  return { orgs: orgs.length, sent };
+  let failed = 0;
+  // One org's failure is logged and the next org still gets its alerts (review C8, D-73).
+  for (const orgId of orgs) {
+    try {
+      sent += await runOrgAlerts(orgId, rules);
+    } catch (e) {
+      failed++;
+      log('alerts.org_failed', { orgId, error: e instanceof Error ? e.name : 'unknown' });
+    }
+  }
+  return { orgs: orgs.length, sent, failed };
 }

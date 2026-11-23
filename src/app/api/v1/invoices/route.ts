@@ -1,7 +1,7 @@
 // public: an API key via requireApiKey (apikeys module, INV-40), not a session
 import { z } from 'zod';
 import { inOrg } from '@/core/authz/guards';
-import { fileInvoice } from '@/earmark/core';
+import { fileInvoice, fileRefSchema } from '@/earmark/core';
 import { ApiProblem, idempotent, parse } from '@/modules/apikeys/api';
 
 // PRD §1 `integration`: a finance system posts an invoice under the same rules as the guest form (fileInvoice). The
@@ -15,7 +15,7 @@ const body = z
     amountCents: z.string().max(32), // its shape is checked in fileInvoice, after the agency resolves (D-33, D-41)
     invoicedOn: z.string().max(10),
     dueOn: z.string().max(10),
-    fileRef: z.union([z.literal(''), z.url().max(2000)]).default(''),
+    fileRef: fileRefSchema, // https only (D-74)
   })
   .strict();
 

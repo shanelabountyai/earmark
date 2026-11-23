@@ -47,7 +47,7 @@ pre { padding: 12px; overflow-x: auto; white-space: pre; }
 small { font-size: 14px; color: var(--muted); }
 table { width: 100%; border-collapse: collapse; background: var(--card); font-variant-numeric: tabular-nums; }
 main > table, main > form > fieldset > table { border: 1px solid var(--rule); border-radius: 4px; margin: .5rem 0 1.25rem; }
-th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--rule); vertical-align: baseline; } /* baseline: money sits on the text line (D-85, review G5) */
 thead th { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600; vertical-align: bottom; }
 tbody tr:last-child > * { border-bottom: 0; }
 tfoot th, tfoot td { border-top: 1px solid var(--rule); border-bottom: 0; font-weight: 700; }
@@ -317,4 +317,23 @@ dl.facts { border: 0; padding: 0; margin: 0; background: none; display: grid; gr
   .content > main:not(.stack) > form:has(label) { padding: 14px 16px; }
   .content > main:not(.stack) form > fieldset > label:has(input:not([type="checkbox"])) { flex: 1 1 100%; display: flex; flex-direction: column; gap: 4px; }
   .content > main:not(.stack) form > fieldset > label > input:not([type="checkbox"]) { width: 100%; }
+}
+
+/* PRD-C C1 (review U7, U11, G2, A7; D-82): below 40 rem a `.stack-sm` table becomes one block per row, each cell under
+   its column's name, so the key figure and the row's button are on screen without scrolling sideways. The markup
+   carries explicit table roles, so the table keeps its semantics when its display changes. */
+@media (max-width: 40rem) {
+  table.stack-sm, table.stack-sm tbody, table.stack-sm tr, table.stack-sm td { display: block; width: auto; }
+  table.stack-sm thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  table.stack-sm tr { padding: 12px 0; border-bottom: 1px solid var(--rule); }
+  table.stack-sm tr > td { border: 0; padding: 4px 0; text-align: left; white-space: normal; }
+  table.stack-sm td[data-label]::before { content: attr(data-label) / ""; display: block; font: 600 12px/1.3 var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+}
+
+/* D-85 (review G7, G9): the logo's fold on paper (404, landing, /demo) is the paper's own fold, not the sidebar's green;
+   approval-rule rows keep the seat and its threshold on one line on wider screens. */
+.logo.on-paper { background: linear-gradient(225deg, var(--paper) 0 7px, var(--fold) 7px 8px, #e4f2ea 8px); outline: 1px solid var(--rule); }
+@media (min-width: 40rem) {
+  .rules-chain li { flex-wrap: nowrap; }
+  .rules-chain li strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }
